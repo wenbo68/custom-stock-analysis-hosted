@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from .providers.base import Market
+from .providers.technicals import technicals_as_of
 from .schema import (
     TRADING_DAYS_PER_WEEK,
     Direction,
@@ -143,6 +144,18 @@ def build_signal_payload(
             "sizing_empty": report.sizing.is_empty,
         },
     }
+    # Grading anchor (2026-08-15, ported from the parent repo's eb11dbf):
+    # the outcome grader anchors at metadata.market_phase_summary
+    # .session_date and only falls back to the signal's CREATED date.
+    # Runs happen mornings after the previous close, so the created date
+    # is one session late on weekdays and a never-trading day on
+    # weekends (those park forever as missing_anchor_price). Stamp the
+    # session actually judged: the technicals bars' as-of date.
+    session_date = technicals_as_of(report.dimensions)
+    if session_date:
+        payload["metadata"]["market_phase_summary"] = {
+            "session_date": session_date
+        }
     # Plan provenance (2026-08-11): the exact final plan plus the
     # formula plan it started from, so the forward test can grade the
     # AI's plan adjustments against the untouched formula as a paired

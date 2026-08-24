@@ -122,6 +122,27 @@ class TestBuildSignalPayload:
         payload, _ = build_signal_payload(report)
         assert payload["metadata"]["sizing"]["shares"] == 0.0
 
+    def test_session_date_anchors_grading_at_the_judged_session(self):
+        # The outcome grader anchors at metadata.market_phase_summary
+        # .session_date, falling back to the signal's CREATED date. Runs
+        # happen mornings after the previous close, so the created date
+        # is one session late on weekdays and a never-trading day on
+        # weekends (parked forever as missing_anchor_price, found
+        # 2026-08-15). The payload must carry the technicals bars'
+        # as-of date.
+        report = _report(dimensions=[_dimension(payload={
+            "meta": {"as_of": {"name": "as of", "explanation": "d",
+                               "value": "2026-08-14"}},
+        })])
+        payload, _ = build_signal_payload(report)
+        assert payload["metadata"]["market_phase_summary"] == {
+            "session_date": "2026-08-14",
+        }
+
+    def test_no_as_of_leaves_the_anchor_to_the_grader_fallback(self):
+        payload, _ = build_signal_payload(_report())  # payload has no meta
+        assert "market_phase_summary" not in payload["metadata"]
+
     def test_data_quality_summary_is_only_the_warnings_list(self):
         # Coverage grades are retired (2026-08-19): no level, no coverage,
         # no per-dimension badges — the summary is exactly the warnings.

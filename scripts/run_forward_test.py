@@ -311,57 +311,69 @@ def run_grid(
     return results
 
 
-#: Calendar days of bars the backfill requests per stock — comfortably
-#: covers the volatility lookback (~70 trading bars) before the oldest
-#: realistic anchor plus the grading window itself.
-BACKFILL_CALENDAR_DAYS = 400
-
-
-def backfill_daily_bars() -> None:
-    """Fetch and store daily bars for every stock that has a logged signal.
-
-    Standalone-app addition: the grader and the scoreboard read bars from
-    the local ``stock_daily`` table, which in the parent project is filled
-    by its classic daily pipeline. That pipeline did not move here, so this
-    script fills the table itself before grading. One failed symbol only
-    loses that symbol's grading for today; it never aborts the run.
-    """
+def tiered_signal_codes() -> List[str]:
+    """Every symbol with a tiered-analysis signal — the population the
+    scoreboard grades (manual run_tiered_analysis runs included, not
+    just this script's grid)."""
     from sqlalchemy import select
 
-    from data_provider.base import DataFetcherManager
-    from src.repositories.stock_repo import StockRepository
     from src.storage import DatabaseManager, DecisionSignalRecord
+    from src.tiered_analysis.signal_log import SOURCE_AGENT
 
     with DatabaseManager().get_session() as session:
-        codes = sorted({
+        return sorted({
             code
             for (code,) in session.execute(
-                select(DecisionSignalRecord.stock_code).distinct()
+                select(DecisionSignalRecord.stock_code.distinct())
+                .where(DecisionSignalRecord.source_agent == SOURCE_AGENT)
             )
             if code
         })
+
+
+#: Lookback knob for the backfill fetch — the data layer requests about
+#: twice this many calendar days, so ~240 calendar days ≈ 165 trading
+#: bars: comfortably the ~70-bar volatility lookback behind the oldest
+#: signal plus every hold window after it.
+BACKFILL_FETCH_DAYS = 120
+
+
+def backfill_daily_bars(codes: Sequence[str]) -> None:
+    """Store each symbol's completed daily bars in the shared price table.
+
+    Grading reads prices from the local ``stock_daily`` table and never
+    fetches from the network — but the analysis runs keep their bars in
+    memory only, so without this step every outcome parks as ``unable``
+    (missing anchor price / insufficient forward bars) and retries
+    forever (found 2026-08-15: 96/96 outcomes parked). Bars upsert by
+    (code, date), so re-running is free and a day this script never ran
+    still backfills here later. Bars dated after the last completed
+    session are dropped (some vendors include today's half-finished
+    bar); a failed symbol only leaves its own outcomes parked until the
+    next run's grading pass.
+    """
     if not codes:
         return
+    from data_provider.base import DataFetcherManager
+    from src.storage import DatabaseManager
+    from src.tiered_analysis.run_gate import expected_bar_date, market_for_symbol
 
     manager = DataFetcherManager()
-    repo = StockRepository()
-    saved = 0
-    failed: List[str] = []
+    db = DatabaseManager()
+    print(f"\nPrice backfill for grading: {len(codes)} symbol(s)")
     for code in codes:
         try:
-            df, source = manager.get_daily_data(code, days=BACKFILL_CALENDAR_DAYS)
+            df, source = manager.get_daily_data(code, days=BACKFILL_FETCH_DAYS)
             if df is None or df.empty:
-                failed.append(code)
+                print(f"  {code}: no bars returned — outcomes stay parked")
                 continue
-            repo.save_dataframe(df, code, source or "unknown")
-            saved += 1
-        except Exception as exc:  # noqa: BLE001 — per-symbol isolation
-            print(f"bar backfill failed for {code}: {exc}")
-            failed.append(code)
-    line = f"Bar backfill: {saved}/{len(codes)} stocks updated."
-    if failed:
-        line += f" No data for: {', '.join(failed)}."
-    print(line)
+            expected = expected_bar_date(market_for_symbol(code))
+            if expected is not None:
+                df = df[df["date"].astype(str).str[:10] <= expected.isoformat()]
+            added = db.save_daily_data(df, code, source)
+            print(f"  {code}: {len(df)} bar(s) via {source}, {added} new")
+        except Exception as exc:
+            print(f"  {code}: backfill FAILED — {exc} (outcomes stay parked)")
 
 
 def grade_matured_signals():
@@ -867,7 +879,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                   "signal today; tomorrow's run tries again.")
 
     if not args.no_backfill:
-        backfill_daily_bars()
+        backfill_daily_bars(tiered_signal_codes())
     service = grade_matured_signals()
     print_summary(service)
     return 0

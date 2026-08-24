@@ -19,10 +19,10 @@ import pandas as pd
 from src.tiered_analysis.debate import direction_from_final
 from src.tiered_analysis.earnings import EarningsInfo
 from src.tiered_analysis.integration import (
-    _technicals_as_of,
     dsa_bars_loader,
     run_tiered_analysis,
 )
+from src.tiered_analysis.providers.technicals import technicals_as_of
 from src.tiered_analysis.quick_judge import QuickResult, QuickVerdict
 from src.tiered_analysis.run_gate import expected_bar_date
 from src.tiered_analysis.schema import Action, Outlook, derive_action
@@ -912,7 +912,7 @@ class TestStalenessGateReadsTheBarDate(unittest.TestCase):
 
     The tests above patch ``staleness_stop_reason``, so they never
     exercise the step that pulls the bar date out of the technicals
-    payload. That gap hid a real bug (2026-08-08): ``_technicals_as_of``
+    payload. That gap hid a real bug (2026-08-08): ``technicals_as_of``
     read the date STRING with the numeric reader, always got None, and
     the gate stopped every run for "bars carry no usable date" — with
     perfectly fresh data. These tests run the real gate.
@@ -942,7 +942,7 @@ class TestStalenessGateReadsTheBarDate(unittest.TestCase):
 
     def test_reads_the_date_string_out_of_the_payload(self):
         self.assertEqual(
-            _technicals_as_of([self._dim_dated("2026-08-07")]), "2026-08-07"
+            technicals_as_of([self._dim_dated("2026-08-07")]), "2026-08-07"
         )
 
     def test_fresh_bars_reach_the_llm_stages(self):

@@ -209,6 +209,22 @@ def read_label(payload: Optional[Dict[str, Any]], group: str, key: str) -> Optio
     return value if isinstance(value, str) else None
 
 
+def technicals_as_of(dimensions: Sequence[DimensionResult]) -> Optional[str]:
+    """The "bars up to" date the technicals provider computed from —
+    the last COMPLETED session the analysis judged ("YYYY-MM-DD").
+
+    ``meta.as_of`` is a date STRING, so it needs the label reader —
+    ``read_metric`` drops anything non-numeric and would hand the
+    staleness gate a permanent None (every run stopped, 2026-08-08).
+    Shared by the staleness gate and the signal log's grading anchor,
+    so both always mean the same session.
+    """
+    for dim in dimensions:
+        if dim.dimension == "technicals" and dim.payload:
+            return read_label(dim.payload, "meta", "as_of")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Indicator math (single values)
 # ---------------------------------------------------------------------------

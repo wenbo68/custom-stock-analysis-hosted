@@ -44,7 +44,7 @@ from .providers.base import (
     Market,
 )
 from .providers.registry import detect_market, get_providers
-from .providers.technicals import Bar, read_label, read_metric
+from .providers.technicals import Bar, read_metric, technicals_as_of
 from .run_gate import (
     expected_bar_date,
     market_for_symbol,
@@ -228,19 +228,6 @@ def _technicals_atr(dimensions: Sequence[DimensionResult]) -> Optional[float]:
     return None
 
 
-def _technicals_as_of(dimensions: Sequence[DimensionResult]) -> Optional[str]:
-    """The "bars up to" date the technicals provider computed from.
-
-    ``meta.as_of`` is a date STRING ("YYYY-MM-DD"), so it needs the label
-    reader — ``read_metric`` drops anything non-numeric and would hand the
-    staleness gate a permanent None (every run stopped, 2026-08-08).
-    """
-    for dim in dimensions:
-        if dim.dimension == "technicals" and dim.payload:
-            return read_label(dim.payload, "meta", "as_of")
-    return None
-
-
 def _stopped_outcome(
     symbol: str,
     market: Market,
@@ -415,7 +402,7 @@ def run_tiered_analysis(
         # stops a run, and there is deliberately no override for that.
         if staleness_gate:
             stop_reason = staleness_stop_reason(
-                _technicals_as_of(dimensions), market_for_symbol(symbol)
+                technicals_as_of(dimensions), market_for_symbol(symbol)
             )
             if stop_reason is not None:
                 logger.warning(
