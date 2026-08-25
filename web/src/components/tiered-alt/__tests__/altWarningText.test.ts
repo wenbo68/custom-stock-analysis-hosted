@@ -275,7 +275,93 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
 
   it('an unknown shape keeps its raw text under the generic keyword', () => {
     const note = friendlyWarning('something nobody has ever written', t);
-    expect(note.keyword).toBe('Data note');
+    expect(note.keyword).toBe('Warning');
     expect(note.text).toBe('something nobody has ever written');
+  });
+});
+
+describe('friendlyWarning — news-screen stage notes', () => {
+  it('every news stage retry note names its role in plain English (2026-08-25)', () => {
+    const roles: Array<[string, string]> = [
+      ['news judge', 'News relevance judge'],
+      ['news grouping', 'Same-story news grouping'],
+      ['news ranking', 'News importance ranking'],
+      ['news summary', 'News summary writer'],
+    ];
+    for (const [stage, role] of roles) {
+      const note = friendlyWarning(
+        `${stage} needed a retry — first reply was invalid`,
+        t,
+      );
+      expect(note.keyword).toBe('AI reply');
+      expect(note.text).toBe(`${role} — the first reply was invalid; the retry succeeded.`);
+    }
+  });
+
+  it('a grouping reply that was not JSON reads as a merge miss, not engineer-speak', () => {
+    const note = friendlyWarning('news grouping returned no usable JSON — no grouping', t);
+    expect(note.keyword).toBe('AI reply');
+    expect(note.text).toContain('merges articles covering the same story');
+    expect(note.text).not.toContain('JSON');
+  });
+
+  it('a grouping call that threw lands on the same sentence', () => {
+    const note = friendlyWarning(
+      'news grouping LLM call failed: TimeoutError() — no grouping',
+      t,
+    );
+    expect(note.text).toContain('merges articles covering the same story');
+  });
+
+  it('the busy-window trim carries its counts under the News cap keyword', () => {
+    const note = friendlyWarning(
+      'busy news window: 14 event(s) ranked below the top 20 and trimmed',
+      t,
+    );
+    expect(note.keyword).toBe('News cap');
+    expect(note.text).toContain('14');
+    expect(note.text).toContain('top 20');
+  });
+
+  it('judge, ranking, and summary failures all translate', () => {
+    expect(
+      friendlyWarning('news judge returned no usable JSON — all articles kept', t).text,
+    ).toContain('every article was kept unrated');
+    expect(
+      friendlyWarning(
+        'news ranking LLM call failed: boom — importance-score order kept',
+        t,
+      ).text,
+    ).toContain('importance-score order');
+    expect(
+      friendlyWarning(
+        'news summary returned no usable JSON — feed abstracts shown verbatim',
+        t,
+      ).text,
+    ).toContain('news feed’s own wording');
+  });
+
+  it('partial-coverage notes carry their counts', () => {
+    expect(
+      friendlyWarning('news judge verdict missing for 3 article(s) — those kept', t).text,
+    ).toContain('3');
+    expect(
+      friendlyWarning(
+        'news grouping left 2 article(s) ungrouped — kept as separate events',
+        t,
+      ).text,
+    ).toContain('2');
+    expect(
+      friendlyWarning(
+        'news ranking left 5 event(s) unranked — appended in importance-score order',
+        t,
+      ).text,
+    ).toContain('5');
+    expect(
+      friendlyWarning(
+        'news summary missing for 4 article(s) — those show the feed abstract verbatim',
+        t,
+      ).text,
+    ).toContain('4');
   });
 });

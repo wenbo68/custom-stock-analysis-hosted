@@ -7,8 +7,9 @@ import type { UiLanguage, UiTextKey } from '../../i18n/uiText';
 // per rule from the closed list below (owner decision 2026-07-24), never
 // generated, mirroring the plan-warnings modal's id → keyword map. Unknown
 // shapes keep their raw text (never invent a friendly sentence we can't
-// back up) under the generic "Data note" keyword, so every note leads
-// with a keyword (owner request 2026-08-09).
+// back up) under the generic "Warning" keyword, so every note leads
+// with a keyword (owner request 2026-08-09; "data note" renamed to
+// "warning" everywhere, owner request 2026-08-25).
 
 type Translate = (key: UiTextKey, params?: Record<string, string | number>) => string;
 
@@ -24,6 +25,7 @@ const KEY = {
   debate: 'tiered.note.key.debate',
   riskCheck: 'tiered.note.key.riskCheck',
   settings: 'tiered.note.key.settings',
+  newsCap: 'tiered.note.key.newsCap',
   // The fallback for note shapes no rule recognizes.
   other: 'tiered.note.key.other',
   // The plan card's warnings row shows these same facts under these same
@@ -69,6 +71,13 @@ const STAGE_ROLES: Record<string, (t: Translate) => string> = {
   'check round': (t) => t('tiered.role.checkRound'),
   'deciding round': (t) => t('tiered.role.decidingRound'),
   'report outline': (t) => t('tiered.role.reportOutline'),
+  // News-screen stages can retry since 2026-08-25 (structured output
+  // + pydantic-checked retry) and report through the same generic
+  // "<stage> needed a retry" note.
+  'news judge': (t) => t('tiered.role.newsJudge'),
+  'news grouping': (t) => t('tiered.role.newsGrouping'),
+  'news ranking': (t) => t('tiered.role.newsRanking'),
+  'news summary': (t) => t('tiered.role.newsSummary'),
 };
 
 const levelLabel = (key: string, t: Translate): string =>
@@ -775,6 +784,56 @@ const NOTE_RULES: NoteRule[] = [
     keywordKey: KEY.settings,
     toText: (_m, t) => t('tiered.note.rewardRiskDefaulted'),
   },
+
+  // News screen (news_screen.py, company and world cards alike). Every
+  // stage fails soft — judge unrated-kept, grouping to singletons,
+  // ranking to score order, summaries to the feed's words — so each
+  // note describes a polish loss, never lost news.
+  {
+    pattern: /^news judge (?:LLM call failed: .*|returned no usable JSON) — all articles kept$/,
+    keywordKey: KEY.aiReply,
+    toText: (_m, t) => t('tiered.note.newsJudgeFailed'),
+  },
+  {
+    pattern: /^news judge verdict missing for (\d+) article\(s\) — those kept$/,
+    keywordKey: KEY.aiReply,
+    toText: (m, t) => t('tiered.note.newsJudgeMissing', { count: m[1] }),
+  },
+  {
+    pattern: /^news grouping (?:LLM call failed: .*|returned no usable JSON) — no grouping$/,
+    keywordKey: KEY.aiReply,
+    toText: (_m, t) => t('tiered.note.newsGroupFailed'),
+  },
+  {
+    pattern: /^news grouping left (\d+) article\(s\) ungrouped — kept as separate events$/,
+    keywordKey: KEY.aiReply,
+    toText: (m, t) => t('tiered.note.newsGroupPartial', { count: m[1] }),
+  },
+  {
+    pattern: /^news ranking (?:LLM call failed: .*|returned no usable JSON) — importance-score order kept$/,
+    keywordKey: KEY.aiReply,
+    toText: (_m, t) => t('tiered.note.newsRankFailed'),
+  },
+  {
+    pattern: /^news ranking left (\d+) event\(s\) unranked — appended in importance-score order$/,
+    keywordKey: KEY.aiReply,
+    toText: (m, t) => t('tiered.note.newsRankPartial', { count: m[1] }),
+  },
+  {
+    pattern: /^news summary (?:LLM call failed: .*|returned no usable JSON) — feed abstracts shown verbatim$/,
+    keywordKey: KEY.aiReply,
+    toText: (_m, t) => t('tiered.note.newsSummaryFailed'),
+  },
+  {
+    pattern: /^news summary missing for (\d+) article\(s\) — those show the feed abstract verbatim$/,
+    keywordKey: KEY.aiReply,
+    toText: (m, t) => t('tiered.note.newsSummaryMissing', { count: m[1] }),
+  },
+  {
+    pattern: /^busy news window: (\d+) event\(s\) ranked below the top (\d+) and trimmed$/,
+    keywordKey: KEY.newsCap,
+    toText: (m, t) => t('tiered.note.newsTrimmed', { count: m[1], max: m[2] }),
+  },
 ];
 
 // ---- plan-note routing (owner request 2026-08-09) ----------------------
@@ -938,8 +997,8 @@ function resolveSlots(
   });
 }
 
-// Keyword + plain-English rewrite of one backend data note. Unknown
-// shapes keep their raw text under the generic "Data note" keyword.
+// Keyword + plain-English rewrite of one backend warning. Unknown
+// shapes keep their raw text under the generic "Warning" keyword.
 export function friendlyWarning(
   raw: string,
   t: Translate,

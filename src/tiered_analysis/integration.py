@@ -24,6 +24,7 @@ DSA layers.
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -35,7 +36,7 @@ from .levels import (
     decisions_to_detail,
     decisions_to_sniper,
 )
-from .llm_support import LlmUsageTracker
+from .llm_support import LlmTranscript, LlmUsageTracker, active_tracker
 from .plan_review import review_plan, sizing_detail_dict
 from .quick_judge import QuickJudge
 from .providers.base import (
@@ -163,10 +164,18 @@ class TieredRunOutcome:
 def _collect_dimensions(
     providers: Sequence[DimensionProvider], symbol: str
 ) -> List[DimensionResult]:
+    # Stage-label each provider's collection so its LLM calls (the news
+    # screens) show under the dimension's name in llm_usage and the run
+    # transcript instead of pooling as "unattributed".
+    tracker = active_tracker()
     results: List[DimensionResult] = []
     for provider in providers:
+        stage = (
+            tracker.stage(provider.dimension) if tracker else nullcontext()
+        )
         try:
-            results.append(provider.collect(symbol))
+            with stage:
+                results.append(provider.collect(symbol))
         except Exception as exc:  # providers are fail-loud, but belt+braces
             results.append(
                 DimensionResult(
@@ -389,7 +398,10 @@ def run_tiered_analysis(
     # Every run sizes (owner decision 2026-07-24): missing capital/risk
     # fall back to the web form's defaults instead of disabling sizing.
     sizing_settings = with_fallback_defaults(sizing_settings)
-    tracker = LlmUsageTracker()
+    # Every run keeps a transcript of its LLM exchanges (prompt, raw
+    # reply, error) so a "no usable JSON" warning is diagnosable later —
+    # the file is named in llm_usage.transcript_file on the stored run.
+    tracker = LlmUsageTracker(transcript=LlmTranscript.for_run(symbol))
     with tracker.activate():
         dimensions = _collect_dimensions(providers, symbol)
         dimensions = enrich_cross_fields(dimensions, cross_bars_loader)

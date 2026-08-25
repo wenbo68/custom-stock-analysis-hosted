@@ -35,7 +35,19 @@ import logging
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
+
+from pydantic import BaseModel, Field
 
 from .debate import (
     _NUMERIC_REASON_RE,
@@ -60,6 +72,7 @@ from .llm_support import (
     display_value,
     evidence_block,
     parse_llm_json,
+    summarize_with_schema,
 )
 from .providers.base import DimensionResult, Market
 from .providers.technicals import read_label, read_metric
@@ -572,6 +585,37 @@ def _parse_reasons(
     return reasons, errors
 
 
+# Reply form (2026-08-25, owner request): the exact JSON shape the
+# review asks for, handed to the provider for decode-time enforcement
+# (structured output mode, on models that support it). The stricter
+# content checks below — allowed targets, citation links, the fix
+# round — stay the validators; this form only pins the wire shape.
+class _PlanLinkForm(BaseModel):
+    """One citation: ``{"ref": "...", "value": ...}``."""
+
+    ref: str
+    value: Union[float, str, None] = None
+
+
+class _PlanReasonForm(BaseModel):
+    check: str
+    text: str
+    links: List[_PlanLinkForm] = Field(default_factory=list)
+
+
+class _PlanAdjustmentForm(BaseModel):
+    # Mirrors _ADJUSTABLE — Literal needs the strings spelled out.
+    target: Literal["stop_loss", "take_profit", "shares"]
+    value: float
+    reasons: List[_PlanReasonForm] = Field(default_factory=list)
+
+
+class _PlanReplyForm(BaseModel):
+    """``{"adjustments": [...]}`` — empty list means "no change helps"."""
+
+    adjustments: List[_PlanAdjustmentForm] = Field(default_factory=list)
+
+
 def _parse_adjustments(
     parsed: Optional[dict],
     allowed_checks: Sequence[str],
@@ -693,7 +737,8 @@ def _request_adjustments(
 
     warnings: List[str] = []
     adjustments, errors = _parse_adjustments(
-        parse_llm_json(summarizer(prompt)), allowed_checks
+        parse_llm_json(summarize_with_schema(summarizer, prompt, _PlanReplyForm)),
+        allowed_checks,
     )
     for adjustment in adjustments:
         errors.extend(reason_link_errors(adjustment))
@@ -702,7 +747,10 @@ def _request_adjustments(
             prompt=prompt, errors="\n".join(f"- {error}" for error in errors)
         )
         adjustments, errors = _parse_adjustments(
-            parse_llm_json(summarizer(fix_prompt)), allowed_checks
+            parse_llm_json(
+                summarize_with_schema(summarizer, fix_prompt, _PlanReplyForm)
+            ),
+            allowed_checks,
         )
         kept: List[Dict[str, Any]] = []
         for adjustment in adjustments:

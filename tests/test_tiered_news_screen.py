@@ -691,9 +691,12 @@ class TestScreenNews(unittest.TestCase):
             ["https://example.com/0", "https://example.com/2"],
         )
         self.assertTrue(any("busy news window" in w for w in result["warnings"]))
-        # Only the two survivors get summarized.
-        self.assertEqual(len(summarize.calls["summary"]), 1)
-        self.assertNotIn("development 1", summarize.calls["summary"][0])
+        # Only the two survivors get summarized. (The fake's default
+        # summary reply is invalid, which since 2026-08-25 costs one
+        # retry — so assert on every ask, not on the call count.)
+        self.assertTrue(summarize.calls["summary"])
+        for prompt in summarize.calls["summary"]:
+            self.assertNotIn("development 1", prompt)
 
     def test_failed_ranking_falls_back_to_score_order_for_the_cut(self):
         items = [

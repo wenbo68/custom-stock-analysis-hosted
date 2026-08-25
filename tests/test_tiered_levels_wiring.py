@@ -89,6 +89,12 @@ def _run(providers=None):
         quick_judge=_FakeQuickJudge(),
         log_signal=False,
         earnings_lookup=lambda symbol, market: EarningsInfo(),
+        # BUY verdicts whose plan trips a check (the downtrend test)
+        # consult the plan-review AI; without this canned "no change
+        # helps" reply the test made a REAL network LLM call whenever an
+        # earlier test had already loaded .env (found via the run
+        # transcript, 2026-08-25).
+        plan_summarizer=lambda prompt: '{"adjustments": []}',
     )
 
 

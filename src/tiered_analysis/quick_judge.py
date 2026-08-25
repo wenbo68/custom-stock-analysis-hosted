@@ -22,12 +22,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from pydantic import BaseModel
+
 from .debate import direction_from_final
 from .llm_support import (
     LlmConfigError,
     deterministic_summarizer,
     evidence_block,
     parse_llm_json,
+    summarize_with_schema,
 )
 from .providers.base import DimensionResult
 from .schema import (
@@ -81,6 +84,16 @@ _RETRY_TEMPLATE = """{prompt}
 Your previous reply was rejected: {problem}
 Reply again with ONLY the required JSON object.
 """
+
+
+class _QuickReplyForm(BaseModel):
+    """The judge's wire shape, handed to the provider for decode-time
+    enforcement (structured output mode, 2026-08-25). The range and
+    non-empty checks in ``_parse_verdict`` stay the validator behind
+    the existing show-the-problem retry."""
+
+    score: float
+    summary: str
 
 
 @dataclass(frozen=True)
@@ -164,7 +177,9 @@ class QuickJudge:
         attempt_prompt = prompt
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                raw = self._summarize(attempt_prompt)
+                raw = summarize_with_schema(
+                    self._summarize, attempt_prompt, _QuickReplyForm
+                )
             except LlmConfigError as exc:
                 return QuickResult(warnings=warnings + [str(exc)])
             except Exception as exc:

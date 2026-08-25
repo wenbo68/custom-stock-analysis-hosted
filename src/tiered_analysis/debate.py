@@ -99,11 +99,13 @@ from .debate_models import (
     check_summary_groups,
 )
 from .llm_support import (
+    JSON_REPLY,
     active_tracker,
     deterministic_summarizer,
     display_value,
     evidence_block,
     parse_llm_json,
+    summarize_with_schema,
 )
 from .providers.base import DimensionResult, SourceKind
 from .providers.technicals import is_envelope
@@ -1230,7 +1232,9 @@ class DebateEngine:
                     for item_id, errors in broken.items()
                 ),
             )
-            raw = self._summarize(prompt)
+            raw = summarize_with_schema(
+                self._summarize, prompt, self.FIX_ITEMS_MODEL
+            )
             parsed = parse_llm_json(raw)
             if parsed is None:
                 warnings.append(f"{stage} citation-fix reply invalid — fix round lost")
@@ -1294,7 +1298,8 @@ class DebateEngine:
                     f"- {key}: {'; '.join(errors)}" for key, errors in broken.items()
                 ),
             )
-            raw = self._summarize(prompt)
+            # Votes key on run-time bullet ids — JSON mode, not schema.
+            raw = summarize_with_schema(self._summarize, prompt, JSON_REPLY)
             parsed = parse_llm_json(raw)
             if parsed is None:
                 warnings.append(f"{stage} citation-fix reply invalid — fix round lost")
@@ -1499,7 +1504,8 @@ class DebateEngine:
 
         try:
             model, stage_warnings = self._call_validated(
-                prompt, parse, "report outline"
+                prompt, parse, "report outline",
+                schema=StructuredSummaryModel,  # fixed outline: enforceable
             )
             if model is None:
                 # Keep the long-standing wording (and its friendly gloss)
@@ -1526,7 +1532,9 @@ class DebateEngine:
                     + "\nReply again with the FULL corrected JSON, same shape. "
                     "JSON only."
                 )
-                parsed = parse_llm_json(self._summarize(fix_prompt))
+                parsed = parse_llm_json(summarize_with_schema(
+                    self._summarize, fix_prompt, StructuredSummaryModel
+                ))
                 if parsed is None:
                     warnings.append(
                         "summary citation-fix reply invalid — fix round lost"
@@ -1561,12 +1569,20 @@ class DebateEngine:
     # -- shared plumbing ---------------------------------------------------
 
     def _call_validated(
-        self, prompt: str, parse: _StageParse, stage: str
+        self, prompt: str, parse: _StageParse, stage: str,
+        schema: Any = JSON_REPLY,
     ) -> Tuple[Optional[Any], List[str]]:
         """One LLM call against a Pydantic form, with ONE retry that shows
-        the model its validation errors. Returns (model|None, warnings)."""
+        the model its validation errors. Returns (model|None, warnings).
+
+        ``schema`` is handed to the provider for decode-time enforcement
+        (2026-08-25): the default ``JSON_REPLY`` guarantees valid JSON —
+        most debate forms key on run-time ids (one grade per field ref,
+        one vote per bullet id), which no decode-time schema can name —
+        and fixed-shape stages pass their pydantic form for full
+        enforcement."""
         error = None
-        raw = self._summarize(prompt)
+        raw = summarize_with_schema(self._summarize, prompt, schema)
         parsed = parse_llm_json(raw)
         if parsed is None:
             error = "the reply was not a JSON object"
@@ -1580,7 +1596,7 @@ class DebateEngine:
             f"{prompt}\n\nYour previous reply was invalid: {error}\n"
             "Reply again, following the JSON shape exactly. JSON only."
         )
-        raw = self._summarize(retry_prompt)
+        raw = summarize_with_schema(self._summarize, retry_prompt, schema)
         parsed = parse_llm_json(raw)
         if parsed is None:
             return None, [f"{stage} was not JSON even after a retry"]

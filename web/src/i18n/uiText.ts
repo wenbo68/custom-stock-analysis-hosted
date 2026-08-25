@@ -841,7 +841,10 @@ const zh = {
   'tiered.note.key.debate': '辩论',
   'tiered.note.key.riskCheck': '风险压测',
   'tiered.note.key.settings': '设置',
-  'tiered.note.key.other': '数据说明',
+  'tiered.note.key.newsCap': '新闻上限',
+  // 无规则匹配时的兜底关键词——所有用户可见的“数据说明”一律叫
+  // “警告”（所有者要求 2026-08-25）。
+  'tiered.note.key.other': '警告',
   'tiered.alt.summaryGroup': '总结',
   'tiered.note.barsLoadFailed': '日线行情加载失败，因此所有技术面数字都无法计算。',
   'tiered.note.yahooSummaryFailed': 'Yahoo Finance 摘要页加载失败，相关字段为空。',
@@ -910,6 +913,26 @@ const zh = {
     '数据源返回的期权成交量缺失或为零——Put/Call 成交量比留空，不显示误导性的 0。',
   'tiered.note.insiderRowsMissing':
     'Yahoo 没有返回任何内部人交易记录——无法区分“确实没人交易”和“数据缺失”，因此内部人板块留空。',
+  // 新闻筛选各阶段（评分/合并/排序/摘要）失败时的降级说明——每一步
+  // 失败都只降低卡片质量，绝不丢新闻。
+  'tiered.note.newsJudgeFailed':
+    'AI 给每条新闻评相关性和重要性的回复缺失或无法解读，所有文章未经评分全部保留。',
+  'tiered.note.newsJudgeMissing':
+    'AI 的新闻评分回复漏掉了 {count} 条文章——这些文章未经评分而保留。',
+  'tiered.note.newsGroupFailed':
+    'AI 用来把同一事件的多篇报道合并成一条的回复缺失或无法解读，因此没有做合并——同一件事可能重复出现。',
+  'tiered.note.newsGroupPartial':
+    'AI 的同事件合并回复漏掉了 {count} 条文章——这些文章各自作为独立事件保留。',
+  'tiered.note.newsRankFailed':
+    'AI 按重要性给事件排序的回复缺失或无法解读，事件改按重要性得分顺序展示。',
+  'tiered.note.newsRankPartial':
+    'AI 的排序回复漏掉了 {count} 个事件——这些事件按重要性得分顺序排在末尾。',
+  'tiered.note.newsSummaryFailed':
+    'AI 写一句话摘要的回复缺失或无法解读，改为显示新闻源自带的原文摘要。',
+  'tiered.note.newsSummaryMissing':
+    'AI 的摘要回复漏掉了 {count} 条文章——这些条目显示新闻源自带的原文摘要。',
+  'tiered.note.newsTrimmed':
+    '新闻高峰期：符合条件的事件超过卡片上限，排名在前 {max} 之外的 {count} 个事件未展示。',
   'tiered.group.trend': '价格与趋势',
   'tiered.group.momentum': '动量',
   'tiered.group.volatility': '波动与区间',
@@ -1153,6 +1176,10 @@ const zh = {
   'tiered.role.checkRound': '复核投票',
   'tiered.role.decidingRound': '决胜投票',
   'tiered.role.reportOutline': '报告撰写',
+  'tiered.role.newsJudge': '新闻相关性判定',
+  'tiered.role.newsGrouping': '同一事件新闻归并',
+  'tiered.role.newsRanking': '新闻重要性排序',
+  'tiered.role.newsSummary': '新闻摘要撰写',
   'tiered.note.concededFlawedAttack': '守方接受了一个后来被裁判判定不成立的质疑——该条计为守方失误并已标记。',
   'tiered.note.noChallenges': '攻方没有提出任何质疑，守方回应环节跳过，初始立场分保持不变。',
   'tiered.note.emptyLedger': '没有可计入的证据，最终得分默认取中性 5。',
@@ -2371,7 +2398,7 @@ const en: Record<UiTextKey, string> = {
   // modal dropped it.
   'tiered.dataNotesHint':
     'Where data fell short, and what the system did instead.\nShown so you can judge how solid this report is.',
-  // The data-notes modal's fixed keyword list (2026-07-24): every note
+  // The warnings modal's fixed keyword list (2026-07-24): every note
   // leads with one of these, picked per rule in altWarningText.ts —
   // never AI-generated. The reward-ratio note reuses the plan-warnings
   // keyword 'tiered.alt.warnKey.reward_below_goal'.
@@ -2385,7 +2412,10 @@ const en: Record<UiTextKey, string> = {
   'tiered.note.key.debate': 'Debate',
   'tiered.note.key.riskCheck': 'Risk check',
   'tiered.note.key.settings': 'Settings',
-  'tiered.note.key.other': 'Data note',
+  'tiered.note.key.newsCap': 'News cap',
+  // The fallback keyword when no rule matches — every user-facing
+  // "data note" reads "warning" (owner request 2026-08-25).
+  'tiered.note.key.other': 'Warning',
   'tiered.alt.summaryGroup': 'Summary',
   // Audit 2026-08-08: plain-English wording for notes that used to reach
   // the screen as raw backend text (exception reprs, variable names).
@@ -2513,6 +2543,26 @@ const en: Record<UiTextKey, string> = {
     'Options volume came back missing or zero at the source — the put/call volume ratio is left blank rather than showing a misleading 0.',
   'tiered.note.insiderRowsMissing':
     'Yahoo returned no insider transaction rows at all — that is indistinguishable from a data outage, so the insider block is left blank instead of claiming zero activity.',
+  // News-screen stage degradations (judge/group/rank/summarize) — every
+  // failure lowers the card's polish, never drops news.
+  'tiered.note.newsJudgeFailed':
+    'The AI reply that rates each news article’s relevance and importance was missing or unreadable, so every article was kept unrated.',
+  'tiered.note.newsJudgeMissing':
+    'The AI’s news-rating reply skipped {count} article(s) — those were kept unrated.',
+  'tiered.note.newsGroupFailed':
+    'The AI reply that merges articles covering the same story was missing or unreadable, so no merging was done — the same story may appear more than once.',
+  'tiered.note.newsGroupPartial':
+    'The AI’s story-merging reply skipped {count} article(s) — those stay as separate items.',
+  'tiered.note.newsRankFailed':
+    'The AI reply that orders events by importance was missing or unreadable, so events are shown in importance-score order instead.',
+  'tiered.note.newsRankPartial':
+    'The AI’s ranking reply skipped {count} event(s) — those were placed last, in importance-score order.',
+  'tiered.note.newsSummaryFailed':
+    'The AI reply that writes the one-sentence summaries was missing or unreadable, so the news feed’s own wording is shown instead.',
+  'tiered.note.newsSummaryMissing':
+    'The AI’s summary reply skipped {count} article(s) — those show the news feed’s own wording.',
+  'tiered.note.newsTrimmed':
+    'Busy news window: more events qualified than the card can show — the {count} ranked below the top {max} were left off.',
   'tiered.group.trend': 'Price & trend',
   'tiered.group.momentum': 'Momentum',
   'tiered.group.volatility': 'Volatility & range',
@@ -2825,6 +2875,10 @@ const en: Record<UiTextKey, string> = {
   'tiered.role.checkRound': 'Check vote',
   'tiered.role.decidingRound': 'Deciding vote',
   'tiered.role.reportOutline': 'Report writer',
+  'tiered.role.newsJudge': 'News relevance judge',
+  'tiered.role.newsGrouping': 'Same-story news grouping',
+  'tiered.role.newsRanking': 'News importance ranking',
+  'tiered.role.newsSummary': 'News summary writer',
   'tiered.note.concededFlawedAttack':
     'The defender accepted an attack the judge later ruled wrong — that item was counted against the defender and flagged.',
   'tiered.note.noChallenges':

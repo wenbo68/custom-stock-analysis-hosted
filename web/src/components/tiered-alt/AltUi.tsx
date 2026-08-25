@@ -137,7 +137,7 @@ interface AltNotesButtonProps {
 // mark that opens a title-less modal listing each note as "keyword:
 // plain-English sentence" (altWarningText.ts) — raw backend text no
 // longer shown; unknown shapes keep their raw wording under the generic
-// "Data note" keyword. No bullet dots — every entry is its own
+// "Warning" keyword. No bullet dots — every entry is its own
 // keyword-led line (owner request 2026-08-09). The old coverage grades
 // (full/partial/unavailable badges, the red X) are retired 2026-08-19:
 // blank fields with their own notes ARE the degradation signal.

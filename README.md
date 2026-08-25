@@ -44,6 +44,28 @@ Frontend development mode (hot reload, proxies /api to :8000):
 cd web && npm run dev
 ```
 
+## Structured LLM replies
+
+Every AI call that must answer in JSON is protected twice (2026-08-25):
+the provider is asked to *enforce* the reply shape while generating
+(litellm `response_format` — full schema on models that support it,
+plain guaranteed-JSON mode otherwise, silently skipped on models that
+support neither), and the reply is *checked* against a pydantic form
+with one retry that shows the model what was wrong. The report warns
+when a retry was needed. The old fail-soft fallbacks (keep all
+articles, no grouping, score order, feed abstracts) remain the last
+line of defense.
+
+## LLM transcripts
+
+Every analysis run writes a transcript of its AI exchanges to
+`data/llm_transcripts/` — one JSONL file per run, one line per call, with
+the pipeline stage, model, full prompt, raw reply, token counts, and the
+error when a call failed. When a report shows a warning like "returned no
+usable JSON", open the run's transcript to see exactly what the model said.
+The file is named in the stored run under `llm_usage.transcript_file`;
+files older than 14 days are pruned automatically.
+
 ## Forward test
 
 ```bash

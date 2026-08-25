@@ -78,9 +78,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
-from .llm_support import active_tracker, parse_llm_json, screen_summarizer
+from pydantic import BaseModel
+
+from .llm_support import (
+    active_tracker,
+    request_structured,
+    screen_summarizer,
+)
 
 #: Materiality is graded 0-5; out-of-range model output is clamped.
 MATERIALITY_MIN = 0
@@ -380,6 +386,42 @@ def build_summarize_prompt(
     )
 
 
+# ---------------------------------------------------------------------------
+# Reply forms (2026-08-25, owner request): every screen call declares
+# the JSON shape it expects as a pydantic model. The model does double
+# duty — the provider is asked to ENFORCE it while generating (schema
+# mode, on models that support it), and ``request_structured`` CHECKS
+# the reply against it, retrying once with the problem shown. The
+# tolerant per-item cleaners below stay the last word on content: the
+# forms only pin the wire shape, so a reply that passes them can still
+# have out-of-range numbers handled item by item.
+# ---------------------------------------------------------------------------
+
+
+class _JudgeReplyForm(BaseModel):
+    """``{"articles": [[n, about, materiality, reason?], ...]}``."""
+
+    articles: List[List[Union[int, bool, str]]]
+
+
+class _GroupReplyForm(BaseModel):
+    """``{"groups": [[1-based article numbers], ...]}``."""
+
+    groups: List[List[int]]
+
+
+class _RankReplyForm(BaseModel):
+    """``{"order": [1-based event numbers]}``."""
+
+    order: List[int]
+
+
+class _SummariesReplyForm(BaseModel):
+    """``{"summaries": [[n, "one-sentence summary"], ...]}``."""
+
+    summaries: List[List[Union[int, str]]]
+
+
 def _clean_judgment(raw: Any, count: int) -> Optional[Dict[str, Any]]:
     """One model judgment validated, from the compact array
     ``[n, about, materiality, reason?]`` or a labeled dict. n must be in
@@ -455,14 +497,16 @@ def llm_judge_news(
         prompts=prompts,
     )
     try:
-        raw = summarize(prompt)
+        reply = request_structured(summarize, prompt, _JudgeReplyForm)
     except Exception as exc:
         return {
             "judgments": [_kept_fallback(i) for i in range(count)],
             "warnings": [f"news judge LLM call failed: {exc} — all articles kept"],
         }
+    if reply.retried and reply.valid:
+        warnings.append("news judge needed a retry — first reply was invalid")
 
-    parsed = parse_llm_json(raw)
+    parsed = reply.parsed
     articles = parsed.get("articles") if isinstance(parsed, Mapping) else None
     by_index: Dict[int, Dict[str, Any]] = {}
     if isinstance(articles, list):
@@ -474,7 +518,8 @@ def llm_judge_news(
     if not by_index:
         return {
             "judgments": [_kept_fallback(i) for i in range(count)],
-            "warnings": ["news judge returned no usable JSON — all articles kept"],
+            "warnings": warnings
+            + ["news judge returned no usable JSON — all articles kept"],
         }
 
     missing = count - len(by_index)
@@ -701,19 +746,23 @@ def llm_group_events(
     singletons = [[index] for index in range(count)]
     prompt = build_group_prompt(symbol, entries, company=company, prompts=prompts)
     try:
-        raw = summarize(prompt)
+        reply = request_structured(summarize, prompt, _GroupReplyForm)
     except Exception as exc:
         return {
             "groups": singletons,
             "warnings": [f"news grouping LLM call failed: {exc} — no grouping"],
         }
+    warnings: List[str] = []
+    if reply.retried and reply.valid:
+        warnings.append("news grouping needed a retry — first reply was invalid")
 
-    parsed = parse_llm_json(raw)
+    parsed = reply.parsed
     raw_groups = parsed.get("groups") if isinstance(parsed, Mapping) else None
     if not isinstance(raw_groups, list):
         return {
             "groups": singletons,
-            "warnings": ["news grouping returned no usable JSON — no grouping"],
+            "warnings": warnings
+            + ["news grouping returned no usable JSON — no grouping"],
         }
 
     seen: set = set()
@@ -736,7 +785,6 @@ def llm_group_events(
     # Anything the model forgot stays its own event — never dropped.
     missing = [index for index in range(count) if index not in seen]
     groups.extend([index] for index in missing)
-    warnings = []
     if missing:
         warnings.append(
             f"news grouping left {len(missing)} article(s) ungrouped — kept as"
@@ -768,7 +816,7 @@ def llm_rank_events(
 
     prompt = build_rank_prompt(symbol, entries, company=company, prompts=prompts)
     try:
-        raw = summarize(prompt)
+        reply = request_structured(summarize, prompt, _RankReplyForm)
     except Exception as exc:
         return {
             "order": fallback,
@@ -776,8 +824,11 @@ def llm_rank_events(
                 f"news ranking LLM call failed: {exc} — importance-score order kept"
             ],
         }
+    warnings: List[str] = []
+    if reply.retried and reply.valid:
+        warnings.append("news ranking needed a retry — first reply was invalid")
 
-    parsed = parse_llm_json(raw)
+    parsed = reply.parsed
     numbers = parsed.get("order") if isinstance(parsed, Mapping) else None
     order: List[int] = []
     seen: set = set()
@@ -794,14 +845,14 @@ def llm_rank_events(
     if not order:
         return {
             "order": fallback,
-            "warnings": [
+            "warnings": warnings
+            + [
                 "news ranking returned no usable JSON — importance-score order kept"
             ],
         }
     # Forgotten events keep their score-order position at the tail —
     # never dropped by a model omission.
     missing = [index for index in fallback if index not in seen]
-    warnings = []
     if missing:
         warnings.append(
             f"news ranking left {len(missing)} event(s) unranked — appended in"
@@ -832,7 +883,7 @@ def llm_summarize_articles(
         symbol, entries, company=company, prompts=prompts
     )
     try:
-        raw = summarize(prompt)
+        reply = request_structured(summarize, prompt, _SummariesReplyForm)
     except Exception as exc:
         return {
             "summaries": [None] * count,
@@ -840,8 +891,11 @@ def llm_summarize_articles(
                 f"news summary LLM call failed: {exc} — feed abstracts shown verbatim"
             ],
         }
+    warnings: List[str] = []
+    if reply.retried and reply.valid:
+        warnings.append("news summary needed a retry — first reply was invalid")
 
-    parsed = parse_llm_json(raw)
+    parsed = reply.parsed
     raw_summaries = parsed.get("summaries") if isinstance(parsed, Mapping) else None
     texts: List[Optional[str]] = [None] * count
     if isinstance(raw_summaries, list):
@@ -858,7 +912,6 @@ def llm_summarize_articles(
                 # First summary per article wins; duplicates are noise.
                 if texts[pair[0] - 1] is None:
                     texts[pair[0] - 1] = " ".join(pair[1].split())
-    warnings = []
     missing = sum(1 for text in texts if text is None)
     if missing == count:
         warnings.append(
