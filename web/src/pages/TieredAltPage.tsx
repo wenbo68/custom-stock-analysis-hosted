@@ -11,6 +11,8 @@ import {
 import { riskPctText } from '../components/tiered-alt/altFormat';
 import { AltRunForm } from '../components/tiered-alt/AltRunForm';
 import { AltRunHistory } from '../components/tiered-alt/AltRunHistory';
+import { AltUserBlock } from '../components/tiered-alt/AltUserBlock';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 
 const POLL_INTERVAL_MS = 5000;
@@ -81,6 +83,13 @@ function storeNumber(key: string, value: string | null): void {
 // paged rows that expand into the full report).
 const TieredAltPage = () => {
   const { t } = useUiLanguage();
+  const { user, signOut } = useCurrentUser();
+  // The sign-in callback lands on "/?login=failed" when consent was
+  // denied or the provider errored; the user block words it.
+  const loginFailed = useMemo(
+    () => new URLSearchParams(window.location.search).get('login') === 'failed',
+    [],
+  );
   const [ticker, setTicker] = useState<string | null>(null);
   const [tier, setTier] = useState<TieredDepth | null>(DEFAULT_TIER);
   // Capital is in the ticker's own currency, so it stays empty until a
@@ -113,18 +122,34 @@ const TieredAltPage = () => {
 
   const anyRunning = useMemo(() => runs.some((run) => run.status === 'running'), [runs]);
 
+  // Run history is per account: nothing to list while signed out, and a
+  // sign-out clears what the previous account was looking at.
   const refreshRuns = useCallback(async () => {
+    if (!user) {
+      return;
+    }
     try {
       const items = await tieredApi.listRuns();
       setRuns(items);
     } catch {
       // transient — next poll retries
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    void refreshRuns();
-  }, [refreshRuns]);
+    if (user) {
+      void refreshRuns();
+    } else {
+      setRuns([]);
+      setExpandedTaskId(null);
+      setDetails({});
+    }
+  }, [user, refreshRuns]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setSubmitError(null);
+  }, [signOut]);
 
   // Server-side sizing defaults (.env) beat the built-in suggestions when
   // the browser has no remembered values of its own.
@@ -239,6 +264,10 @@ const TieredAltPage = () => {
       if (!ticker || tier === null || !capital || !riskPct || !reward || !hold || submitting) {
         return;
       }
+      if (!user) {
+        setSubmitError(t('tiered.user.signInFirst'));
+        return;
+      }
       setSubmitError(null);
       setGate(null);
       setSubmitting(true);
@@ -295,11 +324,20 @@ const TieredAltPage = () => {
         setSubmitting(false);
       }
     },
-    [ticker, submitting, tier, capital, riskPct, reward, hold, refreshRuns],
+    [ticker, submitting, tier, capital, riskPct, reward, hold, refreshRuns, user, t],
   );
 
   return (
     <main className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-6 px-4 pb-8 pt-4 md:px-6 lg:px-8">
+      <section className="flex flex-col gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          {t('tiered.user.title')}
+        </h2>
+        <div className="rounded bg-gray-900 p-4 text-gray-400 sm:p-6">
+          <AltUserBlock user={user} onSignOut={handleSignOut} loginFailed={loginFailed} />
+        </div>
+      </section>
+
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
           {t('tiered.altForm.title')}

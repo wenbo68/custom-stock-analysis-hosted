@@ -19,6 +19,31 @@ run history.
 - `scripts/run_tiered_analysis.py` — one-off CLI run
 - `tests/` — offline test suite
 
+## Public server
+
+The app can be hosted for many users (public-server branch, 2026-09-14):
+
+- **Sign-in** with Google or Discord (`GOOGLE_*` / `DISCORD_*` client
+  credentials, `SESSION_SECRET` for the login cookie). Every run route
+  requires a signed-in user.
+- **Your own keys.** The user block above New Run holds each user's
+  model choice (a curated list) and their LLM key, plus optional
+  Finnhub / AlphaVantage / FRED keys that override the server's
+  defaults. Keys are encrypted at rest (`APP_ENCRYPTION_KEY`) and only
+  ever shown back masked. A run refuses to start until a model and key
+  are on file.
+- **Private history.** Runs belong to the user who started them; the
+  list, detail and transcript routes only show your own.
+- **Postgres.** Set `DATABASE_URL` (Neon, Railway, ...) — hosts wipe
+  their disk on restart, so nothing durable lives in files: run
+  history, transcripts and the fetched-data caches are all tables.
+- **Hosting.** The server listens on every interface when the host
+  passes `PORT`, and trusts forwarded headers so OAuth callbacks stay
+  https. Set `PUBLIC_BASE_URL` to the site's address. A restart marks
+  any run still in flight as failed (runs are in-process threads).
+
+See `.env.example` for every variable and where to get each credential.
+
 ## Quick start
 
 ```bash
@@ -26,7 +51,7 @@ run history.
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 
-# 2. Configure (at minimum the LLM model + its provider key)
+# 2. Configure (sign-in credentials + secrets; see .env.example)
 cp .env.example .env   # then edit
 
 # 3. Frontend
