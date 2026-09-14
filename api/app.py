@@ -6,12 +6,15 @@ Compared with the parent project this serves exactly three things:
 - a health probe at ``/api/health``
 - the built frontend (``web/`` -> ``static/``) as a single-page app
 
-There is no auth layer: the app is meant to run open on a trusted
-machine (owner decision, 2026-08-24).
+Startup housekeeping (public-server work, 2026-09-14): runs execute as
+in-process threads, so any run still "running" when the process starts
+belongs to a process that died — it is marked failed. Old transcript
+and cache rows are pruned at the same time.
 """
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -32,11 +35,37 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 ROOT_FILE_ALLOWLIST = frozenset({"favicon.ico", "favicon.svg", "vite.svg", "robots.txt"})
 
 
+def startup_housekeeping() -> None:
+    """Mark orphaned runs failed and prune expired rows. Never fails
+    startup: a housekeeping error is logged and the app serves anyway."""
+    from src.tiered_analysis import history
+    from src.tiered_analysis.cache_store import prune_cache
+
+    try:
+        orphaned = history.fail_stale_running_runs()
+        if orphaned:
+            logger.warning("marked %d orphaned run(s) failed at startup", orphaned)
+    except Exception as exc:
+        logger.warning("startup run cleanup skipped: %s", exc)
+    try:
+        history.prune_transcripts()
+        prune_cache()
+    except Exception as exc:
+        logger.warning("startup pruning skipped: %s", exc)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    startup_housekeeping()
+    yield
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Custom Stock Analysis",
         description="Standalone tiered stock analysis (the tiered alt page)",
         version="0.1.0",
+        lifespan=_lifespan,
     )
 
     app.add_middleware(

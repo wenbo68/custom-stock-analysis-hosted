@@ -28,6 +28,7 @@ import { AltDebateTree, DebateScores } from './AltDebateTree';
 import { AltRiskTree } from './AltRiskTree';
 import { AltDimensions } from './AltDimensions';
 import { AltLevels } from './AltLevels';
+import { AltTranscript } from './AltTranscript';
 
 // ---------- small shared pieces ----------
 
@@ -724,6 +725,9 @@ export const AltResult = ({ result, taskId, runDate }: AltResultProps) => {
               helpKey="tiered.help.llmUsage"
             />
           </p>
+        ) : null}
+        {taskId && usage?.transcript_entries ? (
+          <AltTranscript taskId={taskId} entries={usage.transcript_entries} />
         ) : null}
       </div>
     </div>

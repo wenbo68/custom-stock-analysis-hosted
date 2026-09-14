@@ -73,12 +73,12 @@ grouping, ranking, selection — is prompt-set-blind.
 """
 from __future__ import annotations
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, timedelta
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+
+from .cache_store import CacheStore, default_cache_store
 
 from pydantic import BaseModel
 
@@ -116,8 +116,6 @@ _MAX_PARALLEL_BATCHES = 8
 #: never goes stale; the article just stops being fetchable.
 CACHE_MAX_AGE_DAYS = 35
 
-#: Same cache home the macro provider uses.
-DEFAULT_CACHE_DIR = Path("data") / "tiered_analysis_cache"
 
 _JUDGE_PROMPT = """You are screening news articles fetched for the US stock {symbol} ({company}).
 For each numbered article you get the publish date, the outlet, the headline, and the feed's abstract.
@@ -532,10 +530,10 @@ def llm_judge_news(
 
 
 class NewsJudgmentCache:
-    """Disk cache of per-article judgments and card summaries, keyed by
+    """Cache of per-article judgments and card summaries, keyed by
     article URL.
 
-    One JSON file per symbol under the tiered cache home. Judgments and
+    One cache-store entry per symbol. Judgments and
     summaries are article-intrinsic, so there is no freshness TTL: an
     entry lives until its article's publish date is older than
     ``CACHE_MAX_AGE_DAYS`` (out of every possible card window), then is
@@ -551,10 +549,11 @@ class NewsJudgmentCache:
     def __init__(
         self,
         symbol: str,
-        cache_dir: Path = DEFAULT_CACHE_DIR,
+        cache: Optional[CacheStore] = None,
         today: Callable[[], date] = date.today,
     ) -> None:
-        self._path = Path(cache_dir) / f"news_screen_{symbol.upper()}.json"
+        self._store = cache if cache is not None else default_cache_store()
+        self._key = f"news_screen_{symbol.upper()}"
         self._today = today
         self._articles: Dict[str, Dict[str, Any]] = {}
         self._summaries: Dict[str, Dict[str, Any]] = {}
@@ -575,15 +574,13 @@ class NewsJudgmentCache:
 
     def load(self) -> None:
         try:
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
+            raw = self._store.read(self._key)
             if not isinstance(raw, Mapping) or raw.get("version") != self.version:
                 return
             oldest = self._today() - timedelta(days=CACHE_MAX_AGE_DAYS)
             self._articles = self._fresh(raw.get("articles"), oldest)
-            # Older cache files predate summaries; missing -> empty.
+            # Older cache entries predate summaries; missing -> empty.
             self._summaries = self._fresh(raw.get("summaries"), oldest)
-        except FileNotFoundError:
-            pass
         except Exception:
             pass  # corrupt cache: re-judge, never fail on cache
 
@@ -616,21 +613,16 @@ class NewsJudgmentCache:
             self._summaries[url] = {"text": text, "date": published}
 
     def save(self) -> None:
-        try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(
-                json.dumps(
-                    {
-                        "version": self.version,
-                        "articles": self._articles,
-                        "summaries": self._summaries,
-                    },
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass  # a cold cache tomorrow is acceptable; failing the run is not
+        # The store never raises: a cold cache tomorrow is acceptable,
+        # failing the run is not.
+        self._store.write(
+            self._key,
+            {
+                "version": self.version,
+                "articles": self._articles,
+                "summaries": self._summaries,
+            },
+        )
 
 
 def judge_news_cached(

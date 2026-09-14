@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from src.tiered_analysis import history
+from src.tiered_analysis.llm_support import LlmTranscript
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,14 @@ router = APIRouter()
 
 def _run_analysis(stock_code: str, depth: int = 1,
                   sizing_overrides: Optional[Dict[str, float]] = None,
-                  hold_weeks: int = 2):
+                  hold_weeks: int = 2,
+                  transcript: Optional[LlmTranscript] = None):
     """Indirection so tests can patch the multi-minute production run."""
     from src.tiered_analysis.integration import run_tiered_analysis
 
     return run_tiered_analysis(
         stock_code, depth=depth, sizing_overrides=sizing_overrides,
-        hold_weeks=hold_weeks,
+        hold_weeks=hold_weeks, transcript=transcript,
     )
 
 
@@ -179,7 +181,8 @@ def _run_task(task_id: str, stock_code: str, depth: int = 1,
     try:
         outcome = _run_analysis(stock_code, depth=depth,
                                 sizing_overrides=sizing_overrides,
-                                hold_weeks=hold_weeks)
+                                hold_weeks=hold_weeks,
+                                transcript=LlmTranscript.for_run(task_id))
         history.mark_done(task_id, _serialize_outcome(outcome))
     except Exception as exc:
         logger.error("tiered analysis task failed for %s: %s",
@@ -284,3 +287,12 @@ def get_tiered_run(task_id: str) -> Dict[str, Any]:
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     return run
+
+
+@router.get("/runs/{task_id}/transcript")
+def get_tiered_run_transcript(task_id: str) -> Dict[str, List[Dict[str, Any]]]:
+    """The run's LLM exchanges (prompt, raw reply, error) in call order —
+    served separately from the run so the report stays light."""
+    if history.get_run(task_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return {"items": history.list_transcript(task_id)}

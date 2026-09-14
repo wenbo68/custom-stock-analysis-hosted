@@ -13,11 +13,19 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
+
+from .llm_support import TRANSCRIPT_MAX_AGE_DAYS
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_LIST_LIMIT = 50
+
+#: The error stored on runs that were still "running" when the server
+#: came back up: the background thread died with the old process, so the
+#: run can never finish. Worded for the history list.
+STALE_RUN_ERROR = "server restarted while this run was in progress"
 
 
 def _session():
@@ -69,6 +77,70 @@ def mark_done(task_id: str, result: Dict[str, Any]) -> None:
 
 def mark_failed(task_id: str, error: str) -> None:
     _update_run(task_id, status="failed", error=str(error))
+
+
+def fail_stale_running_runs(error: str = STALE_RUN_ERROR) -> int:
+    """Startup housekeeping: every run still marked ``running`` belongs
+    to a process that no longer exists (runs execute in-process threads),
+    so mark them failed rather than leave a spinner forever. Returns the
+    number of rows changed."""
+    from src.storage import TieredRunRecord
+
+    with _session() as session:
+        changed = (
+            session.query(TieredRunRecord)
+            .filter_by(status="running")
+            .update({"status": "failed", "error": error},
+                    synchronize_session=False)
+        )
+        session.commit()
+        return int(changed or 0)
+
+
+def list_transcript(task_id: str) -> List[Dict[str, Any]]:
+    """The run's LLM exchanges in call order (empty for unknown runs and
+    runs that made no LLM call)."""
+    from src.storage import TieredRunTranscriptRecord
+
+    with _session() as session:
+        rows = (
+            session.query(TieredRunTranscriptRecord)
+            .filter_by(task_id=task_id)
+            .order_by(TieredRunTranscriptRecord.seq.asc())
+            .all()
+        )
+        return [
+            {
+                "seq": row.seq,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "stage": row.stage,
+                "model": row.model,
+                "temperature": row.temperature,
+                "duration_ms": row.duration_ms,
+                "prompt_tokens": row.prompt_tokens,
+                "completion_tokens": row.completion_tokens,
+                "structured": row.structured,
+                "error": row.error,
+                "prompt": row.prompt,
+                "reply": row.reply,
+            }
+            for row in rows
+        ]
+
+
+def prune_transcripts(max_age_days: int = TRANSCRIPT_MAX_AGE_DAYS) -> int:
+    """Delete transcript rows older than ``max_age_days``; returns the count."""
+    from src.storage import TieredRunTranscriptRecord, utc_naive_now
+
+    cutoff = utc_naive_now() - timedelta(days=max_age_days)
+    with _session() as session:
+        deleted = (
+            session.query(TieredRunTranscriptRecord)
+            .filter(TieredRunTranscriptRecord.created_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+        session.commit()
+        return int(deleted or 0)
 
 
 def _row_summary(row: Any) -> Dict[str, Any]:

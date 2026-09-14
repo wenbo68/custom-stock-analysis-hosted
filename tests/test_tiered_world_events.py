@@ -9,12 +9,11 @@ screen's own behavior is covered by test_tiered_news_screen.py.
 """
 from __future__ import annotations
 
-import tempfile
 import unittest
 from datetime import date
-from pathlib import Path
 from unittest import mock
 
+from src.tiered_analysis.cache_store import MemoryCacheStore
 from src.tiered_analysis.debate import gradable_field_refs
 from src.tiered_analysis.news_screen import (
     COMPANY_PROMPTS,
@@ -94,9 +93,7 @@ def news_fixture():
 
 class TestWorldEventsProvider(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.cache_dir = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
+        self.cache = MemoryCacheStore()
 
     def make_provider(self, news=None, loader=None, today=lambda: TODAY):
         calls = []
@@ -109,7 +106,7 @@ class TestWorldEventsProvider(unittest.TestCase):
             news_loader=loader or default_loader,
             today=today,
             screener=passthrough_screener,
-            cache_dir=self.cache_dir,
+            cache=self.cache,
         )
         return provider, calls
 
@@ -282,9 +279,9 @@ class TestWorldEventsProvider(unittest.TestCase):
             "Pre-window story", [item["text"] for item in news["items"]]
         )
         self.assertEqual(news["oldest"], "2026-08-15")
-        # Still on disk for the fetch-failure fallback path.
-        pool_file = next(self.cache_dir.glob("world_articles_*.json"))
-        self.assertIn("pre-window", pool_file.read_text(encoding="utf-8"))
+        # Still pooled for the fetch-failure fallback path.
+        pool_key = next(k for k in self.cache.keys() if k.startswith("world_articles_"))
+        self.assertIn("pre-window", self.cache.data[pool_key])
 
     def test_screen_cap_spreads_across_days_instead_of_newest_first(self):
         # Six articles over two days with a cap of 4: a newest-first
@@ -436,14 +433,13 @@ class TestSpamPrefilter(unittest.TestCase):
             "date": "2026-08-16",
             "summary": None,
         }
-        with tempfile.TemporaryDirectory() as tmp:
-            provider = WorldEventsProvider(
-                news_loader=lambda: news_fixture() + [spam_title, spam_publisher],
-                today=lambda: TODAY,
-                screener=recording_screener,
-                cache_dir=Path(tmp),
-            )
-            result = provider.collect("AAPL")
+        provider = WorldEventsProvider(
+            news_loader=lambda: news_fixture() + [spam_title, spam_publisher],
+            today=lambda: TODAY,
+            screener=recording_screener,
+            cache=MemoryCacheStore(),
+        )
+        result = provider.collect("AAPL")
         urls = [entry["url"] for entry in seen]
         self.assertNotIn("https://example.com/spam-title", urls)
         self.assertNotIn("https://example.com/spam-publisher", urls)

@@ -47,6 +47,7 @@ from sqlalchemy import (
     MetaData,
     Table,
 )
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import (
     declarative_base,
@@ -253,6 +254,46 @@ class TieredRunRecord(Base):
     updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now, index=True)
 
 
+class TieredRunTranscriptRecord(Base):
+    """One LLM exchange of one tiered run (src/tiered_analysis/llm_support).
+
+    A run's transcript is the list of its rows ordered by ``seq``: the
+    pipeline stage, model, full prompt, raw reply, token counts, and the
+    error when the call itself failed. Kept in its own table (not on the
+    run row) so the history list stays light; rows older than
+    ``history.TRANSCRIPT_MAX_AGE_DAYS`` are pruned at startup.
+    """
+
+    __tablename__ = 'tiered_run_transcripts'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(64), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=utc_naive_now, index=True)
+    stage = Column(String(64))
+    model = Column(String(128))
+    temperature = Column(Float)
+    duration_ms = Column(Integer)
+    prompt_tokens = Column(Integer)
+    completion_tokens = Column(Integer)
+    #: Which reply enforcement was requested: "schema", "json", or None.
+    structured = Column(String(16))
+    error = Column(Text)
+    prompt = Column(Text)
+    reply = Column(Text)
+
+
+class TieredCacheRecord(Base):
+    """Fetched-data cache (src/tiered_analysis/cache_store): a JSON value
+    per key. Safe to wipe — every row can be refetched from its vendor."""
+
+    __tablename__ = 'tiered_cache'
+
+    key = Column(String(255), primary_key=True)
+    value_json = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now, index=True)
+
+
 class _DatabaseManagerMeta(type):
     """Serialize DatabaseManager construction across __new__ and __init__."""
 
@@ -454,6 +495,11 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                 logger.warning("初始化 SQLite PRAGMA 失败: %s", exc)
             finally:
                 cursor.close()
+
+    def _upsert_insert(self, model):
+        """An INSERT that supports ``on_conflict_do_update`` on the
+        engine in use — sqlite locally, Postgres on the public host."""
+        return sqlite_insert(model) if self._is_sqlite_engine else pg_insert(model)
 
     def _is_file_sqlite_database(self) -> bool:
         database = (self._engine.url.database or "").strip()
@@ -815,7 +861,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                 ]
                 for i in range(0, len(records), _SQLITE_CHUNK):
                     chunk = records[i : i + _SQLITE_CHUNK]
-                    stmt = sqlite_insert(StockDaily).values(chunk)
+                    stmt = self._upsert_insert(StockDaily).values(chunk)
                     excluded = stmt.excluded
                     session.execute(
                         stmt.on_conflict_do_update(

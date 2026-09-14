@@ -56,13 +56,20 @@ line of defense.
 
 ## LLM transcripts
 
-Every analysis run writes a transcript of its AI exchanges to
-`data/llm_transcripts/` — one JSONL file per run, one line per call, with
-the pipeline stage, model, full prompt, raw reply, token counts, and the
-error when a call failed. When a report shows a warning like "returned no
-usable JSON", open the run's transcript to see exactly what the model said.
-The file is named in the stored run under `llm_usage.transcript_file`;
-files older than 14 days are pruned automatically.
+Every analysis run stores a transcript of its AI exchanges in the
+database — one row per call, with the pipeline stage, model, full prompt,
+raw reply, token counts, and the error when a call failed. When a report
+shows a warning like "returned no usable JSON", open "View AI transcript"
+under the report to see exactly what the model said. Rows older than 14
+days are pruned at server startup.
+
+## Fetched-data caches
+
+The macro, world-news, and crowd-opinion fetches and the per-article news
+judgments are cached in the database (the `tiered_cache` table), not on
+disk, so a host that wipes its disk on restart does not burn the vendors'
+daily call budgets. Every row can be refetched; rows untouched for 60
+days are pruned at startup.
 
 ## Tests
 

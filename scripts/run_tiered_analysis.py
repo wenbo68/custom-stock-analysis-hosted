@@ -54,8 +54,8 @@ def main() -> None:
         _print_outcome(symbol, outcome)
 
     print(f"\n{BAR}")
-    print("View in browser: start the server (python main.py --serve),")
-    print("open http://localhost:8000 and go to the Decision Signals page.")
+    print("For the full report with history, start the server")
+    print("(./start-server.sh) and run the ticker from the web page.")
     print(BAR)
 
 

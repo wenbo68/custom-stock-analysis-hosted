@@ -47,10 +47,8 @@ measures of sentiment, never facts about the business.
 """
 from __future__ import annotations
 
-import json
 import os
 from datetime import date
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .base import (
@@ -62,7 +60,7 @@ from .base import (
     note_fields,
 )
 from .company_events import _parse_date, business_days_back
-from .macro_econ import DEFAULT_CACHE_DIR
+from ..cache_store import CacheStore, default_cache_store
 from .technicals import make_metric
 
 #: Rating-action lookback in BUSINESS days — the same weekday quota the
@@ -411,31 +409,21 @@ def _fetch_tradestie_list() -> List[Dict[str, Any]]:
 def _cached_crowd_list(
     name: str,
     fetch: Callable[[], List[Dict[str, Any]]],
-    cache_dir: Path = DEFAULT_CACHE_DIR,
+    cache: Optional[CacheStore] = None,
     today: Callable[[], date] = date.today,
 ) -> List[Dict[str, Any]]:
     """A crowd source's full ranking, fetched once per day and served
-    from disk after that (the macro_econ per-day convention): the lists
-    are symbol-independent, so a multi-stock run must not refetch them
-    per ticker. Only successful fetches are cached — a failed fetch
-    raises and leaves no file, so the next ticker retries."""
-    path = cache_dir / (
-        f"opinion_{name}_{_CROWD_CACHE_VERSION}_{today().isoformat()}.json"
-    )
-    try:
-        cached = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(cached, list):
-            return cached
-    except FileNotFoundError:
-        pass
-    except Exception:
-        pass  # corrupt cache: refetch, never fail on cache
+    from the cache after that (the macro_econ per-day convention): the
+    lists are symbol-independent, so a multi-stock run must not refetch
+    them per ticker. Only successful fetches are cached — a failed fetch
+    raises and writes nothing, so the next ticker retries."""
+    store = cache if cache is not None else default_cache_store()
+    key = f"opinion_{name}_{_CROWD_CACHE_VERSION}_{today().isoformat()}"
+    cached = store.read(key)  # None when missing or corrupt: refetch
+    if isinstance(cached, list):
+        return cached
     rows = fetch()
-    try:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        pass  # a cold cache next ticker is acceptable; failing the run is not
+    store.write(key, rows)  # never raises; a cold cache beats a failed run
     return rows
 
 

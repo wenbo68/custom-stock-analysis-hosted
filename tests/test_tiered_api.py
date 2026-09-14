@@ -268,7 +268,8 @@ class TestTieredDepthAndSizingApi:
     def test_ownership_reaches_the_runner(self, client):
         captured = {}
 
-        def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2):
+        def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2,
+                     transcript=None):
             captured["sizing_overrides"] = sizing_overrides
             return _deep_outcome(code)
 
@@ -286,7 +287,8 @@ class TestTieredDepthAndSizingApi:
     def test_depth_and_sizing_reach_the_runner(self, client):
         captured = {}
 
-        def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2):
+        def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2,
+                     transcript=None):
             captured["code"] = code
             captured["depth"] = depth
             captured["sizing_overrides"] = sizing_overrides

@@ -500,6 +500,25 @@ export type TieredLlmUsage = {
   stages: Record<string, { calls: number; prompt_tokens: number; completion_tokens: number }>;
   total: { calls: number; prompt_tokens: number; completion_tokens: number };
   scope: string;
+  // How many LLM exchanges the run's stored transcript holds (absent on
+  // runs that made no call, and on runs stored before transcripts).
+  transcript_entries?: number | null;
+};
+
+// One LLM exchange of a run, from GET /runs/{task_id}/transcript.
+export type TieredTranscriptEntry = {
+  seq: number;
+  created_at: string | null;
+  stage: string | null;
+  model: string | null;
+  temperature: number | null;
+  duration_ms: number | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  structured: string | null;
+  error: string | null;
+  prompt: string | null;
+  reply: string | null;
 };
 
 export type TieredResult = {
@@ -628,6 +647,14 @@ export const tieredApi = {
   getRun: async (taskId: string): Promise<TieredRun> => {
     const response = await apiClient.get<TieredRun>(`/api/v1/tiered/runs/${taskId}`);
     return response.data;
+  },
+
+  // The run's LLM exchanges, served apart from the report (they're big).
+  getTranscript: async (taskId: string): Promise<TieredTranscriptEntry[]> => {
+    const response = await apiClient.get<{ items: TieredTranscriptEntry[] }>(
+      `/api/v1/tiered/runs/${taskId}/transcript`,
+    );
+    return response.data.items;
   },
 
   // Saved sizing settings (.env-backed) — what a run uses when the form

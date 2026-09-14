@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from src.tiered_analysis.cache_store import MemoryCacheStore
 from src.tiered_analysis.providers.base import Market, SourceKind
 from src.tiered_analysis.providers.macro_econ import (
     CPI_RELEASE_ID,
@@ -126,16 +127,12 @@ class TestPureHelpers(unittest.TestCase):
 
 class TestMacroEconProvider(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.cache_dir = Path(self._tmp.name)
-
-    def tearDown(self):
-        self._tmp.cleanup()
+        self.cache = MemoryCacheStore()
 
     def _provider(self, fetcher=None, today=None, release_dates=None):
         return MacroEconProvider(
             series_fetcher=fetcher or _fake_fetcher(),
-            cache_dir=self.cache_dir,
+            cache=self.cache,
             today=today or (lambda: TODAY),
             release_dates_fetcher=release_dates or _fake_release_dates,
         )
@@ -278,7 +275,7 @@ class TestMacroEconProvider(unittest.TestCase):
         # to the field level (each blank value is its own gate).
         self.assertTrue(result.is_actionable)
         # A total failure is never day-cached: the next run must retry.
-        self.assertFalse(list(self.cache_dir.iterdir()))
+        self.assertEqual(self.cache.keys(), [])
 
     def test_missing_api_key_ships_blank_payload_with_one_config_warning(self):
         def unconfigured(series_id):
@@ -296,7 +293,7 @@ class TestMacroEconProvider(unittest.TestCase):
         self.assertIsNotNone(result.payload)
         self.assertIsNone(metric_value(result.payload["markets"]["vix"]))
         # Not-configured is a total failure: never day-cached.
-        self.assertFalse(list(self.cache_dir.iterdir()))
+        self.assertEqual(self.cache.keys(), [])
 
     def test_cached_once_per_day_never_per_ticker(self):
         calls = []
@@ -324,33 +321,31 @@ class TestMacroEconProvider(unittest.TestCase):
         self.assertEqual(len(calls), 2 * len(SERIES_IDS))
 
     def test_old_format_same_day_cache_is_ignored(self):
-        # A cache file written by the pre-reform provider (no version tag
-        # in its name) must not be misread as the new payload shape.
-        old = self.cache_dir / f"macro_econ_us_{TODAY.isoformat()}.json"
-        old.write_text('{"payload": {"region": "us"}}')
+        # A cache entry written by the pre-reform provider (no version tag
+        # in its key) must not be misread as the new payload shape.
+        self.cache.data[f"macro_econ_us_{TODAY.isoformat()}"] = (
+            '{"payload": {"region": "us"}}'
+        )
         calls = []
         result = self._provider(fetcher=_fake_fetcher(calls)).collect("AAPL")
         self.assertEqual(len(calls), len(SERIES_IDS))  # refetched
         self.assertIn("meta", result.payload)
 
     def test_same_day_cache_missing_payload_is_refetched(self):
-        # The reader requires "payload"; a v2-named file without it is
+        # The reader requires "payload"; a v2-keyed entry without it is
         # ignored and the data refetched, never misread.
-        stale = self.cache_dir / f"macro_econ_us_v2_{TODAY.isoformat()}.json"
-        stale.write_text('{"warnings": []}')
+        self.cache.data[f"macro_econ_us_v2_{TODAY.isoformat()}"] = '{"warnings": []}'
         calls = []
         result = self._provider(fetcher=_fake_fetcher(calls)).collect("AAPL")
         self.assertEqual(len(calls), len(SERIES_IDS))  # refetched
         self.assertIn("meta", result.payload)
 
-    def test_corrupt_cache_file_triggers_refetch(self):
+    def test_corrupt_cache_entry_triggers_refetch(self):
         calls = []
         provider = self._provider(fetcher=_fake_fetcher(calls))
         provider.collect("AAPL")
-        cache_file = next(
-            p for p in self.cache_dir.iterdir() if "_v2_" in p.name
-        )
-        cache_file.write_text("{not json", encoding="utf-8")
+        key = next(k for k in self.cache.keys() if "_v2_" in k)
+        self.cache.data[key] = "{not json"
         fresh = self._provider(fetcher=_fake_fetcher(calls))
         result = fresh.collect("AAPL")
         self.assertIn("meta", result.payload)
@@ -388,9 +383,8 @@ class TestRegistryIncludesMacro(unittest.TestCase):
 @pytest.mark.skipif(not os.getenv("FRED_API_KEY"), reason="FRED_API_KEY not set")
 class TestLiveFredSanity(unittest.TestCase):
     def test_live_us_macro_is_plausible(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            provider = MacroEconProvider(cache_dir=Path(tmp))
-            result = provider.collect("AAPL")
+        provider = MacroEconProvider(cache=MemoryCacheStore())
+        result = provider.collect("AAPL")
         self.assertTrue(result.payload)
         gov10y = metric_value(result.payload["bonds"]["gov10y_yield_pct"])
         self.assertGreater(gov10y or 0, 0.5)

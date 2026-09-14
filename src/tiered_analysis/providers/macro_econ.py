@@ -26,11 +26,11 @@ Requires a free FRED API key: set ``FRED_API_KEY`` (see .env.example).
 """
 from __future__ import annotations
 
-import json
 import os
 from datetime import date, timedelta
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from ..cache_store import CacheStore, default_cache_store
 
 from .base import (
     Citation,
@@ -50,7 +50,6 @@ FRED_SERIES_PAGE = "https://fred.stlouisfed.org/series/"
 _FRED_TIMEOUT_SECONDS = 15
 _LOOKBACK_DAYS = 550  # 12-month YoY on monthly series + a 3-month trend base
 
-DEFAULT_CACHE_DIR = Path("data") / "tiered_analysis_cache"
 
 #: Trend fields compare the latest value against the last observation at
 #: least this many calendar days back (~3 months).
@@ -313,12 +312,12 @@ class MacroEconProvider(DimensionProvider):
     def __init__(
         self,
         series_fetcher: Callable[[str], List[Observation]] = _default_series_fetcher,
-        cache_dir: Path = DEFAULT_CACHE_DIR,
+        cache: Optional[CacheStore] = None,
         today: Callable[[], date] = date.today,
         release_dates_fetcher: Callable[[int], List[str]] = _default_release_dates_fetcher,
     ) -> None:
         self._series_fetcher = series_fetcher
-        self._cache_dir = Path(cache_dir)
+        self._cache = cache if cache is not None else default_cache_store()
         self._today = today
         self._release_dates_fetcher = release_dates_fetcher
 
@@ -929,16 +928,17 @@ class MacroEconProvider(DimensionProvider):
 
     # ---- per-day cache ----
 
-    def _cache_path(self) -> Path:
-        return self._cache_dir / (
+    def _cache_key(self) -> str:
+        return (
             f"macro_econ_{self.region}_{self.cache_version}_"
-            f"{self._today().isoformat()}.json"
+            f"{self._today().isoformat()}"
         )
 
     def _read_cache(self) -> Optional[DimensionResult]:
-        path = self._cache_path()
+        raw = self._cache.read(self._cache_key())
+        if not isinstance(raw, dict):
+            return None
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
             return DimensionResult(
                 dimension=self.dimension,
                 kind=self.kind,
@@ -948,25 +948,18 @@ class MacroEconProvider(DimensionProvider):
                 formulas=raw.get("formulas"),
                 field_notes=raw.get("field_notes"),
             )
-        except FileNotFoundError:
-            return None
         except Exception:
             return None  # corrupt cache: refetch, never fail on cache
 
     def _write_cache(self, result: DimensionResult) -> None:
-        try:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
-            self._cache_path().write_text(
-                json.dumps(
-                    {
-                        "payload": result.payload,
-                        "warnings": result.warnings,
-                        "formulas": result.formulas,
-                        "field_notes": result.field_notes,
-                    },
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass  # a cold cache tomorrow is acceptable; failing the run is not
+        # The store never raises: a cold cache tomorrow is acceptable,
+        # failing the run is not.
+        self._cache.write(
+            self._cache_key(),
+            {
+                "payload": result.payload,
+                "warnings": result.warnings,
+                "formulas": result.formulas,
+                "field_notes": result.field_notes,
+            },
+        )

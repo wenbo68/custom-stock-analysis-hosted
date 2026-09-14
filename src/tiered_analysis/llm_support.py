@@ -17,11 +17,8 @@ import logging
 import re
 import threading
 import time
-import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Type
 
 from pydantic import BaseModel, ValidationError
@@ -35,63 +32,53 @@ class LlmConfigError(RuntimeError):
     """LLM configuration missing — callers surface this as a warning."""
 
 
-#: Where per-run LLM transcripts live; files older than
-#: ``TRANSCRIPT_MAX_AGE_DAYS`` are pruned when a new run writes its first
-#: entry (news-cache retention convention).
-DEFAULT_TRANSCRIPT_DIR = Path("data") / "llm_transcripts"
+#: Transcript rows older than this are pruned at server startup.
 TRANSCRIPT_MAX_AGE_DAYS = 14
+
+#: One transcript entry as a plain dict (the storage row's fields).
+TranscriptWriter = Callable[[Dict[str, Any]], None]
 
 
 class LlmTranscript:
-    """Append-only JSONL record of every LLM exchange in one run.
+    """Record of every LLM exchange in one run.
 
-    One file per run, one line per call: stage, model, the full prompt
-    and raw reply, token counts, duration, and the error when the call
-    itself raised. Exists so a "returned no usable JSON" warning is
-    diagnosable from stored evidence instead of a re-run (owner request
-    2026-08-25 — the original bad grouping reply was unrecoverable).
+    One entry per call: stage, model, the full prompt and raw reply,
+    token counts, duration, and the error when the call itself raised.
+    Exists so a "returned no usable JSON" warning is diagnosable from
+    stored evidence instead of a re-run (owner request 2026-08-25).
 
-    The file is created lazily on the first ``record`` — a run whose
-    summarizers are all fakes (tests, demo seeds) writes nothing. Any
-    filesystem problem disables writing for the rest of the run and is
-    logged; a transcript must never fail an analysis (cache convention).
+    Entries go through a ``writer`` — in production the run's rows in
+    the ``tiered_run_transcripts`` table (``for_run``), in tests a list.
+    ``discard()`` builds a transcript that counts entries and stores
+    nothing (CLI runs, harnesses). Any writer failure disables the
+    transcript for the rest of the run and is logged; a transcript must
+    never fail an analysis (cache convention).
     """
 
-    def __init__(self, path: Path) -> None:
-        self._path = Path(path)
+    def __init__(self, run_id: str, writer: Optional[TranscriptWriter] = None) -> None:
+        self._run_id = run_id
+        self._writer = writer
         self._lock = threading.Lock()
         self._disabled = False
         self._entries = 0
 
     @classmethod
-    def for_run(
-        cls,
-        symbol: str,
-        directory: Path = DEFAULT_TRANSCRIPT_DIR,
-        now: Any = datetime.now,
-    ) -> "LlmTranscript":
-        stamp = now().strftime("%Y%m%d-%H%M%S")
-        name = f"{stamp}_{symbol.upper()}_{uuid.uuid4().hex[:8]}.jsonl"
-        return cls(Path(directory) / name)
+    def for_run(cls, run_id: str) -> "LlmTranscript":
+        """The production transcript: rows keyed by the run's task id."""
+        return cls(run_id, writer=_database_transcript_writer(run_id))
+
+    @classmethod
+    def discard(cls) -> "LlmTranscript":
+        """Counts entries, stores nothing."""
+        return cls("", writer=None)
 
     @property
-    def filename(self) -> str:
-        return self._path.name
+    def run_id(self) -> str:
+        return self._run_id
 
     @property
     def entries(self) -> int:
         return self._entries
-
-    def _prepare_directory(self) -> None:
-        directory = self._path.parent
-        directory.mkdir(parents=True, exist_ok=True)
-        cutoff = time.time() - TRANSCRIPT_MAX_AGE_DAYS * 86400
-        for old in directory.glob("*.jsonl"):
-            try:
-                if old.stat().st_mtime < cutoff:
-                    old.unlink()
-            except OSError:
-                continue  # a vanished/locked old file must not stop the run
 
     def record(
         self,
@@ -109,9 +96,10 @@ class LlmTranscript:
     ) -> None:
         if self._disabled:
             return
-        line = json.dumps(
-            {
-                "ts": datetime.now().isoformat(timespec="seconds"),
+        with self._lock:
+            entry = {
+                "task_id": self._run_id,
+                "seq": self._entries + 1,
                 "stage": stage,
                 "model": model,
                 "temperature": temperature,
@@ -125,23 +113,29 @@ class LlmTranscript:
                 "error": error,
                 "prompt": prompt,
                 "reply": reply,
-            },
-            ensure_ascii=False,
-        )
-        try:
-            with self._lock:
-                if self._entries == 0:
-                    self._prepare_directory()
-                with self._path.open("a", encoding="utf-8") as fh:
-                    fh.write(line + "\n")
+            }
+            try:
+                if self._writer is not None:
+                    self._writer(entry)
                 self._entries += 1
-        except OSError as exc:
-            self._disabled = True
-            logger.warning(
-                "LLM transcript write failed (%s) — transcript off for the"
-                " rest of this run",
-                exc,
-            )
+            except Exception as exc:
+                self._disabled = True
+                logger.warning(
+                    "LLM transcript write failed (%s) — transcript off for the"
+                    " rest of this run",
+                    exc,
+                )
+
+
+def _database_transcript_writer(run_id: str) -> TranscriptWriter:
+    def write(entry: Dict[str, Any]) -> None:
+        from src.storage import DatabaseManager, TieredRunTranscriptRecord
+
+        with DatabaseManager.get_instance().get_session() as session:
+            session.add(TieredRunTranscriptRecord(**entry))
+            session.commit()
+
+    return write
 
 
 @dataclass
@@ -238,9 +232,9 @@ class LlmUsageTracker:
             "scope": USAGE_SCOPE_NOTE,
         }
         # Only a transcript that actually holds entries is worth pointing
-        # a reader at — zero-LLM runs (staleness stop) never made a file.
+        # a reader at — zero-LLM runs (staleness stop) recorded nothing.
         if self.transcript is not None and self.transcript.entries > 0:
-            detail["transcript_file"] = self.transcript.filename
+            detail["transcript_entries"] = self.transcript.entries
         return detail
 
 

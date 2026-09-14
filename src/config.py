@@ -58,6 +58,16 @@ def _env_str(name: str, default: str = '') -> Optional[str]:
     return value or None
 
 
+def _normalize_database_url(url: str) -> str:
+    """Hosted Postgres (Neon, Railway, ...) hands out ``postgres://`` or
+    ``postgresql://`` URLs; SQLAlchemy needs the driver spelled out."""
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 def _resolve_realtime_source_priority() -> str:
     """Same rule as the parent project: prepend tushare when a token is
     configured but no explicit priority was set."""
@@ -73,6 +83,10 @@ def _resolve_realtime_source_priority() -> str:
 @dataclass
 class Config:
     # --- database (read by src/storage.py DatabaseManager) ---
+    #: Full connection URL (Postgres on the public host). When set it wins
+    #: over DATABASE_PATH, which stays the local sqlite default.
+    database_url: Optional[str] = field(
+        default_factory=lambda: _env_str('DATABASE_URL'))
     database_path: str = field(
         default_factory=lambda: os.getenv('DATABASE_PATH', './data/stock_analysis.db'))
     sqlite_wal_enabled: bool = field(
@@ -117,7 +131,10 @@ class Config:
         default_factory=lambda: _env_str('ALPHAVANTAGE_API_KEY'))
 
     def get_db_url(self) -> str:
-        """SQLAlchemy sqlite URL; creates the data directory if missing."""
+        """SQLAlchemy URL: DATABASE_URL when set (Postgres), else the
+        sqlite file at DATABASE_PATH (its directory is created)."""
+        if self.database_url:
+            return _normalize_database_url(self.database_url)
         db_path = Path(self.database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return f'sqlite:///{db_path.absolute()}'

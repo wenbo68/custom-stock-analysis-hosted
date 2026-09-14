@@ -14,6 +14,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+from src.tiered_analysis.cache_store import MemoryCacheStore
 from src.tiered_analysis.debate import gradable_field_refs
 from src.tiered_analysis.providers.base import Market, SourceKind
 from src.tiered_analysis.providers.opinion import (
@@ -315,12 +316,10 @@ class TestOpinionProvider(unittest.TestCase):
 
 class TestCrowdDayCache(unittest.TestCase):
     """The crowd lists are symbol-independent: fetched once per day,
-    served from disk after that, and never cached on failure."""
+    served from the cache after that, and never cached on failure."""
 
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.cache_dir = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
+        self.cache = MemoryCacheStore()
 
     def test_second_call_reads_the_cache_not_the_network(self):
         calls = []
@@ -332,7 +331,7 @@ class TestCrowdDayCache(unittest.TestCase):
         for _ in range(2):
             rows = _cached_crowd_list(
                 "apewisdom", fetch,
-                cache_dir=self.cache_dir, today=lambda: TODAY,
+                cache=self.cache, today=lambda: TODAY,
             )
         self.assertEqual(len(calls), 1)
         self.assertEqual(rows, [{"ticker": "AAPL", "mentions": 5}])
@@ -344,21 +343,21 @@ class TestCrowdDayCache(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             _cached_crowd_list(
                 "tradestie", failing,
-                cache_dir=self.cache_dir, today=lambda: TODAY,
+                cache=self.cache, today=lambda: TODAY,
             )
-        self.assertEqual(list(self.cache_dir.iterdir()), [])
+        self.assertEqual(self.cache.keys(), [])
 
     def test_corrupt_cache_refetches_instead_of_failing(self):
         rows = [{"ticker": "TSLA"}]
         _cached_crowd_list(
             "apewisdom", lambda: rows,
-            cache_dir=self.cache_dir, today=lambda: TODAY,
+            cache=self.cache, today=lambda: TODAY,
         )
-        cache_file = next(self.cache_dir.iterdir())
-        cache_file.write_text("{not json", encoding="utf-8")
+        key = self.cache.keys()[0]
+        self.cache.data[key] = "{not json"
         result = _cached_crowd_list(
             "apewisdom", lambda: rows,
-            cache_dir=self.cache_dir, today=lambda: TODAY,
+            cache=self.cache, today=lambda: TODAY,
         )
         self.assertEqual(result, rows)
 

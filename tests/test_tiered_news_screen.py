@@ -13,6 +13,7 @@ from pathlib import Path
 
 from unittest import mock
 
+from src.tiered_analysis.cache_store import MemoryCacheStore
 from src.tiered_analysis import news_screen
 from src.tiered_analysis.news_screen import (
     NewsJudgmentCache,
@@ -202,12 +203,10 @@ class TestJudge(unittest.TestCase):
 
 class TestCache(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.cache_dir = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
+        self.store = MemoryCacheStore()
 
     def make_cache(self, today=date(2026, 8, 15)):
-        return NewsJudgmentCache("GOOGL", cache_dir=self.cache_dir,
+        return NewsJudgmentCache("GOOGL", cache=self.store,
                                  today=lambda: today)
 
     def test_roundtrip_survives_reload(self):
@@ -229,9 +228,8 @@ class TestCache(unittest.TestCase):
         self.assertIsNone(again.get("https://example.com/old"))
         self.assertIsNotNone(again.get("https://example.com/new"))
 
-    def test_corrupt_file_degrades_to_cold_cache(self):
-        path = self.cache_dir / "news_screen_GOOGL.json"
-        path.write_text("not json", encoding="utf-8")
+    def test_corrupt_entry_degrades_to_cold_cache(self):
+        self.store.data["news_screen_GOOGL"] = "not json"
         cache = self.make_cache()
         self.assertIsNone(cache.get("https://example.com/a"))
 
@@ -244,22 +242,19 @@ class TestCache(unittest.TestCase):
         self.assertIsNone(again.get_summary("https://example.com/old"))
         self.assertEqual(again.get_summary("https://example.com/new"), "New news.")
 
-    def test_pre_summary_cache_file_still_loads(self):
-        # Cache files written before summaries existed have no
+    def test_pre_summary_cache_entry_still_loads(self):
+        # Cache entries written before summaries existed have no
         # "summaries" key — judgments must still load (additive schema).
-        path = self.cache_dir / "news_screen_GOOGL.json"
-        path.write_text(
-            json.dumps(
-                {
-                    "version": 1,
-                    "articles": {
-                        "https://example.com/a": {
-                            "about": True, "materiality": 4, "date": "2026-08-13",
-                        }
-                    },
-                }
-            ),
-            encoding="utf-8",
+        self.store.write(
+            "news_screen_GOOGL",
+            {
+                "version": 1,
+                "articles": {
+                    "https://example.com/a": {
+                        "about": True, "materiality": 4, "date": "2026-08-13",
+                    }
+                },
+            },
         )
         cache = self.make_cache()
         self.assertIsNotNone(cache.get("https://example.com/a"))
@@ -273,12 +268,10 @@ class TestCache(unittest.TestCase):
 
 class TestJudgeCached(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
         self.cache = NewsJudgmentCache(
-            "GOOGL", cache_dir=Path(self._tmp.name),
+            "GOOGL", cache=MemoryCacheStore(),
             today=lambda: date(2026, 8, 15),
         )
-        self.addCleanup(self._tmp.cleanup)
 
     def test_cached_articles_skip_the_llm_entirely(self):
         for entry in entries():
@@ -439,13 +432,11 @@ class TestSummarize(unittest.TestCase):
 
 class TestSummarizeCached(unittest.TestCase):
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.tmp_path = Path(self._tmp.name)
-        self.addCleanup(self._tmp.cleanup)
+        self.store = MemoryCacheStore()
 
     def make_cache(self):
         return NewsJudgmentCache(
-            "GOOGL", cache_dir=self.tmp_path, today=lambda: date(2026, 8, 15)
+            "GOOGL", cache=self.store, today=lambda: date(2026, 8, 15)
         )
 
     def test_cached_summaries_skip_the_llm_entirely(self):
@@ -723,9 +714,10 @@ class TestScreenNews(unittest.TestCase):
         self.assertTrue(any("busy news window" in w for w in result["warnings"]))
 
     def test_second_run_judges_and_summarizes_nothing_new(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        store = MemoryCacheStore()
+        if True:  # one shared store across the two "runs"
             cache = NewsJudgmentCache(
-                "GOOGL", cache_dir=Path(tmp), today=lambda: date(2026, 8, 15)
+                "GOOGL", cache=store, today=lambda: date(2026, 8, 15)
             )
             judge = json.dumps({"articles": [[1, 1, 5], [2, 0, 0], [3, 1, 1]]})
             group = json.dumps({"groups": [[1]]})
@@ -739,7 +731,7 @@ class TestScreenNews(unittest.TestCase):
             self.assertEqual(first["selected"][0]["card_text"], "Bond sale sentence.")
 
             fresh_cache = NewsJudgmentCache(
-                "GOOGL", cache_dir=Path(tmp), today=lambda: date(2026, 8, 15)
+                "GOOGL", cache=store, today=lambda: date(2026, 8, 15)
             )
             summarize = self.summarizer("never used", group)
             second = screen_news(

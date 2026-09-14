@@ -70,12 +70,10 @@ TEXTUAL kind: never actionable, never feeds numeric consumers.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import time
 from datetime import date, timedelta
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ..news_screen import WORLD_PROMPTS, NewsJudgmentCache, screen_news
@@ -93,7 +91,7 @@ from .company_events import (
     flatten_summary,
     normalize_news_entry,
 )
-from .macro_econ import DEFAULT_CACHE_DIR
+from ..cache_store import CacheStore, default_cache_store
 
 ALPHAVANTAGE_NEWS_URL = "https://www.alphavantage.co/query"
 _ALPHAVANTAGE_TIMEOUT_SECONDS = 30
@@ -335,12 +333,12 @@ class WorldEventsProvider(DimensionProvider):
         screener: Optional[
             Callable[[Sequence[Mapping[str, Any]]], Dict[str, Any]]
         ] = None,
-        cache_dir: Path = DEFAULT_CACHE_DIR,
+        cache: Optional[CacheStore] = None,
     ) -> None:
         self._load_news = news_loader
         self._today = today
         self._screen = screener or self._default_screener
-        self._cache_dir = Path(cache_dir)
+        self._cache = cache if cache is not None else default_cache_store()
 
     @staticmethod
     def _default_screener(entries: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
@@ -593,12 +591,12 @@ class WorldEventsProvider(DimensionProvider):
     #: Pool format marker — bump when the entry shape changes.
     pool_version = "v1"
 
-    def _pool_path(self) -> Path:
-        return self._cache_dir / f"world_articles_{self.pool_version}.json"
+    def _pool_key(self) -> str:
+        return f"world_articles_{self.pool_version}"
 
     def _load_pool(self) -> Dict[str, Dict[str, Optional[str]]]:
         try:
-            raw = json.loads(self._pool_path().read_text(encoding="utf-8"))
+            raw = self._cache.read(self._pool_key())
             articles = raw.get("articles") if isinstance(raw, Mapping) else None
             if not isinstance(articles, Mapping):
                 return {}
@@ -607,31 +605,24 @@ class WorldEventsProvider(DimensionProvider):
                 for url, entry in articles.items()
                 if isinstance(entry, Mapping) and entry.get("title")
             }
-        except FileNotFoundError:
-            return {}
         except Exception:
             return {}  # corrupt pool: rebuild from fetches, never fail
 
     def _save_pool(self, pool: Dict[str, Dict[str, Optional[str]]]) -> None:
-        try:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
-            self._pool_path().write_text(
-                json.dumps({"articles": pool}, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass  # a thinner pool tomorrow is acceptable; failing the run is not
+        # The store never raises: a thinner pool tomorrow is acceptable,
+        # failing the run is not.
+        self._cache.write(self._pool_key(), {"articles": pool})
 
     # ---- per-day cache (macro_econ convention) ----
 
-    def _cache_path(self) -> Path:
-        return self._cache_dir / (
-            f"world_events_{self.cache_version}_{self._today().isoformat()}.json"
-        )
+    def _cache_key(self) -> str:
+        return f"world_events_{self.cache_version}_{self._today().isoformat()}"
 
     def _read_cache(self) -> Optional[DimensionResult]:
+        raw = self._cache.read(self._cache_key())
+        if not isinstance(raw, Mapping):
+            return None
         try:
-            raw = json.loads(self._cache_path().read_text(encoding="utf-8"))
             return DimensionResult(
                 dimension=self.dimension,
                 kind=self.kind,
@@ -647,31 +638,22 @@ class WorldEventsProvider(DimensionProvider):
                 ],
                 warnings=list(raw.get("warnings", [])),
             )
-        except FileNotFoundError:
-            return None
         except Exception:
             return None  # corrupt cache: refetch, never fail on cache
 
     def _write_cache(self, result: DimensionResult) -> None:
-        try:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
-            self._cache_path().write_text(
-                json.dumps(
+        self._cache.write(
+            self._cache_key(),
+            {
+                "payload": result.payload,
+                "citations": [
                     {
-                        "payload": result.payload,
-                        "citations": [
-                            {
-                                "source_name": citation.source_name,
-                                "url": citation.url,
-                                "title": citation.title,
-                            }
-                            for citation in result.citations
-                        ],
-                        "warnings": result.warnings,
-                    },
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass  # a cold cache tomorrow is acceptable; failing the run is not
+                        "source_name": citation.source_name,
+                        "url": citation.url,
+                        "title": citation.title,
+                    }
+                    for citation in result.citations
+                ],
+                "warnings": result.warnings,
+            },
+        )

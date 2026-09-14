@@ -66,7 +66,6 @@ function makeOutlookResult(overrides: Partial<TieredResult> = {}): TieredResult 
     narrative: null,
     warnings: [],
     dimensions: ['technicals', 'fundamentals', 'macro_econ', 'sentiment'].map(makeDimension),
-    signal: null,
     depth: 1,
     outlook: 'bullish',
     action: 'enter',

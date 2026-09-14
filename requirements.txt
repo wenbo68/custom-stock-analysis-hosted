@@ -8,7 +8,8 @@ uvicorn[standard]>=0.27.0   # ASGI server
 
 # --- core ---
 python-dotenv>=1.0.0        # .env loading
-sqlalchemy>=2.0.0           # sqlite ORM (run history, signals, daily bars)
+sqlalchemy>=2.0.0           # ORM (run history, transcripts, caches, daily bars)
+psycopg[binary]>=3.1,<4     # Postgres driver (DATABASE_URL on the public host)
 pandas>=2.0.0               # Dataframes for price bars
 numpy>=1.24.0               # Numeric computing (data_provider)
 requests>=2.31.0            # HTTP for the news/fundamentals providers

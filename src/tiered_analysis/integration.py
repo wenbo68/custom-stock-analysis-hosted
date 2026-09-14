@@ -336,6 +336,7 @@ def run_tiered_analysis(
     cross_bars_loader: Optional[Callable[[str], List[Bar]]] = None,
     hold_weeks: int = DEFAULT_HOLD_WEEKS,
     staleness_gate: Optional[bool] = None,
+    transcript: Optional[LlmTranscript] = None,
 ) -> TieredRunOutcome:
     """Run one symbol at ``depth`` with full production wiring.
 
@@ -354,6 +355,8 @@ def run_tiered_analysis(
     the date the fundamentals provider already fetched.
     ``cross_bars_loader`` is a test/demo seam: injected providers skip
     the cross-provider enrichment unless a loader is passed explicitly.
+    ``transcript`` receives every LLM exchange of the run (the API passes
+    the run's stored transcript); None counts calls and stores nothing.
     """
     if depth not in SUPPORTED_DEPTHS:
         raise ValueError(f"depth must be one of {SUPPORTED_DEPTHS}, got {depth}")
@@ -392,8 +395,10 @@ def run_tiered_analysis(
     sizing_settings = with_fallback_defaults(sizing_settings)
     # Every run keeps a transcript of its LLM exchanges (prompt, raw
     # reply, error) so a "no usable JSON" warning is diagnosable later —
-    # the file is named in llm_usage.transcript_file on the stored run.
-    tracker = LlmUsageTracker(transcript=LlmTranscript.for_run(symbol))
+    # llm_usage.transcript_entries on the stored run says how many.
+    tracker = LlmUsageTracker(
+        transcript=transcript if transcript is not None else LlmTranscript.discard()
+    )
     with tracker.activate():
         dimensions = _collect_dimensions(providers, symbol)
         dimensions = enrich_cross_fields(dimensions, cross_bars_loader)
