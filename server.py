@@ -19,4 +19,7 @@ if __name__ == "__main__":
     hosted_port = os.getenv("PORT")
     port = int(hosted_port or os.getenv("SERVER_PORT") or "8000")
     host = os.getenv("SERVER_HOST") or ("0.0.0.0" if hosted_port else "127.0.0.1")
-    uvicorn.run(app, host=host, port=port)
+    # Behind a host's proxy the real scheme/host arrive in forwarded
+    # headers; trusting them keeps OAuth callback URLs https.
+    uvicorn.run(app, host=host, port=port, proxy_headers=True,
+                forwarded_allow_ips="*" if hosted_port else None)

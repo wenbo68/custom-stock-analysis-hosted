@@ -283,6 +283,26 @@ class TieredRunTranscriptRecord(Base):
     reply = Column(Text)
 
 
+class UserRecord(Base):
+    """A signed-in person (src/users.py): one row per provider account."""
+
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String(32), nullable=False)
+    #: The provider's stable account id (never the email, which can change).
+    provider_subject = Column(String(255), nullable=False)
+    email = Column(String(255), index=True)
+    display_name = Column(String(255))
+    avatar_url = Column(Text)
+    created_at = Column(DateTime, default=utc_naive_now, index=True)
+    last_login_at = Column(DateTime, default=utc_naive_now)
+
+    __table_args__ = (
+        UniqueConstraint('provider', 'provider_subject', name='uix_user_provider_subject'),
+    )
+
+
 class TieredCacheRecord(Base):
     """Fetched-data cache (src/tiered_analysis/cache_store): a JSON value
     per key. Safe to wipe — every row can be refetched from its vendor."""
