@@ -171,6 +171,18 @@ class TestTieredRunHistory:
             create_run(f"task-{index}", "AAPL")
         assert len(list_runs(limit=3)) == 3
 
+    def test_owner_scoping(self, isolated_db):
+        create_run("mine", "AAPL", owner_id=1)
+        create_run("theirs", "MSFT", owner_id=2)
+        create_run("orphan", "NVDA")  # pre-accounts row: nobody's
+        assert [r["task_id"] for r in list_runs(owner_id=1)] == ["mine"]
+        assert [r["task_id"] for r in list_runs(owner_id=2)] == ["theirs"]
+        assert len(list_runs()) == 3
+        assert get_run("mine", owner_id=1)["stock_code"] == "AAPL"
+        assert get_run("mine", owner_id=2) is None
+        assert get_run("orphan", owner_id=1) is None
+        assert get_run("orphan")["stock_code"] == "NVDA"
+
     def test_corrupt_result_json_surfaces_as_failed_parse(self, isolated_db):
         from src.storage import DatabaseManager, TieredRunRecord
 

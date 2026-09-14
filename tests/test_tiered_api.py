@@ -16,8 +16,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from api.auth.providers import Identity
+from api.auth.session import current_user
 from api.v1.endpoints import tiered
 from src.tiered_analysis.integration import TieredRunOutcome
+from src.user_settings import save_user_settings
+from src.users import upsert_from_identity
 from src.tiered_analysis.providers.base import (
     Citation,
     DimensionResult,
@@ -75,10 +79,34 @@ def open_clock_gate(monkeypatch):
 
 
 @pytest.fixture()
-def client(isolated_db):
+def encryption_key(monkeypatch):
+    from cryptography.fernet import Fernet
+
+    monkeypatch.setenv("APP_ENCRYPTION_KEY", Fernet.generate_key().decode())
+
+
+def _signed_in_client(user):
+    """A client whose every request is made by ``user`` (the sign-in
+    dependency is overridden; sign-in itself is covered in test_auth)."""
     app = FastAPI()
     app.include_router(tiered.router, prefix="/tiered")
+    app.dependency_overrides[current_user] = lambda: user
     return TestClient(app)
+
+
+@pytest.fixture()
+def user(isolated_db, encryption_key):
+    """A signed-in user with a model and LLM key on file."""
+    account = upsert_from_identity(Identity(provider="google", subject="u1",
+                                            email="u1@example.com"))
+    save_user_settings(account["id"], llm_model="gemini/gemini-2.5-flash",
+                       llm_api_key="sk-user-one")
+    return account
+
+
+@pytest.fixture()
+def client(user):
+    return _signed_in_client(user)
 
 
 def _outcome(symbol="AAPL"):
@@ -269,7 +297,7 @@ class TestTieredDepthAndSizingApi:
         captured = {}
 
         def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2,
-                     transcript=None):
+                     **kwargs):
             captured["sizing_overrides"] = sizing_overrides
             return _deep_outcome(code)
 
@@ -288,10 +316,11 @@ class TestTieredDepthAndSizingApi:
         captured = {}
 
         def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2,
-                     transcript=None):
+                     **kwargs):
             captured["code"] = code
             captured["depth"] = depth
             captured["sizing_overrides"] = sizing_overrides
+            captured["settings"] = kwargs.get("settings")
             return _deep_outcome(code)
 
         with patch.object(tiered, "_run_analysis", fake_run):
@@ -307,6 +336,9 @@ class TestTieredDepthAndSizingApi:
         assert captured["depth"] == 2
         assert captured["sizing_overrides"] == {"capital": 50000.0,
                                                 "risk_fraction": 0.02}
+        # The run carries the caller's own model and key (never the env).
+        assert captured["settings"].llm_model == "gemini/gemini-2.5-flash"
+        assert captured["settings"].llm_api_key == "sk-user-one"
 
     def test_deep_run_response_contract(self, client):
         with patch.object(tiered, "_run_analysis",
@@ -410,7 +442,7 @@ class TestClockGateEndpoint:
         assert detail["session_close"] == "2026-08-11T16:00:00-04:00"
 
     def test_blocked_409_survives_the_global_error_handlers(
-        self, isolated_db, monkeypatch
+        self, user, monkeypatch
     ):
         """Regression (2026-08-11): the server registers add_error_handlers,
         which used to flatten any non-ErrorResponse dict detail into a
@@ -423,6 +455,7 @@ class TestClockGateEndpoint:
         app = FastAPI()
         add_error_handlers(app)
         app.include_router(tiered.router, prefix="/tiered")
+        app.dependency_overrides[current_user] = lambda: user
         handled_client = TestClient(app)
 
         monkeypatch.setattr(run_gate, "clock_gate", self._gate(blocked=True))
@@ -467,3 +500,51 @@ class TestClockGateEndpoint:
             "/tiered/analyze", json={"stock_code": "AAPL", "hold_weeks": 5}
         )
         assert response.status_code == 422
+
+
+class TestAccessControl:
+    """Public server: sign-in required, runs belong to their owner, and a
+    run without an LLM key is refused up front."""
+
+    def test_signed_out_requests_are_401(self, isolated_db):
+        from starlette.middleware.sessions import SessionMiddleware
+
+        app = FastAPI()
+        app.add_middleware(SessionMiddleware, secret_key="t")
+        app.include_router(tiered.router, prefix="/tiered")
+        anonymous = TestClient(app)
+        assert anonymous.post("/tiered/analyze", json={"stock_code": "AAPL"}).status_code == 401
+        assert anonymous.get("/tiered/runs").status_code == 401
+        assert anonymous.get("/tiered/runs/x").status_code == 401
+        assert anonymous.get("/tiered/runs/x/transcript").status_code == 401
+        # the sizing defaults are server config, not user data
+        assert anonymous.get("/tiered/sizing-defaults").status_code == 200
+
+    def test_runs_are_private_to_their_owner(self, client, isolated_db, encryption_key):
+        with patch.object(tiered, "_run_analysis",
+                          lambda code, **kwargs: _outcome(code)):
+            accepted = client.post("/tiered/analyze", json={"stock_code": "AAPL"})
+            task_id = accepted.json()["task_id"]
+            _poll_until_done(client, task_id)
+        assert [r["task_id"] for r in client.get("/tiered/runs").json()["items"]] == [task_id]
+
+        other = upsert_from_identity(Identity(provider="discord", subject="u2"))
+        save_user_settings(other["id"], llm_model="openai/gpt-4o-mini", llm_api_key="k")
+        stranger = _signed_in_client(other)
+        assert stranger.get("/tiered/runs").json() == {"items": []}
+        assert stranger.get(f"/tiered/runs/{task_id}").status_code == 404
+        assert stranger.get(f"/tiered/runs/{task_id}/transcript").status_code == 404
+
+    def test_run_without_an_llm_key_is_refused_before_starting(self, isolated_db, encryption_key):
+        account = upsert_from_identity(Identity(provider="google", subject="nokey"))
+        bare = _signed_in_client(account)
+        response = bare.post("/tiered/analyze", json={"stock_code": "AAPL"})
+        assert response.status_code == 400
+        assert response.json()["detail"]["error"] == "llm_not_configured"
+        assert bare.get("/tiered/runs").json() == {"items": []}
+
+    def test_missing_encryption_key_is_a_clear_503(self, user, monkeypatch):
+        monkeypatch.delenv("APP_ENCRYPTION_KEY")
+        response = _signed_in_client(user).post("/tiered/analyze", json={"stock_code": "AAPL"})
+        assert response.status_code == 503
+        assert response.json()["detail"]["error"] == "encryption_not_configured"

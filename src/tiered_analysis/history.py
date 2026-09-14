@@ -38,10 +38,12 @@ def create_run(
     task_id: str,
     stock_code: str,
     inputs: Optional[Dict[str, Any]] = None,
+    owner_id: Optional[int] = None,
 ) -> None:
     """``inputs`` are the run's effective settings (tier, capital,
     risk_fraction, reward_risk, hold_weeks) — recorded at creation so the
-    history row shows them while the run is still in flight."""
+    history row shows them while the run is still in flight. ``owner_id``
+    is the signed-in user the run belongs to."""
     from src.storage import TieredRunRecord
 
     with _session() as session:
@@ -50,6 +52,7 @@ def create_run(
             stock_code=stock_code,
             status="running",
             inputs_json=json.dumps(inputs) if inputs else None,
+            owner_user_id=owner_id,
         ))
         session.commit()
 
@@ -238,14 +241,20 @@ def _inputs_digest(row: Any) -> Dict[str, Any]:
     }
 
 
-def list_runs(limit: int = DEFAULT_LIST_LIMIT) -> List[Dict[str, Any]]:
-    """Newest-first run summaries (no result payloads — keep the list light)."""
+def list_runs(
+    limit: int = DEFAULT_LIST_LIMIT, owner_id: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Newest-first run summaries (no result payloads — keep the list
+    light). With ``owner_id``, only that user's runs."""
     from src.storage import TieredRunRecord
 
     safe_limit = max(1, min(int(limit), 200))
     with _session() as session:
+        query = session.query(TieredRunRecord)
+        if owner_id is not None:
+            query = query.filter_by(owner_user_id=int(owner_id))
         rows = (
-            session.query(TieredRunRecord)
+            query
             .order_by(TieredRunRecord.created_at.desc(), TieredRunRecord.id.desc())
             .limit(safe_limit)
             .all()
@@ -253,8 +262,9 @@ def list_runs(limit: int = DEFAULT_LIST_LIMIT) -> List[Dict[str, Any]]:
         return [{**_row_summary(row), **_result_digest(row)} for row in rows]
 
 
-def get_run(task_id: str) -> Optional[Dict[str, Any]]:
-    """One run with its full result (None result if still running/failed)."""
+def get_run(task_id: str, owner_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """One run with its full result (None result if still running/failed).
+    With ``owner_id``, another user's run reads as not found."""
     from src.storage import TieredRunRecord
 
     with _session() as session:
@@ -264,6 +274,8 @@ def get_run(task_id: str) -> Optional[Dict[str, Any]]:
             .one_or_none()
         )
         if row is None:
+            return None
+        if owner_id is not None and row.owner_user_id != int(owner_id):
             return None
         summary = _row_summary(row)
         summary["result"] = None

@@ -30,7 +30,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from api.auth import session as auth_session
 from api.middlewares.error_handler import add_error_handlers
-from api.v1.endpoints import auth, tiered
+from api.v1.endpoints import auth, settings, tiered
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ def create_app() -> FastAPI:
     add_error_handlers(app)
 
     app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+    app.include_router(settings.router, prefix="/api/v1/settings", tags=["Settings"])
     app.include_router(tiered.router, prefix="/api/v1/tiered", tags=["TieredAnalysis"])
 
     @app.get("/api/health", include_in_schema=False)

@@ -70,7 +70,6 @@ TEXTUAL kind: never actionable, never feeds numeric consumers.
 """
 from __future__ import annotations
 
-import os
 import re
 import time
 from datetime import date, timedelta
@@ -92,6 +91,7 @@ from .company_events import (
     normalize_news_entry,
 )
 from ..cache_store import CacheStore, default_cache_store
+from ..run_context import data_key
 
 ALPHAVANTAGE_NEWS_URL = "https://www.alphavantage.co/query"
 _ALPHAVANTAGE_TIMEOUT_SECONDS = 30
@@ -214,7 +214,7 @@ def _alphavantage_world_news_loader() -> List[Dict[str, Optional[str]]]:
     per-topic newest-1000 cap only truncates ~4+ days back)."""
     import requests
 
-    api_key = os.getenv("ALPHAVANTAGE_API_KEY") or None
+    api_key = data_key("alphavantage")
     if not api_key:
         raise RuntimeError("ALPHAVANTAGE_API_KEY is not set")
     since = date.today() - timedelta(days=WORLD_WINDOW_DAYS - 1)
@@ -291,7 +291,7 @@ def _default_world_news_loader() -> Tuple[
     rule). Returns (entries, warnings): an AlphaVantage failure falls
     back to Yahoo WITH a warning, which also keeps the degraded result
     out of the day cache so the next run retries the primary feed."""
-    if os.getenv("ALPHAVANTAGE_API_KEY"):
+    if data_key("alphavantage"):
         try:
             return _alphavantage_world_news_loader(), []
         except Exception as exc:

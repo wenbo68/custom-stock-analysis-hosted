@@ -141,11 +141,14 @@ class TestTranscriptStorage:
         assert history.list_transcript("unknown") == []
 
     def test_transcript_endpoint_serves_the_rows_and_404s_unknown_runs(self, isolated_db):
+        from api.auth.session import current_user
+
         app = FastAPI()
         app.include_router(tiered.router, prefix="/tiered")
+        app.dependency_overrides[current_user] = lambda: {"id": 7}
         client = TestClient(app)
 
-        history.create_run("task-9", "AAPL")
+        history.create_run("task-9", "AAPL", owner_id=7)
         LlmTranscript.for_run("task-9").record(
             stage="s", model="m", temperature=0.0, prompt="p", reply="r",
         )

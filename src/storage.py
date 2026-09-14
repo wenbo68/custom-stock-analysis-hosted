@@ -249,6 +249,9 @@ class TieredRunRecord(Base):
     #: JSON, recorded at creation so history rows can show them while the
     #: run is still in flight (owner decision 2026-07-24).
     inputs_json = Column(Text)
+    #: The signed-in user who started the run (public server); NULL on
+    #: rows from before accounts existed, which no one can see.
+    owner_user_id = Column(Integer, index=True)
     error = Column(Text)
     created_at = Column(DateTime, default=utc_naive_now, index=True)
     updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now, index=True)
@@ -301,6 +304,20 @@ class UserRecord(Base):
     __table_args__ = (
         UniqueConstraint('provider', 'provider_subject', name='uix_user_provider_subject'),
     )
+
+
+class UserSettingsRecord(Base):
+    """A user's model choice and encrypted keys (src/user_settings.py)."""
+
+    __tablename__ = 'user_settings'
+
+    user_id = Column(Integer, primary_key=True)
+    llm_model = Column(String(128))
+    llm_api_key_enc = Column(Text)
+    finnhub_key_enc = Column(Text)
+    alphavantage_key_enc = Column(Text)
+    fred_key_enc = Column(Text)
+    updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now)
 
 
 class TieredCacheRecord(Base):
@@ -394,7 +411,8 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
 
             # 创建所有表
             Base.metadata.create_all(self._engine)
-            self._ensure_tiered_run_inputs_column()
+            self._ensure_column(TieredRunRecord.__tablename__, "inputs_json", "TEXT")
+            self._ensure_column(TieredRunRecord.__tablename__, "owner_user_id", "INTEGER")
             self._ensure_schema_migration_record()
 
             self._initialized = True
@@ -440,29 +458,22 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         finally:
             session.close()
 
-    def _ensure_tiered_run_inputs_column(self) -> None:
-        """Best-effort backfill of tiered_runs.inputs_json on databases
-        created before the column existed (create_all never alters
-        existing tables). A failure only degrades the history rows'
-        while-running inputs display, never startup."""
+    def _ensure_column(self, table: str, column: str, ddl_type: str) -> None:
+        """Best-effort backfill of a column on databases created before it
+        existed (create_all never alters existing tables). A failure only
+        degrades the feature that reads the column, never startup."""
         try:
             existing = {
-                column["name"]
-                for column in inspect(self._engine).get_columns(
-                    TieredRunRecord.__tablename__
-                )
+                col["name"] for col in inspect(self._engine).get_columns(table)
             }
-            if "inputs_json" in existing:
+            if column in existing:
                 return
             with self._engine.begin() as connection:
                 connection.exec_driver_sql(
-                    f"ALTER TABLE {TieredRunRecord.__tablename__} "
-                    "ADD COLUMN inputs_json TEXT"
+                    f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"
                 )
         except Exception as exc:
-            logger.warning(
-                "tiered_runs.inputs_json backfill skipped: %s", exc
-            )
+            logger.warning("%s.%s backfill skipped: %s", table, column, exc)
 
     @classmethod
     def get_instance(cls) -> 'DatabaseManager':

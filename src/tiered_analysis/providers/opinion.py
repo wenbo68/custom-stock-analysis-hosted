@@ -47,7 +47,6 @@ measures of sentiment, never facts about the business.
 """
 from __future__ import annotations
 
-import os
 from datetime import date
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -61,6 +60,7 @@ from .base import (
 )
 from .company_events import _parse_date, business_days_back
 from ..cache_store import CacheStore, default_cache_store
+from ..run_context import data_key
 from .technicals import make_metric
 
 #: Rating-action lookback in BUSINESS days — the same weekday quota the
@@ -321,7 +321,7 @@ def _default_analyst_loader(symbol: str) -> Tuple[Dict[str, Any], List[str]]:
     try:
         return _yahoo_analyst_loader(symbol)
     except Exception as exc:
-        api_key = os.getenv("FINNHUB_API_KEY") or None
+        api_key = data_key("finnhub")
         if not api_key:
             raise
         consensus = _finnhub_consensus_loader(symbol, api_key)

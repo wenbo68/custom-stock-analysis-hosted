@@ -64,12 +64,12 @@ TEXTUAL kind: never actionable, never feeds numeric consumers.
 """
 from __future__ import annotations
 
-import os
 import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from ..news_screen import NewsJudgmentCache, screen_news
+from ..run_context import data_key
 from .base import (
     Citation,
     DimensionProvider,
@@ -266,7 +266,7 @@ def _finnhub_news_loader(
 def _default_news_loader(symbol: str) -> List[Dict[str, Optional[str]]]:
     """Finnhub when a key is configured (source-quality trial 2026-08-14),
     Yahoo otherwise — unconfigured keeps working, configured enhances."""
-    api_key = os.getenv("FINNHUB_API_KEY") or None
+    api_key = data_key("finnhub")
     if api_key:
         return _finnhub_news_loader(symbol, api_key)
     return _yahoo_news_loader(symbol)

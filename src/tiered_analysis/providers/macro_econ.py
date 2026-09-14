@@ -26,11 +26,11 @@ Requires a free FRED API key: set ``FRED_API_KEY`` (see .env.example).
 """
 from __future__ import annotations
 
-import os
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ..cache_store import CacheStore, default_cache_store
+from ..run_context import data_key
 
 from .base import (
     Citation,
@@ -233,7 +233,7 @@ def _round(value: Optional[float], digits: int = 2) -> Optional[float]:
 
 
 def _fred_api_key() -> str:
-    api_key = os.getenv("FRED_API_KEY")
+    api_key = data_key("fred")
     if not api_key:
         raise MacroConfigError(
             "FRED_API_KEY is not set; get a free key at fred.stlouisfed.org"

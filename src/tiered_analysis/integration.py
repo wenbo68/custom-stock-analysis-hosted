@@ -36,6 +36,7 @@ from .levels import (
     decisions_to_sniper,
 )
 from .llm_support import LlmTranscript, LlmUsageTracker, active_tracker
+from .run_context import RunSettings
 from .plan_review import review_plan, sizing_detail_dict
 from .quick_judge import QuickJudge
 from .providers.base import (
@@ -337,6 +338,7 @@ def run_tiered_analysis(
     hold_weeks: int = DEFAULT_HOLD_WEEKS,
     staleness_gate: Optional[bool] = None,
     transcript: Optional[LlmTranscript] = None,
+    settings: Optional[RunSettings] = None,
 ) -> TieredRunOutcome:
     """Run one symbol at ``depth`` with full production wiring.
 
@@ -357,6 +359,8 @@ def run_tiered_analysis(
     the cross-provider enrichment unless a loader is passed explicitly.
     ``transcript`` receives every LLM exchange of the run (the API passes
     the run's stored transcript); None counts calls and stores nothing.
+    ``settings`` is the run's own model and keys (a signed-in user's);
+    None falls back to the environment.
     """
     if depth not in SUPPORTED_DEPTHS:
         raise ValueError(f"depth must be one of {SUPPORTED_DEPTHS}, got {depth}")
@@ -397,7 +401,8 @@ def run_tiered_analysis(
     # reply, error) so a "no usable JSON" warning is diagnosable later —
     # llm_usage.transcript_entries on the stored run says how many.
     tracker = LlmUsageTracker(
-        transcript=transcript if transcript is not None else LlmTranscript.discard()
+        transcript=transcript if transcript is not None else LlmTranscript.discard(),
+        settings=settings,
     )
     with tracker.activate():
         dimensions = _collect_dimensions(providers, symbol)

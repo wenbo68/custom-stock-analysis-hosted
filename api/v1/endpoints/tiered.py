@@ -6,6 +6,10 @@ task id immediately; the run executes in a background thread. Runs
 persist in the tiered_runs table (src/tiered_analysis/history.py), so
 GET /runs serves a clickable history that survives page navigation and
 server restarts, and GET /runs/{task_id} returns the stored full report.
+
+Public server (2026-09-14): every route here needs a signed-in user. A
+run carries that user's own model and keys and belongs to them — the
+list and detail routes only ever show the caller's runs.
 """
 from __future__ import annotations
 
@@ -14,11 +18,14 @@ import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from api.auth.session import current_user
 from src.tiered_analysis import history
 from src.tiered_analysis.llm_support import LlmTranscript
+from src.tiered_analysis.run_context import RunSettings
+from src.user_settings import EncryptionNotConfigured, run_settings_for
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +35,14 @@ router = APIRouter()
 def _run_analysis(stock_code: str, depth: int = 1,
                   sizing_overrides: Optional[Dict[str, float]] = None,
                   hold_weeks: int = 2,
-                  transcript: Optional[LlmTranscript] = None):
+                  transcript: Optional[LlmTranscript] = None,
+                  settings: Optional[RunSettings] = None):
     """Indirection so tests can patch the multi-minute production run."""
     from src.tiered_analysis.integration import run_tiered_analysis
 
     return run_tiered_analysis(
         stock_code, depth=depth, sizing_overrides=sizing_overrides,
-        hold_weeks=hold_weeks, transcript=transcript,
+        hold_weeks=hold_weeks, transcript=transcript, settings=settings,
     )
 
 
@@ -177,12 +185,14 @@ def _serialize_outcome(outcome: Any) -> Dict[str, Any]:
 
 def _run_task(task_id: str, stock_code: str, depth: int = 1,
               sizing_overrides: Optional[Dict[str, float]] = None,
-              hold_weeks: int = 2) -> None:
+              hold_weeks: int = 2,
+              settings: Optional[RunSettings] = None) -> None:
     try:
         outcome = _run_analysis(stock_code, depth=depth,
                                 sizing_overrides=sizing_overrides,
                                 hold_weeks=hold_weeks,
-                                transcript=LlmTranscript.for_run(task_id))
+                                transcript=LlmTranscript.for_run(task_id),
+                                settings=settings)
         history.mark_done(task_id, _serialize_outcome(outcome))
     except Exception as exc:
         logger.error("tiered analysis task failed for %s: %s",
@@ -218,8 +228,27 @@ def _effective_run_inputs(request: TieredAnalyzeRequest) -> Dict[str, Any]:
     }
 
 
+def _settings_for_run(user: Dict[str, Any]) -> RunSettings:
+    """The caller's model and keys; 400 when they have not set up an LLM
+    key yet (the run would only fail minutes later otherwise)."""
+    try:
+        settings = run_settings_for(user["id"])
+    except EncryptionNotConfigured as exc:
+        raise HTTPException(status_code=503, detail={
+            "error": "encryption_not_configured", "message": str(exc)})
+    if not settings.is_llm_configured:
+        raise HTTPException(status_code=400, detail={
+            "error": "llm_not_configured",
+            "message": "pick a model and add its API key in the user block first",
+        })
+    return settings
+
+
 @router.post("/analyze", status_code=202)
-def start_tiered_analysis(request: TieredAnalyzeRequest) -> Dict[str, Any]:
+def start_tiered_analysis(
+    request: TieredAnalyzeRequest,
+    user: Dict[str, Any] = Depends(current_user),
+) -> Dict[str, Any]:
     """Kick off a tiered run in the background; returns a pollable task.
 
     CLOCK GATE (2026-08-08): runs are rejected (409) from market open
@@ -229,6 +258,7 @@ def start_tiered_analysis(request: TieredAnalyzeRequest) -> Dict[str, Any]:
     """
     from src.tiered_analysis.run_gate import clock_gate
 
+    settings = _settings_for_run(user)
     gate = clock_gate(request.stock_code, override=request.run_anyway)
     if gate.blocked:
         logger.info(
@@ -245,14 +275,15 @@ def start_tiered_analysis(request: TieredAnalyzeRequest) -> Dict[str, Any]:
 
     task_id = uuid.uuid4().hex
     history.create_run(task_id, request.stock_code,
-                       inputs=_effective_run_inputs(request))
+                       inputs=_effective_run_inputs(request),
+                       owner_id=user["id"])
     sizing_overrides: Optional[Dict[str, float]] = None
     if request.sizing is not None:
         sizing_overrides = request.sizing.model_dump(exclude_none=True) or None
     worker = threading.Thread(
         target=_run_task,
         args=(task_id, request.stock_code, request.depth, sizing_overrides,
-              request.hold_weeks),
+              request.hold_weeks, settings),
         name=f"tiered-analysis-{request.stock_code}",
         daemon=True,
     )
@@ -275,24 +306,30 @@ def get_sizing_defaults() -> Dict[str, Optional[float]]:
 
 
 @router.get("/runs")
-def list_tiered_runs(limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
-    """Run history, newest first (summaries only)."""
-    return {"items": history.list_runs(limit=limit)}
+def list_tiered_runs(
+    limit: int = 50, user: Dict[str, Any] = Depends(current_user)
+) -> Dict[str, List[Dict[str, Any]]]:
+    """The caller's run history, newest first (summaries only)."""
+    return {"items": history.list_runs(limit=limit, owner_id=user["id"])}
 
 
 @router.get("/runs/{task_id}")
-def get_tiered_run(task_id: str) -> Dict[str, Any]:
-    """One run with its stored full report."""
-    run = history.get_run(task_id)
+def get_tiered_run(
+    task_id: str, user: Dict[str, Any] = Depends(current_user)
+) -> Dict[str, Any]:
+    """One of the caller's runs with its stored full report."""
+    run = history.get_run(task_id, owner_id=user["id"])
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     return run
 
 
 @router.get("/runs/{task_id}/transcript")
-def get_tiered_run_transcript(task_id: str) -> Dict[str, List[Dict[str, Any]]]:
+def get_tiered_run_transcript(
+    task_id: str, user: Dict[str, Any] = Depends(current_user)
+) -> Dict[str, List[Dict[str, Any]]]:
     """The run's LLM exchanges (prompt, raw reply, error) in call order —
     served separately from the run so the report stays light."""
-    if history.get_run(task_id) is None:
+    if history.get_run(task_id, owner_id=user["id"]) is None:
         raise HTTPException(status_code=404, detail="run not found")
     return {"items": history.list_transcript(task_id)}
