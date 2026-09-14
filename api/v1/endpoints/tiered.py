@@ -128,15 +128,6 @@ def _serialize_outcome(outcome: Any) -> Dict[str, Any]:
             ],
         })
 
-    signal: Optional[Dict[str, Any]] = None
-    if outcome.signal is not None:
-        signal = {
-            "logged": outcome.signal.logged,
-            "signal_id": outcome.signal.signal_id,
-            "created": outcome.signal.created,
-            "reason": outcome.signal.reason,
-        }
-
     state_reports = getattr(outcome.state, "reports", {}) or {}
     final = outcome.final_report or report
     return {
@@ -151,7 +142,6 @@ def _serialize_outcome(outcome: Any) -> Dict[str, Any]:
         "narrative": report.narrative,
         "warnings": list(report.warnings),
         "dimensions": dimensions,
-        "signal": signal,
         # v2 slice 6 (additive): depth, deeper-tier sections, sizing, cost.
         "depth": outcome.depth,
         "final": {

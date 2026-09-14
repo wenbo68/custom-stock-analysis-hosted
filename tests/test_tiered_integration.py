@@ -132,34 +132,22 @@ def _no_earnings(symbol, market):
 
 
 class TestRunTieredAnalysis(unittest.TestCase):
-    def _run(self, providers=None, log_signal=True, logger=None, judge=None):
-        logged = []
-
-        def default_logger(report, trace_id=None):
-            logged.append((report, trace_id))
-            return "log-result"
-
+    def _run(self, providers=None, judge=None):
         outcome = run_tiered_analysis(
             "AAPL",
             market=Market.US,
             providers=providers if providers is not None
             else [_StubProvider("technicals", _dim("technicals"))],
             quick_judge=judge or _FakeQuickJudge(),
-            signal_logger=logger or default_logger,
-            log_signal=log_signal,
-            trace_id="t-1",
             earnings_lookup=_no_earnings,
         )
-        return outcome, logged
+        return outcome, []
 
-    def test_dimensions_attached_and_signal_logged(self):
-        outcome, logged = self._run()
+    def test_dimensions_attached(self):
+        outcome, _ = self._run()
         report = outcome.report
         self.assertEqual(report.direction, Direction.BUY)
         self.assertEqual([d.dimension for d in report.dimensions], ["technicals"])
-        self.assertEqual(outcome.signal, "log-result")
-        self.assertEqual(logged[0][1], "t-1")
-        self.assertIs(logged[0][0], report)  # the enriched report is logged
 
     def test_crashing_provider_becomes_warned_empty_dimension(self):
         providers = [_StubProvider("fundamentals", crash=True)]
@@ -168,11 +156,6 @@ class TestRunTieredAnalysis(unittest.TestCase):
         self.assertEqual(dim.dimension, "fundamentals")
         self.assertIsNone(dim.payload)
         self.assertTrue(any("provider blew up" in w for w in dim.warnings))
-
-    def test_log_signal_false_skips_logging(self):
-        outcome, logged = self._run(log_signal=False)
-        self.assertIsNone(outcome.signal)
-        self.assertEqual(logged, [])
 
     def test_injected_providers_with_explicit_cross_loader_enrich(self):
         """The cross_bars_loader seam: a harness that injects providers
@@ -188,8 +171,6 @@ class TestRunTieredAnalysis(unittest.TestCase):
             market=Market.US,
             providers=[_StubProvider("technicals", tech)],
             quick_judge=_FakeQuickJudge(),
-            signal_logger=lambda report, trace_id=None: None,
-            log_signal=False,
             earnings_lookup=_no_earnings,
             cross_bars_loader=lambda ticker: [],
         )
@@ -270,12 +251,6 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         from src.tiered_analysis.settings import SizingSettings
         from src.tiered_analysis.tiers import Tier2Stage
 
-        logged = []
-
-        def logger(report, trace_id=None):
-            logged.append(report)
-            return "log-result"
-
         technicals = (
             DimensionResult(dimension="technicals", kind=SourceKind.NUMERIC,
                             payload=tech_payload)
@@ -288,13 +263,15 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
             market=Market.US,
             providers=[_StubProvider("technicals", technicals)],
             quick_judge=judge,
-            signal_logger=logger,
             depth=depth,
             sizing_settings=sizing_settings or SizingSettings(),
             sizing_overrides=sizing_overrides,
             tier2_stage=Tier2Stage(engine=debate_engine),
             earnings_lookup=_no_earnings,
         )
+        # ``logged`` mirrors the deepest report (the parent project's
+        # signal ledger is gone; the report itself is what matters).
+        logged = [outcome.final_report]
         return outcome, logged, debate_engine, judge.calls
 
     def test_default_depth_is_tier1_only(self):
@@ -358,7 +335,6 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         self.assertEqual(outcome.sizing["shares"], 166)
         self.assertTrue(outcome.sizing["enabled"])
         self.assertEqual(outcome.final_report.sizing.shares, 166.0)
-        # the sized position reaches the signal ledger
         self.assertEqual(logged[0].sizing.shares, 166.0)
 
     def test_hold_direction_refuses_sizing_and_maps_to_no_trade(self):
@@ -488,8 +464,6 @@ class TestPlanReviewAdjustments(unittest.TestCase):
             "AAPL", market=Market.US,
             providers=[_StubProvider("technicals", dim)],
             quick_judge=_FakeQuickJudge(),
-            signal_logger=lambda report, trace_id=None: None,
-            log_signal=False,
             sizing_settings=SizingSettings(capital=100000.0,
                                            risk_fraction=0.01),
             earnings_lookup=_no_earnings,
@@ -752,8 +726,6 @@ class TestEarningsGateWarning(unittest.TestCase):
                 _StubProvider("fundamentals", fundamentals),
             ],
             quick_judge=_FakeQuickJudge(),
-            signal_logger=lambda report, trace_id=None: None,
-            log_signal=False,
             sizing_settings=SizingSettings(),
         )
         entry_warnings = outcome.plan_warnings["entry"]
@@ -852,12 +824,8 @@ class TestStalenessGate(unittest.TestCase):
     LLM stage when the bars predate the newest completed session."""
 
     def _run(self, stop_reason, staleness_gate=True, depth=1):
-        calls = {"judge": 0, "logger": 0}
+        calls = {"judge": 0}
         judge = _FakeQuickJudge()
-
-        def logger(report, trace_id=None):
-            calls["logger"] += 1
-            return "log-result"
 
         with patch(
             "src.tiered_analysis.integration.staleness_stop_reason",
@@ -868,7 +836,6 @@ class TestStalenessGate(unittest.TestCase):
                 market=Market.US,
                 providers=[_StubProvider("technicals", _dim("technicals"))],
                 quick_judge=judge,
-                signal_logger=logger,
                 earnings_lookup=_no_earnings,
                 staleness_gate=staleness_gate,
                 depth=depth,
@@ -880,8 +847,7 @@ class TestStalenessGate(unittest.TestCase):
         outcome, calls = self._run("stale bars: 2026-08-04 < 2026-08-05")
         self.assertEqual(outcome.outlook, Outlook.STOPPED)
         self.assertEqual(outcome.action, Action.UNKNOWN)
-        self.assertIsNone(outcome.signal)
-        self.assertEqual(calls, {"judge": 0, "logger": 0})
+        self.assertEqual(calls, {"judge": 0})
         # The data cards survive; no verdict, no tier-2 section.
         self.assertTrue(outcome.report.dimensions)
         self.assertEqual(outcome.report.direction, Direction.UNKNOWN)
@@ -897,7 +863,6 @@ class TestStalenessGate(unittest.TestCase):
         outcome, calls = self._run(None)
         self.assertEqual(outcome.outlook, Outlook.BULLISH)
         self.assertEqual(calls["judge"], 1)
-        self.assertEqual(calls["logger"], 1)
 
     def test_gate_defaults_off_for_injected_providers(self):
         # Same convention as cross-field enrichment: canned payloads mean
@@ -934,7 +899,6 @@ class TestStalenessGateReadsTheBarDate(unittest.TestCase):
             market=Market.US,
             providers=[_StubProvider("technicals", self._dim_dated(as_of))],
             quick_judge=judge,
-            signal_logger=lambda report, trace_id=None: "log-result",
             earnings_lookup=_no_earnings,
             staleness_gate=True,
         )
@@ -974,8 +938,6 @@ class TestHoldWeeks(unittest.TestCase):
             market=Market.US,
             providers=[_StubProvider("technicals", _dim("technicals"))],
             quick_judge=_FakeQuickJudge(),
-            signal_logger=lambda report, trace_id=None: None,
-            log_signal=False,
             earnings_lookup=_no_earnings,
             **kwargs,
         )

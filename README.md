@@ -7,17 +7,15 @@ into its own app on 2026-08-24.
 One page, one job: enter a ticker (A-shares, HK, or US), pick quick or deep
 analysis and a max hold time, and get a structured report — technicals,
 fundamentals, news, macro, an AI debate, a trade plan with sizing — plus a
-run history. Every run also records its buy/sell call as a signal, and the
-forward-test script grades those calls against real prices later.
+run history.
 
 ## Layout
 
 - `server.py` / `api/` — FastAPI backend (the tiered API + static frontend)
 - `src/tiered_analysis/` — the analysis engine
-- `src/storage.py` — sqlite (run history, signals, daily price bars)
+- `src/storage.py` — database (run history, daily price bars)
 - `data_provider/` — multi-source daily price bars with automatic fallback
 - `web/` — React frontend (builds into `static/`)
-- `scripts/run_forward_test.py` — daily forward-test grid + grading + scoreboard
 - `scripts/run_tiered_analysis.py` — one-off CLI run
 - `tests/` — offline test suite
 
@@ -65,18 +63,6 @@ error when a call failed. When a report shows a warning like "returned no
 usable JSON", open the run's transcript to see exactly what the model said.
 The file is named in the stored run under `llm_usage.transcript_file`;
 files older than 14 days are pruned automatically.
-
-## Forward test
-
-```bash
-./.venv/bin/python scripts/run_forward_test.py                  # today's grid + grade + scoreboard
-./.venv/bin/python scripts/run_forward_test.py --summary-only   # no LLM spend
-./.venv/bin/python scripts/run_forward_test.py --check          # verify today's cells
-```
-
-The script fetches daily bars for every stock with a signal before grading
-(`--no-backfill` skips that fetch for offline runs). Edit `WATCHLIST` in the
-script to change the daily grid.
 
 ## Tests
 

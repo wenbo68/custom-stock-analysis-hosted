@@ -514,12 +514,6 @@ export type TieredResult = {
   narrative: string | null;
   warnings: string[];
   dimensions: TieredDimension[];
-  signal: {
-    logged: boolean;
-    signal_id: number | null;
-    created: boolean | null;
-    reason: string | null;
-  } | null;
   // v2 slice 6 additions — absent on old stored runs, so all optional.
   depth?: number;
   final?: TieredFinal | null;

@@ -991,8 +991,6 @@ const zh = {
   'tiered.help.secondaryEntry': '备用买入价。\n更低的进场位，以防价格先继续下探。',
   'tiered.help.stopLoss': '止损位。\n跌到这里说明判断错了——在此卖出可控制亏损。',
   'tiered.help.takeProfit': '目标位。\n分析建议在此卖出、锁定收益。',
-  'tiered.signalSaved': '已记录到 AI 建议（信号 #{id}）',
-  'tiered.signalSkipped': '未记录：{reason}',
   'tiered.viewSignals': '查看 AI 建议列表',
   'tiered.empty': '输入股票代码开始一次分层分析。',
   'tiered.history': '运行历史',
@@ -1393,7 +1391,6 @@ const zh = {
   'tiered.alt.reviewFail.intro':
     'AI 尝试调整了这份方案，但每次调整后仍有风控检查未通过，因此放弃全部调整，维持按公式计算的方案。',
   'tiered.alt.reviewFail.round': '第 {round} 轮调整后仍触发：{checks}',
-  'tiered.alt.signalSaved': '已记录到 AI 建议 #{id}',
   'tiered.help.capital': '你的交易本金，货币跟随股票所在市场。\n股数计算以它为起点。\n会记住，供下次运行使用。',
   'tiered.help.riskPct': '单笔交易你最多接受亏掉本金的百分之几。\n常见为 1-2%。',
 
@@ -2652,8 +2649,6 @@ const en: Record<UiTextKey, string> = {
   'tiered.help.stopLoss':
     'Safety exit.\nA fall to here means the idea was wrong — selling caps the loss.',
   'tiered.help.takeProfit': 'Profit target.\nWhere the analysis suggests selling to lock in gains.',
-  'tiered.signalSaved': 'Recorded to AI signals (signal #{id})',
-  'tiered.signalSkipped': 'Not recorded: {reason}',
   'tiered.viewSignals': 'View AI signals',
   'tiered.empty': 'Enter a ticker to start a tiered analysis.',
   'tiered.history': 'Run history',
@@ -3117,7 +3112,6 @@ const en: Record<UiTextKey, string> = {
   'tiered.alt.reviewFail.intro':
     'The AI tried adjusting this plan, but every attempt still tripped a risk check, so all adjustments were discarded and the formula-computed plan stands.',
   'tiered.alt.reviewFail.round': 'Round {round} still flagged: {checks}',
-  'tiered.alt.signalSaved': 'Recorded to AI signals #{id}',
   'tiered.help.capital':
     'The money you trade with, in the ticker’s own currency.\nThe shares computation starts from it.\nRemembered for your next run.',
   'tiered.help.riskPct':

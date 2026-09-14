@@ -87,7 +87,6 @@ def _run(providers=None):
         market=Market.US,
         providers=providers or [_StubProvider(_technicals_dim())],
         quick_judge=_FakeQuickJudge(),
-        log_signal=False,
         earnings_lookup=lambda symbol, market: EarningsInfo(),
         # BUY verdicts whose plan trips a check (the downtrend test)
         # consult the plan-review AI; without this canned "no change

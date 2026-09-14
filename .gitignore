@@ -5,7 +5,7 @@ __pycache__/
 .pytest_cache/
 
 # App data (sqlite database, caches)
-data/
+/data/
 .env
 
 # Frontend

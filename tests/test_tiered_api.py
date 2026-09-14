@@ -32,7 +32,6 @@ from src.tiered_analysis.schema import (
     SniperLevels,
     TierReport,
 )
-from src.tiered_analysis.signal_log import SignalLogResult
 from src.tiered_analysis.tiers import TierState
 
 
@@ -109,8 +108,7 @@ def _outcome(symbol="AAPL"):
         warnings=[],
     )
     state = TierState(symbol=symbol, market=Market.US, reports={1: report})
-    signal = SignalLogResult(logged=True, signal_id=7, created=True)
-    return TieredRunOutcome(report=report, state=state, signal=signal)
+    return TieredRunOutcome(report=report, state=state)
 
 
 def _deep_outcome(symbol="AAPL"):
@@ -135,7 +133,7 @@ def _deep_outcome(symbol="AAPL"):
                            "completion_tokens": 300},
                  "scope": "tiered-package LLM calls only"}
     return TieredRunOutcome(
-        report=base.report, state=state, signal=base.signal,
+        report=base.report, state=state,
         depth=2, final_report=tier2, sizing=sizing, llm_usage=llm_usage,
         outlook=Outlook.BULLISH, action=Action.ENTER,
         earnings=EarningsInfo(next_date="2026-07-24", days_until=4),
@@ -175,7 +173,7 @@ class TestTieredAnalyzeEndpoint:
         # warnings/blank fields instead.
         assert "coverage" not in result
         assert result["levels"]["entry"] == 303.8
-        assert result["signal"]["signal_id"] == 7
+        assert "signal" not in result
         dims = {d["dimension"]: d for d in result["dimensions"]}
         assert all("coverage" not in d for d in result["dimensions"])
         # is_actionable = numeric kind AND a payload present.

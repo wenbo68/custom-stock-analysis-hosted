@@ -12,9 +12,8 @@ import into or modify the decision path itself):
   formula levels, run the chosen judge (depth 1 =
   the tiered package's own one-call quick judge since 2026-08-10; depth
   2 = the evidence-vote debate), compute the position size when the
-  user's sizing settings are present, track the run's own LLM
-  call/token usage, and log the deepest tier's recommendation into the
-  existing decision-signal system. (The legacy tier-1 delegate to DSA's
+  user's sizing settings are present, and track the run's own LLM
+  call/token usage. (The legacy tier-1 delegate to DSA's
   ``StockAnalysisPipeline`` is retired — the quick judge reads the same
   four dimensions the debate reads and sees the max hold time.)
 
@@ -70,7 +69,6 @@ from .settings import (
     merge_overrides,
     with_fallback_defaults,
 )
-from .signal_log import SignalLogResult, log_tier_report
 from .sizing import SizingInputs, size_position
 from .tiers import Tier2Stage, TierState
 
@@ -129,7 +127,6 @@ class TieredRunOutcome:
 
     report: TierReport
     state: TierState
-    signal: Optional[SignalLogResult]
     depth: int = 1
     final_report: Optional[TierReport] = None
     #: Sizing block (v2 slice 6): share count or explicit refusal reason.
@@ -248,9 +245,9 @@ def _stopped_outcome(
     """A run halted by the staleness gate: data cards only, no verdict.
 
     The outlook IS the whole user-facing story (owner decision
-    2026-08-08): no analysis or plan sections exist, no message is shown,
-    no signal is logged (direction stays UNKNOWN), and the stop reason
-    lives in the server log only.
+    2026-08-08): no analysis or plan sections exist, no message is shown
+    (direction stays UNKNOWN), and the stop reason lives in the server
+    log only.
     """
     report = TierReport(
         tier=1,
@@ -266,7 +263,6 @@ def _stopped_outcome(
     return TieredRunOutcome(
         report=report,
         state=state,
-        signal=None,
         depth=depth,
         final_report=report,
         sizing=None,
@@ -331,9 +327,6 @@ def run_tiered_analysis(
     market: Optional[Market] = None,
     providers: Optional[Sequence[DimensionProvider]] = None,
     quick_judge: Optional[QuickJudge] = None,
-    signal_logger: Callable[..., Any] = log_tier_report,
-    log_signal: bool = True,
-    trace_id: Optional[str] = None,
     depth: int = 1,
     sizing_settings: Optional[SizingSettings] = None,
     sizing_overrides: Optional[Mapping[str, Any]] = None,
@@ -353,8 +346,7 @@ def run_tiered_analysis(
     verdict, the AI plan review (deterministic checks may trim shares /
     move stop / move target, with cited reasons, and produce the
     trade-plan card's structured warnings) → outlook + action (code
-    table over ownership) → sizing. Unless ``log_signal`` is False, the
-    deepest tier's recommendation lands in the decision-signal system.
+    table over ownership) → sizing.
 
     ``sizing_overrides`` may carry per-run ``capital`` / ``risk_fraction``
     / ``ownership`` values (the API's per-run override) on top of the
@@ -537,7 +529,7 @@ def run_tiered_analysis(
     final = replace(final, sizing=sizing_slots, hold_weeks=hold_weeks)
     if not final.dimensions:
         # Tier-2 reports are built lean; the deepest report carries the
-        # evidence so the signal ledger and consumers see it.
+        # evidence so consumers see it.
         final = replace(final, dimensions=list(dimensions))
     state.reports[final.tier] = final
     if final.tier == 1:
@@ -555,14 +547,9 @@ def run_tiered_analysis(
         outlook, sizing_settings.ownership, plan_meets_goal=plan_meets_goal
     )
 
-    signal: Optional[SignalLogResult] = None
-    if log_signal:
-        signal = signal_logger(final, trace_id=trace_id)
-
     return TieredRunOutcome(
         report=report,
         state=state,
-        signal=signal,
         depth=depth,
         final_report=final,
         sizing=sizing_detail,

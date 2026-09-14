@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """Run tiered analysis v1 for one or more symbols (production wiring).
 
-For each symbol this collects the four dimensions (technicals,
-fundamentals, macro, positioning), runs the existing DSA analysis as tier 1,
-and records the recommendation in the decision-signal system — visible in
-the web app on the Decision Signals page.
+For each symbol this collects the dimensions (technicals, fundamentals,
+macro, positioning, news), runs the chosen judge, and prints the verdict
+and trade plan.
 
 Usage:
     .venv/bin/python scripts/run_tiered_analysis.py AAPL
@@ -42,13 +41,6 @@ def _print_outcome(symbol: str, outcome) -> None:
         print(f"  - {dim.dimension}: {len(dim.warnings)} warning(s)")
     for warning in report.warnings:
         print(f"warning: {warning}")
-    if outcome.signal is None:
-        print("signal log: skipped")
-    elif outcome.signal.logged:
-        print(f"signal log: saved (id={outcome.signal.signal_id}, "
-              f"new={outcome.signal.created})")
-    else:
-        print(f"signal log: NOT saved — {outcome.signal.reason}")
 
 
 def main() -> None:

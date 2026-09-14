@@ -713,20 +713,6 @@ export const AltResult = ({ result, taskId, runDate }: AltResultProps) => {
         </AltBlock>
       ) : null}
       <div className="flex flex-col gap-1 text-xs">
-        {result.signal?.logged && result.signal.signal_id != null ? (
-          // Standalone app: the decision-signals page stayed in the parent
-          // project, so the saved-signal note is plain text (the scoreboard
-          // lives in scripts/run_forward_test.py).
-          <p className="text-emerald-300">
-            {t('tiered.alt.signalSaved', { id: result.signal.signal_id })}
-          </p>
-        ) : result.signal?.logged ? (
-          <p className="text-emerald-300">{t('tiered.alt.signalSaved', { id: '—' })}</p>
-        ) : result.signal ? (
-          <p className="text-amber-300">
-            {t('tiered.signalSkipped', { reason: result.signal.reason ?? '' })}
-          </p>
-        ) : null}
         {usage && usage.total.calls > 0 ? (
           <p className="text-gray-600">
             <HelpTerm

@@ -94,7 +94,6 @@ function makeV1Result(): TieredResult {
     narrative: 'Tier-1 narrative.',
     warnings: [],
     dimensions: ['technicals', 'fundamentals', 'macro_econ', 'sentiment'].map(makeDimension),
-    signal: null,
   } as unknown as TieredResult;
 }
 
@@ -1113,18 +1112,6 @@ describe('AltResult', () => {
     // tier 1's stored score is a bullishness composite, not a judge
     // confidence — it is not shown as "Score"
     expect(tier1).not.toHaveTextContent(/评分|Score/);
-  });
-
-  it('shows the recorded signal number as plain text (no signals page here)', () => {
-    // Standalone app: the decision-signals page stayed in the parent
-    // project, so the saved-signal note is informational text, not a link.
-    const deep = {
-      ...makeDeepResult(),
-      signal: { logged: true, signal_id: 32, created: true, reason: null },
-    };
-    renderResult(deep);
-    expect(screen.getByText(/#32/)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /#32/ })).toBeNull();
   });
 
   it('tucks data notes behind an exclamation mark that opens a plain-English modal', () => {
