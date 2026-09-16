@@ -27,6 +27,7 @@ retry-friendly messages.
 """
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -81,10 +82,24 @@ class _StageModel(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+#: A news-event anchor: ``<card>.<group>.items.<i>.text``. The AI cites
+#: the event by its ref and copies nothing (a 40-word summary has no
+#: short display value), so these links may come without "value".
+_NEWS_ITEM_REF_RE = re.compile(r"\.items\.\d+\.text$")
+
+
+def is_news_item_ref(ref: str) -> bool:
+    return bool(_NEWS_ITEM_REF_RE.search(ref.strip()))
+
+
 class LinkModel(_StageModel):
     """One citation: a payload ref carrying "value" — the value copied
     exactly as the report displays it (code verifies the copy AND that
-    the sentence contains it)."""
+    the sentence contains it). News-event refs are the one exception
+    (see ``is_news_item_ref``): before 2026-09-16 this validator
+    demanded a value from them too, which contradicted the prompts'
+    "there is no value to copy" and made every summary that cited a
+    news event fail — the deep-analysis card then showed no summary."""
 
     ref: str = Field(min_length=1)
     value: Optional[Union[float, str]] = None
@@ -92,6 +107,8 @@ class LinkModel(_StageModel):
     @model_validator(mode="after")
     def _payload_needs_value(self) -> "LinkModel":
         ref = self.ref.strip()
+        if is_news_item_ref(ref):
+            return self
         if self.value is None or (
             isinstance(self.value, str) and not self.value.strip()
         ):

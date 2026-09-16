@@ -1575,6 +1575,50 @@ class NewsDimensionTest(unittest.TestCase):
         self.assertTrue(result.verdict.summary_structure["company_events"])
         self.assertIn("Company news:", result.verdict.summary)
 
+    def test_summary_news_links_need_no_value(self):
+        # What the prompt asks for and what real models send: the news
+        # bullet cites the event by ref alone (or with a null value).
+        # Until 2026-09-16 the link model demanded a value here, so every
+        # summary that cited a news event was rejected twice and the deep
+        # analysis card showed no summary at all.
+        parsed = json.loads(_news_summary())
+        parsed["company_events"] = [
+            {"text": "Financing support: the bond offering.",
+             "links": [{"ref": N_REFS[0]}], "children": []},
+            {"text": "Legal risk: the antitrust suit.",
+             "links": [{"ref": N_REFS[1], "value": None}], "children": []},
+        ]
+        replies = _replies(
+            lister1=_sheet_reply({**SHEET_1, **NEWS_GRADES}),
+            lister2=_sheet_reply({**SHEET_2, **NEWS_GRADES}),
+            summary=json.dumps(parsed),
+        )
+        engine = DebateEngine(summarizer=RoutedSummarizer(replies))
+        dims = self.dims()
+        result = engine.run("AAPL", _tier1(dimensions=dims), dims)
+
+        self.assertFalse(
+            any("judge summary unparseable" in w for w in result.warnings),
+            result.warnings,
+        )
+        news_bullets = result.verdict.summary_structure["company_events"]
+        self.assertEqual(len(news_bullets), 2)
+        self.assertEqual(news_bullets[0]["links"][0]["ref"], N_REFS[0])
+        self.assertEqual(news_bullets[1]["links"][0]["ref"], N_REFS[1])
+
+    def test_link_model_still_demands_a_value_for_report_numbers(self):
+        from pydantic import ValidationError
+
+        from src.tiered_analysis.debate_models import LinkModel, is_news_item_ref
+
+        self.assertTrue(is_news_item_ref(N_REFS[0]))
+        self.assertFalse(is_news_item_ref("technicals.daily.rsi_14"))
+        LinkModel(ref=N_REFS[0])  # a news anchor needs no value
+        with self.assertRaises(ValidationError):
+            LinkModel(ref="technicals.daily.rsi_14")
+        with self.assertRaises(ValidationError):
+            LinkModel(ref="technicals.daily.rsi_14", value="  ")
+
     def test_grade_sheet_lists_the_news_rows(self):
         sheet1 = {**SHEET_1, **NEWS_GRADES}
         sheet2 = {**SHEET_2, **NEWS_GRADES}
