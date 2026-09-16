@@ -357,28 +357,15 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         self.assertEqual(outcome.outlook, Outlook.BULLISH)
         self.assertEqual(outcome.action, Action.ENTER_LATER)
 
-    def test_bullish_while_holding_is_keep_holding(self):
-        outcome, _, _, _ = self._run(sizing_overrides={"ownership": 300})
-        self.assertEqual(outcome.outlook, Outlook.BULLISH)
-        self.assertEqual(outcome.action, Action.KEEP_HOLDING)
-        self.assertEqual(outcome.sizing["ownership"], 300)
-
-    def test_bearish_with_ownership_sells_the_full_holding(self):
-        outcome, _, _, _ = self._run(
-            depth=2, debate_verdict=_debate_verdict(Direction.SELL, 2.5),
-            sizing_overrides={"ownership": 300})
-        self.assertEqual(outcome.outlook, Outlook.BEARISH)
-        self.assertEqual(outcome.action, Action.SELL_ALL)
-        self.assertEqual(outcome.sizing["sell_shares"], 300)
-        # buy sizing still refuses with not_a_buy... unless settings off
-        self.assertIn(outcome.sizing["reason_code"], ("not_a_buy", "sizing_off"))
-
-    def test_bearish_without_ownership_is_no_trade(self):
+    def test_bearish_is_no_trade_and_sizes_nothing(self):
         outcome, _, _, _ = self._run(
             depth=2, debate_verdict=_debate_verdict(Direction.SELL, 2.5))
+        self.assertEqual(outcome.outlook, Outlook.BEARISH)
         self.assertEqual(outcome.action, Action.NO_TRADE)
-        self.assertEqual(outcome.sizing["ownership"], 0)
-        self.assertIsNone(outcome.sizing["sell_shares"])
+        # The ownership input is gone (2026-09-16): no held-shares block.
+        self.assertNotIn("ownership", outcome.sizing)
+        self.assertNotIn("sell_shares", outcome.sizing)
+        self.assertIn(outcome.sizing["reason_code"], ("not_a_buy", "sizing_off"))
 
     def test_plan_review_emits_structured_warnings_and_shares_detail(self):
         outcome, _, _, _ = self._run(
@@ -417,26 +404,22 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
 class TestDeriveAction(unittest.TestCase):
     """The pure action table, including the buy-now/buy-later split."""
 
-    def test_bullish_without_shares_splits_on_the_reward_goal(self):
+    def test_bullish_splits_on_the_reward_goal(self):
         self.assertEqual(
-            derive_action(Outlook.BULLISH, 0, plan_meets_goal=True),
+            derive_action(Outlook.BULLISH, plan_meets_goal=True),
             Action.ENTER)
         self.assertEqual(
-            derive_action(Outlook.BULLISH, 0, plan_meets_goal=False),
+            derive_action(Outlook.BULLISH, plan_meets_goal=False),
             Action.ENTER_LATER)
 
     def test_a_goal_miss_never_changes_the_other_cells(self):
-        for outlook, ownership, expected in [
-            (Outlook.BULLISH, 300, Action.KEEP_HOLDING),
-            (Outlook.NEUTRAL, 0, Action.NO_TRADE),
-            (Outlook.NEUTRAL, 300, Action.KEEP_HOLDING),
-            (Outlook.BEARISH, 0, Action.NO_TRADE),
-            (Outlook.BEARISH, 300, Action.SELL_ALL),
-            (Outlook.UNKNOWN, 0, Action.UNKNOWN),
+        for outlook, expected in [
+            (Outlook.NEUTRAL, Action.NO_TRADE),
+            (Outlook.BEARISH, Action.NO_TRADE),
+            (Outlook.UNKNOWN, Action.UNKNOWN),
         ]:
             self.assertEqual(
-                derive_action(outlook, ownership, plan_meets_goal=False),
-                expected)
+                derive_action(outlook, plan_meets_goal=False), expected)
 
 
 class TestPlanReviewAdjustments(unittest.TestCase):

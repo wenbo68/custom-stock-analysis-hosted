@@ -22,8 +22,8 @@ const DEFAULT_TIER: TieredDepth = 1;
 const DEFAULT_CAPITAL = '100000';
 const DEFAULT_RISK_PCT = '1';
 // Reward-to-risk ratio the plan aims for (owner decision, 2026-07-21):
-// required like every other field, default 2. The ownership input is
-// gone — deferred to the future portfolio feature.
+// required like every other field, default 2. (There is no ownership
+// input: held shares would belong to a future portfolio feature.)
 const DEFAULT_REWARD = '2';
 // Max hold time in weeks (owner decision 2026-08-08): required, default
 // 2 — feeds the AI prompts, the report and the forward-test window.

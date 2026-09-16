@@ -51,10 +51,6 @@ class SizingOverride(BaseModel):
 
     capital: Optional[float] = Field(default=None, gt=0)
     risk_fraction: Optional[float] = Field(default=None, gt=0, lt=1)
-    #: Shares of this stock the user already holds (0 = none). Kept for
-    #: API compatibility; the alt page no longer sends it (the ownership
-    #: input is deferred to the future portfolio feature).
-    ownership: Optional[int] = Field(default=None, ge=0)
     #: Target reward-to-risk ratio for the plan (target = entry + R × risk).
     reward_risk: Optional[float] = Field(default=None, gt=1, le=10)
 
@@ -216,7 +212,6 @@ def _effective_run_inputs(request: TieredAnalyzeRequest) -> Dict[str, Any]:
         load_sizing_settings(),
         capital=sizing.capital if sizing else None,
         risk_fraction=sizing.risk_fraction if sizing else None,
-        ownership=sizing.ownership if sizing else None,
         reward_risk=sizing.reward_risk if sizing else None,
     ))
     return {

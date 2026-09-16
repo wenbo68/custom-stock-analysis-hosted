@@ -1370,7 +1370,6 @@ const zh = {
   'tiered.alt.f.risk': '单笔风险',
   'tiered.alt.f.multiplier': '仓位倍数',
   'tiered.alt.f.owned': '持有股数',
-  'tiered.sizing.sellShares': '卖出 {value} 股',
   'tiered.alt.f.entry': '入场价',
   'tiered.alt.f.stop': '止损价',
   'tiered.alt.f.fee': '费率',
@@ -1442,9 +1441,7 @@ const zh = {
   'tiered.outlook.stopped': '已停止',
   'tiered.action.enter': '现在买入',
   'tiered.action.enter_later': '稍后再买',
-  'tiered.action.keep_holding': '继续持有',
   'tiered.action.no_trade': '不交易',
-  'tiered.action.sell_all': '清仓卖出',
   'tiered.action.unknown': '重跑——本次运行未产生可用结论',
   'tiered.help.outlook':
     '「展望」是对这只股票本身的判断（看多 / 中性 / 看空），与你是否持有无关。\n「操作」由代码根据展望推出：看多→现在买入（交易计划的盈亏比达到你设定的目标）或稍后再买（低于目标）；中性或看空→不交易。',
@@ -1452,9 +1449,6 @@ const zh = {
     '由固定代码规则从展望推出的个人操作建议。\n看多时分两种：交易计划的实际盈亏比达到你设定的目标→「现在买入」；被上方阻力等因素压到低于目标→「稍后再买」（等更好的价位再入场）。',
   'tiered.alt.earningsWarning': '{days} 天后（{date}）发布财报——预计波动加大，谨慎交易。',
   'tiered.alt.staleNote': '本报告来自之前的交易日——请重跑一次以获得最新计划。',
-  'tiered.alt.structuralStop': '结构性止损位',
-  'tiered.help.structuralStop':
-    '若你已持有该股，收盘跌破这个价位说明支撑结构已被破坏，是常用的离场参考。\n持有场景刻意只显示这一个价位（不建议加仓，所以不显示买入价）。',
   'tiered.alt.noPlan': '本次操作无需买卖计划价位。',
   'tiered.alt.planTitle': '交易计划',
   'tiered.help.plan':
@@ -3126,7 +3120,6 @@ const en: Record<UiTextKey, string> = {
   'tiered.alt.f.risk': 'risk per trade',
   'tiered.alt.f.multiplier': 'size multiplier',
   'tiered.alt.f.owned': 'held shares',
-  'tiered.sizing.sellShares': 'sell {value} shares',
   'tiered.alt.f.entry': 'entry',
   'tiered.alt.f.stop': 'stop loss',
   'tiered.alt.f.fee': 'fee rate',
@@ -3202,9 +3195,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.outlook.stopped': 'Stopped',
   'tiered.action.enter': 'Buy now',
   'tiered.action.enter_later': 'Buy later',
-  'tiered.action.keep_holding': 'Keep holding',
   'tiered.action.no_trade': 'No trade',
-  'tiered.action.sell_all': 'Sell all shares',
   'tiered.action.unknown': 'Re-run — this run produced no usable outlook',
   'tiered.help.outlook':
     'The outlook is the judgment on the stock itself (bullish / neutral / bearish), regardless of whether you hold it.\nThe action is derived by code from the outlook: bullish → buy now (the trade plan’s reward-to-risk meets your goal) or buy later (it falls short); neutral or bearish → no trade.',
@@ -3214,9 +3205,6 @@ const en: Record<UiTextKey, string> = {
     '{days} day(s) until the next earnings report ({date}) — expect turbulence; trade with care.',
   'tiered.alt.staleNote':
     'This report is from a previous trading day — re-run for a fresh plan.',
-  'tiered.alt.structuralStop': 'Structural stop',
-  'tiered.help.structuralStop':
-    'If you already hold this stock, a close below this level means the support structure broke — a common exit reference.\nHolding runs deliberately show only this one level (no “buy more”, so no entry prices).',
   'tiered.alt.noPlan': 'No plan levels for this action.',
   'tiered.alt.planTitle': 'Trade plan',
   'tiered.help.plan':

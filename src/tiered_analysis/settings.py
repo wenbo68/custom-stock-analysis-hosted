@@ -33,10 +33,6 @@ class SizingSettings:
 
     capital: Optional[float] = None
     risk_fraction: Optional[float] = None
-    #: Shares of this stock the user already holds. Per-run input only (a
-    #: holding is stock-specific, so an .env default makes no sense);
-    #: 0 = none, which keeps every pre-ownership behavior unchanged.
-    ownership: int = 0
     #: Target reward-to-risk ratio the user asks the plan for.
     reward_risk: float = DEFAULT_REWARD_RISK
     warnings: Tuple[str, ...] = ()
@@ -113,7 +109,6 @@ def merge_overrides(
     settings: SizingSettings,
     capital: Optional[float] = None,
     risk_fraction: Optional[float] = None,
-    ownership: Optional[float] = None,
     reward_risk: Optional[float] = None,
 ) -> SizingSettings:
     """Per-run overrides (from the API request) on top of saved settings.
@@ -125,8 +120,6 @@ def merge_overrides(
         merged = replace(merged, capital=float(capital))
     if risk_fraction is not None:
         merged = replace(merged, risk_fraction=float(risk_fraction))
-    if ownership is not None and int(ownership) >= 0:
-        merged = replace(merged, ownership=int(ownership))
     if reward_risk is not None and float(reward_risk) > 1.0:
         merged = replace(merged, reward_risk=float(reward_risk))
     return merged

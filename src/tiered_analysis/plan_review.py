@@ -157,8 +157,6 @@ def sizing_detail_dict(
     settings: SizingSettings,
     result: SizingResult,
     levels: SniperLevels,
-    ownership: int,
-    sell_shares: Optional[int],
     shares: Optional[int] = None,
     risk_amount: Optional[float] = None,
     extra_notes: Sequence[str] = (),
@@ -175,8 +173,6 @@ def sizing_detail_dict(
     return {
         "enabled": settings.is_enabled,
         "shares": final_shares,
-        "ownership": ownership,
-        "sell_shares": sell_shares,
         "position_value": position_value,
         "risk_amount": final_risk,
         "loss_per_share": result.loss_per_share,
@@ -878,7 +874,6 @@ def review_plan(
     direction: Direction,
     market: Market,
     settings: SizingSettings,
-    ownership: int = 0,
     summarizer: Optional[Callable[[str], str]] = None,
     hold_weeks: int = DEFAULT_HOLD_WEEKS,
 ) -> PlanReview:
@@ -1093,14 +1088,13 @@ def review_plan(
         else final_result.risk_amount
     )
 
-    sell_shares = ownership if direction is Direction.SELL and ownership > 0 else None
     trim_notes = (
         [f"share count trimmed by the AI plan review: "
          f"{final_result.shares} → {ai_shares}"]
         if ai_shares is not None else []
     )
     sizing_detail = sizing_detail_dict(
-        settings, final_result, levels, ownership, sell_shares,
+        settings, final_result, levels,
         shares=final_shares, risk_amount=final_risk, extra_notes=trim_notes,
     )
     slots = (

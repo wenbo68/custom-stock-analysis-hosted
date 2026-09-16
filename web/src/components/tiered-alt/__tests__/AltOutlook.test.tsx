@@ -265,14 +265,6 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.getByTestId('alt-levels-table')).toBeInTheDocument();
   });
 
-  it('keep_holding shows only the labeled structural stop', () => {
-    renderResult(makeOutlookResult({ outlook: 'bullish', action: 'keep_holding' }));
-    expect(screen.queryByTestId('alt-levels-table')).not.toBeInTheDocument();
-    const stop = screen.getByTestId('alt-structural-stop');
-    expect(stop).toHaveTextContent(/(结构性止损位|Structural stop)/);
-    expect(stop).toHaveTextContent('90');
-  });
-
   it('no_trade shows no trade-plan section at all', () => {
     renderResult(
       makeOutlookResult({
@@ -363,16 +355,14 @@ describe('AltResult outlook conclusion', () => {
     expect(conclusion).not.toHaveTextContent(/(最长持有|Max hold)/);
   });
 
-  it('sell_all hides the plan and prints the exit size from the sizing block', () => {
+  it('a bearish no_trade hides the plan and sizes nothing', () => {
     renderResult(
       makeOutlookResult({
         outlook: 'bearish',
-        action: 'sell_all',
+        action: 'no_trade',
         sizing: {
           enabled: true,
           shares: null,
-          ownership: 300,
-          sell_shares: 300,
           position_value: null,
           risk_amount: null,
           loss_per_share: null,

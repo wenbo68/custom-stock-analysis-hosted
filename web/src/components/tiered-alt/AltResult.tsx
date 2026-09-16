@@ -140,7 +140,7 @@ interface AltConclusionProps {
 }
 
 // The run's bottom line, above everything else: the impersonal outlook,
-// the personal action code derived from outlook × your ownership, and
+// the personal action code derived from the outlook and the plan, and
 // the previous-day staleness note. (The old earnings warning is gone —
 // the date now lives on the fundamentals card, and the deep analysis
 // weighs the event risk itself.) The run-level analysis/data notes mark
@@ -238,28 +238,10 @@ const PlanBody = ({ result, citations, action, taskId }: AltTierOneProps) => {
       </div>
     );
   }
-  if (plan === 'keep_holding') {
-    // Holders get the one number that still matters: the structural
-    // exit level. Entries and targets are entry-plan material and a
-    // bullish-while-holding run deliberately does not say "buy more".
-    return (
-      <p className="text-sm" data-testid="alt-structural-stop">
-        <span className="text-xs text-gray-500">
-          <HelpTerm
-            label={t('tiered.alt.structuralStop')}
-            helpKey="tiered.help.structuralStop"
-          />
-          {': '}
-        </span>
-        <span className="font-semibold tabular-nums text-gray-200">
-          {result.levels.stop_loss != null ? formatPrice(result.levels.stop_loss) : '—'}
-        </span>
-      </p>
-    );
-  }
   // Unreachable for current runs (only bullish outlooks render a plan
-  // section, and their actions are enter/enter_later/keep_holding) —
-  // kept as a crash-guard for unexpected stored actions.
+  // section, and their actions are enter/enter_later) — kept as a
+  // crash-guard for unexpected stored actions (e.g. the retired
+  // keep_holding on runs from before 2026-09-16).
   return (
     <p className="text-sm text-gray-500" data-testid="alt-no-plan">
       {t('tiered.alt.noPlan')}

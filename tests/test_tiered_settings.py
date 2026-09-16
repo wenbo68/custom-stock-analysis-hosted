@@ -90,15 +90,6 @@ class TestMergeOverrides(unittest.TestCase):
         saved = SizingSettings(capital=100000.0, risk_fraction=0.01)
         self.assertEqual(merge_overrides(saved), saved)
 
-    def test_ownership_override_is_per_run_and_defaults_to_zero(self):
-        saved = SizingSettings()
-        self.assertEqual(saved.ownership, 0)
-        merged = merge_overrides(saved, ownership=300)
-        self.assertEqual(merged.ownership, 300)
-        self.assertEqual(saved.ownership, 0)  # unchanged
-        # A negative value can never sneak in as a holding.
-        self.assertEqual(merge_overrides(saved, ownership=-5).ownership, 0)
-
 
 if __name__ == "__main__":
     unittest.main()

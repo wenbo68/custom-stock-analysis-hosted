@@ -287,30 +287,6 @@ class TestTieredDepthAndSizingApi:
             "sizing": {"risk_fraction": 1.5},
         })
         assert response.status_code == 422
-        response = client.post("/tiered/analyze", json={
-            "stock_code": "AAPL",
-            "sizing": {"ownership": -1},
-        })
-        assert response.status_code == 422
-
-    def test_ownership_reaches_the_runner(self, client):
-        captured = {}
-
-        def fake_run(code, depth=1, sizing_overrides=None, hold_weeks=2,
-                     **kwargs):
-            captured["sizing_overrides"] = sizing_overrides
-            return _deep_outcome(code)
-
-        with patch.object(tiered, "_run_analysis", fake_run):
-            accepted = client.post("/tiered/analyze", json={
-                "stock_code": "AAPL",
-                "depth": 2,
-                "sizing": {"ownership": 300},
-            })
-            assert accepted.status_code == 202
-            _poll_until_done(client, accepted.json()["task_id"])
-
-        assert captured["sizing_overrides"] == {"ownership": 300}
 
     def test_depth_and_sizing_reach_the_runner(self, client):
         captured = {}

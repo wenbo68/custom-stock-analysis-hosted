@@ -137,7 +137,7 @@ class TieredRunOutcome:
     #: blob ran inside the DSA pipeline and was billed there).
     llm_usage: Optional[Dict[str, Any]] = None
     #: Outlook redesign: the impersonal judgment + the personal action
-    #: (outlook × ownership code table).
+    #: (code table over the outlook and the plan's reward-to-risk).
     outlook: Outlook = Outlook.UNKNOWN
     action: Action = Action.UNKNOWN
     #: Next earnings date, read from the fundamentals payload (display
@@ -288,9 +288,8 @@ def _sizing_block(
 
     The engine runs even when settings are absent so the UI gets an
     explicit ``sizing_off`` refusal instead of a missing section.
-    Outlook redesign: the tier-3 multiplier is gone — a bearish outlook
-    on a held stock exits the FULL holding (reducing risk needs no
-    permission), and the buy size comes from the formula + caps alone.
+    Outlook redesign: the tier-3 multiplier is gone — the buy size
+    comes from the formula + caps alone.
     """
     inputs = SizingInputs(
         capital=settings.capital,
@@ -301,18 +300,7 @@ def _sizing_block(
         market=market,
     )
     result = size_position(inputs)
-
-    # A bearish outlook on a stock the user holds gets a concrete exit
-    # size: the full holding. This needs no capital/risk settings — the
-    # count IS the holding.
-    ownership = settings.ownership
-    sell_shares = None
-    if final.direction is Direction.SELL and ownership > 0:
-        sell_shares = ownership
-
-    detail = sizing_detail_dict(
-        settings, result, final.levels, ownership, sell_shares
-    )
+    detail = sizing_detail_dict(settings, result, final.levels)
 
     if not result.is_sized:
         return detail, SizingSlots()
@@ -349,10 +337,10 @@ def run_tiered_analysis(
     verdict, the AI plan review (deterministic checks may trim shares /
     move stop / move target, with cited reasons, and produce the
     trade-plan card's structured warnings) → outlook + action (code
-    table over ownership) → sizing.
+    table over the outlook and the plan's reward-to-risk) → sizing.
 
     ``sizing_overrides`` may carry per-run ``capital`` / ``risk_fraction``
-    / ``ownership`` values (the API's per-run override) on top of the
+    / ``reward_risk`` values (the API's per-run override) on top of the
     saved settings. ``earnings_lookup`` is a test seam; production reads
     the date the fundamentals provider already fetched.
     ``cross_bars_loader`` is a test/demo seam: injected providers skip
@@ -391,7 +379,6 @@ def run_tiered_analysis(
             sizing_settings,
             capital=sizing_overrides.get("capital"),
             risk_fraction=sizing_overrides.get("risk_fraction"),
-            ownership=sizing_overrides.get("ownership"),
             reward_risk=sizing_overrides.get("reward_risk"),
         )
     # Every run sizes (owner decision 2026-07-24): missing capital/risk
@@ -497,7 +484,6 @@ def run_tiered_analysis(
             )
         state.reports[1] = report
         state.dimensions = list(dimensions)
-        state.ownership = sizing_settings.ownership
 
         final = report
         if depth >= 2:
@@ -513,7 +499,7 @@ def run_tiered_analysis(
             with tracker.stage("plan_adjust"):
                 review = review_plan(
                     symbol, dimensions, bases, final.direction, market,
-                    sizing_settings, ownership=sizing_settings.ownership,
+                    sizing_settings,
                     summarizer=plan_summarizer, hold_weeks=hold_weeks,
                 )
 
@@ -553,9 +539,7 @@ def run_tiered_analysis(
     plan_meets_goal = (
         ratio is None or ratio >= sizing_settings.reward_risk - REWARD_GOAL_EPS
     )
-    action = derive_action(
-        outlook, sizing_settings.ownership, plan_meets_goal=plan_meets_goal
-    )
+    action = derive_action(outlook, plan_meets_goal=plan_meets_goal)
 
     return TieredRunOutcome(
         report=report,

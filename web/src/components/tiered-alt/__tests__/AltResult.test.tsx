@@ -1654,7 +1654,7 @@ describe('AltResult format-2 risk vote', () => {
   });
 });
 
-describe('AltResult sell sizing from ownership', () => {
+describe('AltResult sell runs', () => {
   it('renders no shares card on sell runs either (retired 2026-07-22)', () => {
     const deep = makeDeepResult();
     renderResult({
@@ -1665,8 +1665,6 @@ describe('AltResult sell sizing from ownership', () => {
         shares: null,
         reason_code: 'not_a_buy',
         refusal_reason: 'not a buy',
-        ownership: 300,
-        sell_shares: 300,
       },
     });
     expect(screen.queryByTestId('alt-shares-computation')).not.toBeInTheDocument();

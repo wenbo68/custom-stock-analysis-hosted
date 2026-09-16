@@ -417,14 +417,10 @@ export type TieredRiskDetail = {
 // 'stopped' (2026-08-08): the staleness gate halted the run before any
 // LLM stage — the data cards exist, but no analysis or plan does.
 export type TieredOutlook = 'bullish' | 'neutral' | 'bearish' | 'unknown' | 'stopped';
-// …and the personal instruction code derives from outlook × ownership.
-export type TieredAction =
-  | 'enter'
-  | 'enter_later'
-  | 'keep_holding'
-  | 'no_trade'
-  | 'sell_all'
-  | 'unknown';
+// …and the personal instruction code derives from the outlook plus the
+// plan's reward-to-risk vs the user's goal. (keep_holding / sell_all
+// went with the ownership input, 2026-09-16.)
+export type TieredAction = 'enter' | 'enter_later' | 'no_trade' | 'unknown';
 
 // Warning-only earnings info: never gates anything, never moves numbers.
 export type TieredEarnings = {
@@ -472,11 +468,6 @@ export type TieredSizing = {
   // Multiplier keys died with tier 3 — absent on outlook-redesign runs.
   shares_before_multiplier?: number | null;
   risk_multiplier?: number | null;
-  // Ownership block (absent on runs stored before the ownership input):
-  // held shares, and the exit size a sell verdict prints from them.
-  ownership?: number | null;
-  sell_shares?: number | null;
-  sell_shares_before_multiplier?: number | null;
   position_value: number | null;
   risk_amount: number | null;
   loss_per_share: number | null;
@@ -597,8 +588,6 @@ export type TieredDepth = 1 | 2 | 3;
 export type TieredSizingRequest = {
   capital?: number;
   risk_fraction?: number;
-  // Kept for API compatibility; the alt form no longer collects it.
-  ownership?: number;
   // Reward-to-risk ratio the plan aims for (target = entry + R × risk).
   reward_risk?: number;
 };
