@@ -13,7 +13,8 @@ Public-server work (2026-09-14):
   proxies /api).
 - startup housekeeping: runs execute as in-process threads, so any run
   still "running" when the process starts belongs to a process that
-  died — it is marked failed. Old transcript and cache rows are pruned.
+  died — it is marked failed. Runs still "queued" are resumed through
+  the global run queue. Old transcript and cache rows are pruned.
 """
 from __future__ import annotations
 
@@ -50,8 +51,9 @@ def _cors_allow_origins() -> list:
 
 
 def startup_housekeeping() -> None:
-    """Mark orphaned runs failed and prune expired rows. Never fails
-    startup: a housekeeping error is logged and the app serves anyway."""
+    """Mark orphaned runs failed, resume queued ones, and prune expired
+    rows. Never fails startup: a housekeeping error is logged and the
+    app serves anyway."""
     from src.tiered_analysis import history
     from src.tiered_analysis.cache_store import prune_cache
 
@@ -61,6 +63,10 @@ def startup_housekeeping() -> None:
             logger.warning("marked %d orphaned run(s) failed at startup", orphaned)
     except Exception as exc:
         logger.warning("startup run cleanup skipped: %s", exc)
+    try:
+        tiered.run_queue.resume()
+    except Exception as exc:
+        logger.warning("startup run queue resume skipped: %s", exc)
     try:
         history.prune_transcripts()
         prune_cache()

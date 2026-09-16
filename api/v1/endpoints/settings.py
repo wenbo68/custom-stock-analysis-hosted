@@ -19,6 +19,7 @@ class SettingsUpdate(BaseModel):
     """Every field optional: absent = unchanged, "" = clear the key."""
 
     llm_model: Optional[str] = Field(default=None, max_length=128)
+    llm_sub_model: Optional[str] = Field(default=None, max_length=128)
     llm_api_key: Optional[str] = Field(default=None, max_length=512)
     finnhub_api_key: Optional[str] = Field(default=None, max_length=512)
     alphavantage_api_key: Optional[str] = Field(default=None, max_length=512)
@@ -48,6 +49,9 @@ def update_my_settings(
     except user_settings.UnknownModel as exc:
         raise HTTPException(status_code=422, detail={
             "error": "unknown_model", "message": str(exc)})
+    except user_settings.ModelMismatch as exc:
+        raise HTTPException(status_code=422, detail={
+            "error": "model_mismatch", "message": str(exc)})
     except user_settings.EncryptionNotConfigured as exc:
         raise HTTPException(status_code=503, detail={
             "error": "encryption_not_configured", "message": str(exc)})

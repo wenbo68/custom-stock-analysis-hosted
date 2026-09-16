@@ -44,6 +44,22 @@ const minBoxes = () => screen.getAllByPlaceholderText(/^下限$|^Min$/);
 const DATE_MIN = 3;
 
 describe('AltRunHistory', () => {
+  it('shows a queued row with its place in line and explains it when expanded', () => {
+    renderHistory({
+      runs: [makeRun('q1', { status: 'queued', queue_ahead: 2, direction: null, shares: null })],
+      expandedTaskId: 'q1',
+    });
+
+    expect(screen.getByText(/排队中（前面 2 个）|Queued \(2 ahead\)/)).toBeInTheDocument();
+    expect(screen.getByText(/轮到时会自动开始|starts by itself/)).toBeInTheDocument();
+  });
+
+  it('shows a queued row without a count when the backend sends none', () => {
+    renderHistory({ runs: [makeRun('q1', { status: 'queued', direction: null })] });
+
+    expect(screen.getByText(/^排队中$|^Queued$/)).toBeInTheDocument();
+  });
+
   it('shows ticker, capital, risk, tier, outlook and date per row', () => {
     renderHistory({
       runs: [

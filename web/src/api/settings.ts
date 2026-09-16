@@ -16,14 +16,17 @@ export type ModelChoice = {
 
 export type UserSettings = {
   llm_model: string | null;
+  /** The cheaper model for screening chores; null = the main model. */
+  llm_sub_model: string | null;
   llm_api_key: KeyStatus;
   data_keys: Record<DataKeyName, KeyStatus>;
   models: ModelChoice[];
 };
 
-// Absent = unchanged, "" = clear the key.
+// Absent = unchanged, "" = clear the key (or model).
 export type UserSettingsUpdate = {
   llm_model?: string;
+  llm_sub_model?: string;
   llm_api_key?: string;
   finnhub_api_key?: string;
   alphavantage_api_key?: string;

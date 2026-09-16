@@ -24,6 +24,11 @@ class UnknownModel(ValueError):
     """The model is not on the curated list."""
 
 
+class ModelMismatch(ValueError):
+    """The main and sub models belong to different providers — one key
+    cannot pay for both."""
+
+
 @dataclass(frozen=True)
 class ModelChoice:
     id: str
@@ -33,18 +38,28 @@ class ModelChoice:
     key_url: str
 
 
-#: The curated list. ``id`` is the litellm model string.
+#: The curated list, strongest first within each provider. ``id`` is
+#: the litellm model string. Refreshed September 2026: Gemini 2.5 retires
+#: mid-October 2026, GPT-4o is two generations old, and DeepSeek now
+#: documents only ``deepseek-v4-pro`` and ``deepseek-flash``.
+_GEMINI = ("gemini", "Google Gemini", "https://aistudio.google.com/apikey")
+_OPENAI = ("openai", "OpenAI", "https://platform.openai.com/api-keys")
+_DEEPSEEK = ("deepseek", "DeepSeek", "https://platform.deepseek.com/api_keys")
+
 MODEL_CATALOG: List[ModelChoice] = [
-    ModelChoice("gemini/gemini-2.5-flash", "Gemini 2.5 Flash", "gemini",
-                "Google Gemini", "https://aistudio.google.com/apikey"),
-    ModelChoice("gemini/gemini-2.5-pro", "Gemini 2.5 Pro", "gemini",
-                "Google Gemini", "https://aistudio.google.com/apikey"),
-    ModelChoice("openai/gpt-4o-mini", "GPT-4o mini", "openai",
-                "OpenAI", "https://platform.openai.com/api-keys"),
-    ModelChoice("openai/gpt-4o", "GPT-4o", "openai",
-                "OpenAI", "https://platform.openai.com/api-keys"),
-    ModelChoice("deepseek/deepseek-chat", "DeepSeek Chat", "deepseek",
-                "DeepSeek", "https://platform.deepseek.com/api_keys"),
+    ModelChoice("gemini/gemini-3.1-pro-preview", "Gemini 3.1 Pro (preview)", *_GEMINI),
+    ModelChoice("gemini/gemini-3.8-flash", "Gemini 3.8 Flash", *_GEMINI),
+    ModelChoice("gemini/gemini-3.7-flash", "Gemini 3.7 Flash", *_GEMINI),
+    ModelChoice("gemini/gemini-3.6-flash", "Gemini 3.6 Flash", *_GEMINI),
+    ModelChoice("gemini/gemini-3.5-flash", "Gemini 3.5 Flash", *_GEMINI),
+    ModelChoice("gemini/gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", *_GEMINI),
+    ModelChoice("gemini/gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", *_GEMINI),
+    ModelChoice("openai/gpt-6-astra", "GPT-6 Astra", *_OPENAI),
+    ModelChoice("openai/gpt-5.6-sol", "GPT-5.6 Sol", *_OPENAI),
+    ModelChoice("openai/gpt-5.6-terra", "GPT-5.6 Terra", *_OPENAI),
+    ModelChoice("openai/gpt-5.6-luna", "GPT-5.6 Luna", *_OPENAI),
+    ModelChoice("deepseek/deepseek-v4-pro", "DeepSeek V4 Pro", *_DEEPSEEK),
+    ModelChoice("deepseek/deepseek-flash", "DeepSeek Flash", *_DEEPSEEK),
 ]
 
 #: Data-source keys a user may override, in display order.
@@ -62,6 +77,15 @@ def model_choice(model_id: str) -> ModelChoice:
         if choice.id == model_id:
             return choice
     raise UnknownModel(f"{model_id!r} is not on the model list")
+
+
+def _listed(model_id: Optional[str]) -> Optional[str]:
+    """A stored model id, or None once it has dropped off the catalog —
+    a retired model reads back as "not picked" rather than being sent
+    to the provider or tripping the same-provider check."""
+    if not model_id:
+        return None
+    return model_id if any(c.id == model_id for c in MODEL_CATALOG) else None
 
 
 # ---- encryption ----
@@ -122,7 +146,8 @@ def _view(row: Any) -> Dict[str, Any]:
         return {"set": bool(secret), "hint": mask_secret(secret)}
 
     return {
-        "llm_model": getattr(row, "llm_model", None) if row is not None else None,
+        "llm_model": _listed(getattr(row, "llm_model", None)),
+        "llm_sub_model": _listed(getattr(row, "llm_sub_model", None)),
         "llm_api_key": key_view(_KEY_COLUMNS["llm"]),
         "data_keys": {
             name: key_view(_KEY_COLUMNS[name]) for name in DATA_KEY_NAMES
@@ -141,24 +166,39 @@ def load_user_settings(user_id: int) -> Dict[str, Any]:
 _UNCHANGED = object()
 
 
+def _clean_model(value: Any) -> Optional[str]:
+    """A model field as stored: the id, or None for empty/cleared."""
+    cleaned = (str(value) if value is not None else "").strip()
+    if cleaned:
+        model_choice(cleaned)  # raises UnknownModel
+    return cleaned or None
+
+
+def _check_same_provider(main: Optional[str], sub: Optional[str]) -> None:
+    if main and sub and model_choice(main).provider != model_choice(sub).provider:
+        raise ModelMismatch(
+            f"{sub!r} is not from the same provider as {main!r}"
+        )
+
+
 def save_user_settings(
     user_id: int,
     llm_model: Any = _UNCHANGED,
+    llm_sub_model: Any = _UNCHANGED,
     llm_api_key: Any = _UNCHANGED,
     finnhub_api_key: Any = _UNCHANGED,
     alphavantage_api_key: Any = _UNCHANGED,
     fred_api_key: Any = _UNCHANGED,
 ) -> Dict[str, Any]:
-    """Update the given fields; omitted ones stay. A key given as an
-    empty string is cleared. Returns the masked view."""
+    """Update the given fields; omitted ones stay. A key or model given
+    as an empty string is cleared. Returns the masked view."""
     from src.storage import UserSettingsRecord, utc_naive_now
-
-    if llm_model is not _UNCHANGED and llm_model:
-        model_choice(str(llm_model))  # raises UnknownModel
 
     updates: Dict[str, Any] = {}
     if llm_model is not _UNCHANGED:
-        updates["llm_model"] = (str(llm_model).strip() or None) if llm_model else None
+        updates["llm_model"] = _clean_model(llm_model)
+    if llm_sub_model is not _UNCHANGED:
+        updates["llm_sub_model"] = _clean_model(llm_sub_model)
     for value, column in (
         (llm_api_key, _KEY_COLUMNS["llm"]),
         (finnhub_api_key, _KEY_COLUMNS["finnhub"]),
@@ -175,6 +215,12 @@ def save_user_settings(
         if row is None:
             row = UserSettingsRecord(user_id=int(user_id))
             session.add(row)
+        # Checked on the merged result, so a sub model saved on its own
+        # still has to match the main model already stored.
+        _check_same_provider(
+            updates.get("llm_model", _listed(row.llm_model)),
+            updates.get("llm_sub_model", _listed(row.llm_sub_model)),
+        )
         for column, value in updates.items():
             setattr(row, column, value)
         row.updated_at = utc_naive_now()
@@ -197,7 +243,8 @@ def run_settings_for(user_id: int) -> RunSettings:
             if secret:
                 data_keys[name] = secret
         return RunSettings(
-            llm_model=row.llm_model or None,
+            llm_model=_listed(row.llm_model),
+            llm_sub_model=_listed(row.llm_sub_model),
             llm_api_key=decrypt_secret(row.llm_api_key_enc),
             data_keys=data_keys,
         )

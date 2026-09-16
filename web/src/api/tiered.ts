@@ -544,7 +544,9 @@ export type TieredResult = {
   hold_weeks?: number | null;
 };
 
-export type TieredRunStatus = 'running' | 'done' | 'failed';
+// queued (2026-09-15): waiting for a free slot in the server's global run
+// queue; it becomes running by itself.
+export type TieredRunStatus = 'queued' | 'running' | 'done' | 'failed';
 
 export type TieredRunSummary = {
   task_id: string;
@@ -553,6 +555,8 @@ export type TieredRunSummary = {
   error: string | null;
   created_at: string | null;
   updated_at: string | null;
+  // Queued rows only: how many runs (anyone's) are ahead in the line.
+  queue_ahead?: number | null;
   // Digest of the stored report for the history rows. Null while running,
   // after a failure, or on rows stored before the backend sent these.
   // shares mirrors the report card: 0 = sizing ran but bought nothing,
@@ -608,14 +612,22 @@ export type TieredMarketOpenGate = {
   sessionClose: string | null;
 };
 
+// The 409 duplicate-run rejection body (2026-09-15): the caller's own
+// unfinished run with the same ticker and inputs — the Start popup names
+// it and the history expands it.
+export type TieredDuplicateRun = {
+  taskId: string;
+  status: 'queued' | 'running';
+};
+
 export const tieredApi = {
   start: async (
     stockCode: string,
     depth: TieredDepth = 1,
     sizing?: TieredSizingRequest,
     options?: TieredStartOptions,
-  ): Promise<{ task_id: string }> => {
-    const response = await apiClient.post<{ task_id: string }>('/api/v1/tiered/analyze', {
+  ): Promise<{ task_id: string; status: TieredRunStatus }> => {
+    const response = await apiClient.post<{ task_id: string; status: TieredRunStatus }>('/api/v1/tiered/analyze', {
       stock_code: stockCode,
       depth,
       ...(sizing && Object.keys(sizing).length > 0 ? { sizing } : {}),

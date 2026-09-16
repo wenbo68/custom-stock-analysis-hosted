@@ -10,6 +10,12 @@ server restarts, and GET /runs/{task_id} returns the stored full report.
 Public server (2026-09-14): every route here needs a signed-in user. A
 run carries that user's own model and keys and belongs to them — the
 list and detail routes only ever show the caller's runs.
+
+Run queue (2026-09-15): a new run is stored ``queued`` and the global
+queue (src/tiered_analysis/run_queue.py) starts it when one of the
+``TIERED_MAX_CONCURRENT_RUNS`` slots is free. An exact duplicate of the
+caller's own unfinished run (same ticker and inputs) is refused with a
+409 naming that run, so a double click never pays twice.
 """
 from __future__ import annotations
 
@@ -25,6 +31,7 @@ from api.auth.session import current_user
 from src.tiered_analysis import history
 from src.tiered_analysis.llm_support import LlmTranscript
 from src.tiered_analysis.run_context import RunSettings
+from src.tiered_analysis.run_queue import QueuedRun, RunQueue
 from src.user_settings import EncryptionNotConfigured, run_settings_for
 
 logger = logging.getLogger(__name__)
@@ -179,21 +186,46 @@ def _serialize_outcome(outcome: Any) -> Dict[str, Any]:
     }
 
 
-def _run_task(task_id: str, stock_code: str, depth: int = 1,
-              sizing_overrides: Optional[Dict[str, float]] = None,
-              hold_weeks: int = 2,
-              settings: Optional[RunSettings] = None) -> None:
+def _settings_for_queued_run(owner_id: Optional[int]) -> RunSettings:
+    """The owner's model and keys as they are when the run STARTS (a
+    queued run may wait a while; the key on file then is the one that
+    pays). Raises when there is no owner or no usable LLM key — the run
+    is then marked failed with that reason."""
+    if owner_id is None:
+        raise RuntimeError("run has no owner")
+    settings = run_settings_for(owner_id)
+    if not settings.is_llm_configured:
+        raise RuntimeError("no LLM model and API key on file for this run's owner")
+    return settings
+
+
+def _execute_run(run: QueuedRun) -> None:
+    """The queue's runner: execute one run and record its outcome. Never
+    raises — a failure lands on the run row."""
     try:
-        outcome = _run_analysis(stock_code, depth=depth,
-                                sizing_overrides=sizing_overrides,
-                                hold_weeks=hold_weeks,
-                                transcript=LlmTranscript.for_run(task_id),
-                                settings=settings)
-        history.mark_done(task_id, _serialize_outcome(outcome))
+        settings = _settings_for_queued_run(run.owner_id)
+        inputs = run.inputs
+        outcome = _run_analysis(
+            run.stock_code,
+            depth=int(inputs.get("tier") or 1),
+            sizing_overrides=inputs.get("sizing_overrides") or None,
+            hold_weeks=int(inputs.get("hold_weeks") or 2),
+            transcript=LlmTranscript.for_run(run.task_id),
+            settings=settings,
+        )
+        history.mark_done(run.task_id, _serialize_outcome(outcome))
     except Exception as exc:
         logger.error("tiered analysis task failed for %s: %s",
-                     stock_code, exc, exc_info=True)
-        history.mark_failed(task_id, str(exc))
+                     run.stock_code, exc, exc_info=True)
+        history.mark_failed(run.task_id, str(exc))
+
+
+#: The one queue this process runs; app startup calls ``resume`` on it.
+run_queue = RunQueue(_execute_run)
+
+#: Serializes the duplicate check with the row insert so two clicks that
+#: arrive together cannot both pass the check.
+_submit_lock = threading.Lock()
 
 
 def _effective_run_inputs(request: TieredAnalyzeRequest) -> Dict[str, Any]:
@@ -246,14 +278,24 @@ def start_tiered_analysis(
 ) -> Dict[str, Any]:
     """Kick off a tiered run in the background; returns a pollable task.
 
-    CLOCK GATE (2026-08-08): runs are rejected (409) from market open
-    until 30 minutes past the close in the exchange's own timezone — the
-    app analyzes completed trading days only. ``run_anyway: true``
-    overrides and analyzes the previous completed session instead.
+    CLOCK GATE (2026-08-08): runs are rejected (409, code market_open)
+    from market open until 30 minutes past the close in the exchange's
+    own timezone — the app analyzes completed trading days only.
+    ``run_anyway: true`` overrides and analyzes the previous completed
+    session instead.
+
+    DUPLICATE (2026-09-15): the caller's own queued/running run with the
+    same ticker and inputs is refused (409, code duplicate_run, with
+    that run's task_id and status).
+
+    The response ``status`` is ``running`` when a slot was free, else
+    ``queued`` — the run starts by itself when one frees up.
     """
     from src.tiered_analysis.run_gate import clock_gate
 
-    settings = _settings_for_run(user)
+    # Refuse up front when the caller has no LLM key; the run itself
+    # re-reads the settings when it leaves the queue.
+    _settings_for_run(user)
     gate = clock_gate(request.stock_code, override=request.run_anyway)
     if gate.blocked:
         logger.info(
@@ -268,23 +310,30 @@ def start_tiered_analysis(
             detail["session_close"] = gate.session_close.isoformat()
         raise HTTPException(status_code=409, detail=detail)
 
-    task_id = uuid.uuid4().hex
-    history.create_run(task_id, request.stock_code,
-                       inputs=_effective_run_inputs(request),
-                       owner_id=user["id"])
-    sizing_overrides: Optional[Dict[str, float]] = None
+    inputs = _effective_run_inputs(request)
     if request.sizing is not None:
-        sizing_overrides = request.sizing.model_dump(exclude_none=True) or None
-    worker = threading.Thread(
-        target=_run_task,
-        args=(task_id, request.stock_code, request.depth, sizing_overrides,
-              request.hold_weeks, settings),
-        name=f"tiered-analysis-{request.stock_code}",
-        daemon=True,
-    )
-    worker.start()
+        overrides = request.sizing.model_dump(exclude_none=True)
+        if overrides:
+            inputs["sizing_overrides"] = overrides
+
+    with _submit_lock:
+        duplicate = history.find_active_duplicate(
+            user["id"], request.stock_code, inputs)
+        if duplicate is not None:
+            logger.info("tiered run refused as a duplicate of %s for %s",
+                        duplicate["task_id"], request.stock_code)
+            raise HTTPException(status_code=409, detail={
+                "code": "duplicate_run",
+                "task_id": duplicate["task_id"],
+                "status": duplicate["status"],
+            })
+        task_id = uuid.uuid4().hex
+        history.create_run(task_id, request.stock_code, inputs=inputs,
+                           owner_id=user["id"],
+                           status=history.STATUS_QUEUED)
+    status = run_queue.submit(task_id)
     return {"task_id": task_id, "stock_code": request.stock_code,
-            "depth": request.depth, "status": "running"}
+            "depth": request.depth, "status": status}
 
 
 @router.get("/sizing-defaults")

@@ -420,21 +420,15 @@ def default_summarizer(prompt: str, schema: Any = None) -> str:
 def screen_summarizer(prompt: str, schema: Any = None) -> str:
     """Summarizer for the news screen's classification chores.
 
-    ``NEWS_SCREEN_MODEL`` (a faster, cheaper model — screening is
-    is-this-about-the-company bookkeeping, not analysis) when set, the
-    standard ``LITELLM_MODEL`` otherwise: unconfigured keeps working,
-    configured speeds it up. A run that carries its own model (a
-    signed-in user's) uses that for screening too — the server's screen
-    model would need the server's key. Temperature 0 like every stage.
+    A faster, cheaper model — screening is is-this-about-the-company
+    bookkeeping, not analysis: the run's own sub model, else its main
+    model, else the server's ``NEWS_SCREEN_MODEL``; None falls through
+    to the standard ``LITELLM_MODEL`` so unconfigured keeps working.
+    See ``run_context.llm_sub_model``. Temperature 0 like every stage.
     """
-    import os
+    from .run_context import llm_sub_model
 
-    from .run_context import active_run_settings
-
-    model = active_run_settings().llm_model or (
-        (os.getenv("NEWS_SCREEN_MODEL") or "").strip() or None
-    )
-    return _summarize(prompt, temperature=0.0, model=model, schema=schema)
+    return _summarize(prompt, temperature=0.0, model=llm_sub_model(), schema=schema)
 
 
 def deterministic_summarizer(prompt: str, schema: Any = None) -> str:

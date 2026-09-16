@@ -92,31 +92,79 @@ class TestSaveAndLoad:
 
     def test_save_masks_keys_and_the_run_bundle_decrypts_them(self, user):
         view = user_settings.save_user_settings(
-            user["id"], llm_model="openai/gpt-4o-mini", llm_api_key="sk-secret-9876",
+            user["id"], llm_model="openai/gpt-5.6-luna", llm_api_key="sk-secret-9876",
             fred_api_key="fred-key-0001",
         )
-        assert view["llm_model"] == "openai/gpt-4o-mini"
+        assert view["llm_model"] == "openai/gpt-5.6-luna"
         assert view["llm_api_key"] == {"set": True, "hint": "••••9876"}
         assert view["data_keys"]["fred"] == {"set": True, "hint": "••••0001"}
         assert view["data_keys"]["finnhub"] == {"set": False, "hint": None}
 
         bundle = user_settings.run_settings_for(user["id"])
-        assert bundle.llm_model == "openai/gpt-4o-mini"
+        assert bundle.llm_model == "openai/gpt-5.6-luna"
         assert bundle.llm_api_key == "sk-secret-9876"
         assert bundle.data_keys == {"fred": "fred-key-0001"}
         assert bundle.is_llm_configured
 
     def test_omitted_fields_stay_and_empty_string_clears(self, user):
-        user_settings.save_user_settings(user["id"], llm_model="openai/gpt-4o",
+        user_settings.save_user_settings(user["id"], llm_model="openai/gpt-5.6-sol",
                                          llm_api_key="k1", finnhub_api_key="f1")
         view = user_settings.save_user_settings(user["id"], finnhub_api_key="")
-        assert view["llm_model"] == "openai/gpt-4o"
+        assert view["llm_model"] == "openai/gpt-5.6-sol"
         assert view["llm_api_key"]["set"] is True
         assert view["data_keys"]["finnhub"]["set"] is False
 
     def test_unknown_model_is_refused(self, user):
         with pytest.raises(user_settings.UnknownModel):
             user_settings.save_user_settings(user["id"], llm_model="acme/x")
+
+    def test_sub_model_rides_into_the_run_and_clears_with_empty_string(self, user):
+        view = user_settings.save_user_settings(
+            user["id"], llm_model="gemini/gemini-3.1-pro-preview",
+            llm_sub_model="gemini/gemini-3.8-flash",
+        )
+        assert view["llm_sub_model"] == "gemini/gemini-3.8-flash"
+        assert user_settings.run_settings_for(user["id"]).llm_sub_model == "gemini/gemini-3.8-flash"
+        view = user_settings.save_user_settings(user["id"], llm_sub_model="")
+        assert view["llm_sub_model"] is None
+        assert view["llm_model"] == "gemini/gemini-3.1-pro-preview"
+
+    def test_sub_model_must_share_the_main_models_provider(self, user):
+        user_settings.save_user_settings(user["id"], llm_model="openai/gpt-5.6-sol")
+        # one key pays for both, so a sub model from another provider is refused —
+        # also when it arrives alone, against the main model already stored
+        with pytest.raises(user_settings.ModelMismatch):
+            user_settings.save_user_settings(user["id"], llm_sub_model="gemini/gemini-3.8-flash")
+        with pytest.raises(user_settings.ModelMismatch):
+            user_settings.save_user_settings(
+                user["id"], llm_model="deepseek/deepseek-flash", llm_sub_model="openai/gpt-5.6-luna",
+            )
+        assert user_settings.load_user_settings(user["id"])["llm_sub_model"] is None
+
+    def test_retired_model_reads_back_as_unset(self, user, isolated_db):
+        from src.storage import UserSettingsRecord
+
+        user_settings.save_user_settings(
+            user["id"], llm_model="openai/gpt-5.6-sol", llm_sub_model="openai/gpt-5.6-luna",
+            llm_api_key="sk-secret-9876",
+        )
+        # a model that was on the list when saved, then dropped off it
+        with isolated_db.get_session() as session:
+            row = session.get(UserSettingsRecord, user["id"])
+            row.llm_model = "openai/gpt-4o"
+            row.llm_sub_model = "openai/gpt-4o-mini"
+            session.commit()
+        view = user_settings.load_user_settings(user["id"])
+        assert view["llm_model"] is None
+        assert view["llm_sub_model"] is None
+        bundle = user_settings.run_settings_for(user["id"])
+        assert bundle.llm_model is None
+        assert bundle.is_llm_configured is False
+        # saving something else must not trip over the stale pair
+        user_settings.save_user_settings(user["id"], finnhub_api_key="fh-1234")
+        # and a fresh pick from any provider is accepted
+        view = user_settings.save_user_settings(user["id"], llm_model="gemini/gemini-3.8-flash")
+        assert view["llm_model"] == "gemini/gemini-3.8-flash"
 
     def test_keys_are_not_stored_in_clear(self, user, isolated_db):
         from src.storage import UserSettingsRecord
@@ -139,16 +187,16 @@ class TestSettingsApi:
         body = client.get("/settings/me").json()
         assert body["llm_model"] is None
         assert body["llm_api_key"]["set"] is False
-        assert any(m["id"] == "gemini/gemini-2.5-flash" for m in body["models"])
+        assert any(m["id"] == "gemini/gemini-3.8-flash" for m in body["models"])
 
     def test_put_updates_only_the_given_fields(self, client):
         body = client.put("/settings/me", json={
-            "llm_model": "deepseek/deepseek-chat", "llm_api_key": "sk-deep-4321",
+            "llm_model": "deepseek/deepseek-flash", "llm_api_key": "sk-deep-4321",
         }).json()
-        assert body["llm_model"] == "deepseek/deepseek-chat"
+        assert body["llm_model"] == "deepseek/deepseek-flash"
         assert body["llm_api_key"] == {"set": True, "hint": "••••4321"}
         body = client.put("/settings/me", json={"alphavantage_api_key": "av-1"}).json()
-        assert body["llm_model"] == "deepseek/deepseek-chat"
+        assert body["llm_model"] == "deepseek/deepseek-flash"
         assert body["data_keys"]["alphavantage"]["set"] is True
         assert "sk-deep-4321" not in client.get("/settings/me").text
 
@@ -156,6 +204,15 @@ class TestSettingsApi:
         response = client.put("/settings/me", json={"llm_model": "acme/x"})
         assert response.status_code == 422
         assert response.json()["detail"]["error"] == "unknown_model"
+
+    def test_sub_model_from_another_provider_is_422(self, client):
+        response = client.put("/settings/me", json={
+            "llm_model": "openai/gpt-5.6-sol", "llm_sub_model": "deepseek/deepseek-flash",
+        })
+        assert response.status_code == 422
+        assert response.json()["detail"]["error"] == "model_mismatch"
+        body = client.get("/settings/me").json()
+        assert body["llm_model"] is None and body["llm_sub_model"] is None
 
     def test_missing_encryption_key_is_503(self, client, monkeypatch):
         monkeypatch.delenv("APP_ENCRYPTION_KEY")

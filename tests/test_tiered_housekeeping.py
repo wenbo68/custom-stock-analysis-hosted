@@ -116,6 +116,44 @@ class TestStartupHousekeeping:
             assert client.get("/api/health").status_code == 200
         assert history.get_run("orphan")["status"] == "failed"
 
+    def test_app_startup_resumes_queued_runs(self, isolated_db, monkeypatch):
+        """A run left ``queued`` by the previous process starts again
+        under the new one (the line lives in the database)."""
+        import time
+        from unittest.mock import patch
+
+        from cryptography.fernet import Fernet
+
+        from api.app import create_app
+        from api.auth.providers import Identity
+        from src.user_settings import save_user_settings
+        from src.users import upsert_from_identity
+
+        monkeypatch.setenv("APP_ENCRYPTION_KEY", Fernet.generate_key().decode())
+        owner = upsert_from_identity(Identity(provider="google", subject="q"))
+        save_user_settings(owner["id"], llm_model="gemini/gemini-3.8-flash",
+                           llm_api_key="k")
+        history.create_run("waiting", "AAPL", owner_id=owner["id"],
+                           status=history.STATUS_QUEUED,
+                           inputs={"tier": 2, "hold_weeks": 1})
+        seen = {}
+
+        def fake_run(code, **kwargs):
+            seen.update(kwargs, code=code)
+            from tests.test_tiered_api import _outcome
+            return _outcome(code)
+
+        with patch.object(tiered, "_run_analysis", fake_run):
+            with TestClient(create_app()) as client:
+                assert client.get("/api/health").status_code == 200
+                deadline = time.time() + 5
+                while time.time() < deadline and history.get_run("waiting")["status"] != "done":
+                    time.sleep(0.05)
+        assert history.get_run("waiting")["status"] == "done"
+        assert seen["code"] == "AAPL"
+        assert seen["depth"] == 2
+        assert seen["hold_weeks"] == 1
+
 
 class TestTranscriptStorage:
     def test_for_run_writes_rows_readable_in_call_order(self, isolated_db):

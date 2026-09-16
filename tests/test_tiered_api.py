@@ -9,6 +9,7 @@ fast fakes and use the repo-standard isolated sqlite fixture.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from unittest.mock import patch
 
@@ -99,7 +100,7 @@ def user(isolated_db, encryption_key):
     """A signed-in user with a model and LLM key on file."""
     account = upsert_from_identity(Identity(provider="google", subject="u1",
                                             email="u1@example.com"))
-    save_user_settings(account["id"], llm_model="gemini/gemini-2.5-flash",
+    save_user_settings(account["id"], llm_model="gemini/gemini-3.8-flash",
                        llm_api_key="sk-user-one")
     return account
 
@@ -175,7 +176,7 @@ def _poll_until_done(client, task_id, timeout_s=5.0):
         response = client.get(f"/tiered/runs/{task_id}")
         assert response.status_code == 200
         body = response.json()
-        if body["status"] != "running":
+        if body["status"] not in ("queued", "running"):
             return body
         time.sleep(0.05)
     raise AssertionError("run never finished")
@@ -313,7 +314,7 @@ class TestTieredDepthAndSizingApi:
         assert captured["sizing_overrides"] == {"capital": 50000.0,
                                                 "risk_fraction": 0.02}
         # The run carries the caller's own model and key (never the env).
-        assert captured["settings"].llm_model == "gemini/gemini-2.5-flash"
+        assert captured["settings"].llm_model == "gemini/gemini-3.8-flash"
         assert captured["settings"].llm_api_key == "sk-user-one"
 
     def test_deep_run_response_contract(self, client):
@@ -505,7 +506,7 @@ class TestAccessControl:
         assert [r["task_id"] for r in client.get("/tiered/runs").json()["items"]] == [task_id]
 
         other = upsert_from_identity(Identity(provider="discord", subject="u2"))
-        save_user_settings(other["id"], llm_model="openai/gpt-4o-mini", llm_api_key="k")
+        save_user_settings(other["id"], llm_model="openai/gpt-5.6-luna", llm_api_key="k")
         stranger = _signed_in_client(other)
         assert stranger.get("/tiered/runs").json() == {"items": []}
         assert stranger.get(f"/tiered/runs/{task_id}").status_code == 404
@@ -524,3 +525,118 @@ class TestAccessControl:
         response = _signed_in_client(user).post("/tiered/analyze", json={"stock_code": "AAPL"})
         assert response.status_code == 503
         assert response.json()["detail"]["error"] == "encryption_not_configured"
+
+
+class TestRunQueueEndpoint:
+    """The global run queue (2026-09-15): a run past the concurrency cap
+    waits as ``queued`` and starts by itself; an exact duplicate of the
+    caller's own unfinished run is refused with a 409."""
+
+    @staticmethod
+    def _gated_runner():
+        release = threading.Event()
+
+        def runner(code, **kwargs):
+            release.wait(timeout=5)
+            return _outcome(code)
+
+        return runner, release
+
+    def test_second_run_past_the_cap_waits_then_runs(self, client, monkeypatch):
+        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        runner, release = self._gated_runner()
+        with patch.object(tiered, "_run_analysis", runner):
+            first = client.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
+            second = client.post("/tiered/analyze", json={"stock_code": "MSFT"}).json()
+            assert first["status"] == "running"
+            assert second["status"] == "queued"
+
+            items = {r["task_id"]: r for r in client.get("/tiered/runs").json()["items"]}
+            assert items[first["task_id"]]["status"] == "running"
+            assert items[second["task_id"]]["status"] == "queued"
+            assert items[second["task_id"]]["queue_ahead"] == 0
+            # queued rows already show the inputs they were made with
+            assert items[second["task_id"]]["tier"] == 1
+
+            release.set()
+            assert _poll_until_done(client, first["task_id"])["status"] == "done"
+            assert _poll_until_done(client, second["task_id"])["status"] == "done"
+
+    def test_exact_duplicate_of_an_unfinished_run_is_409(self, client, monkeypatch):
+        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        runner, release = self._gated_runner()
+        body = {"stock_code": "AAPL", "depth": 2, "hold_weeks": 3,
+                "sizing": {"capital": 50000, "risk_fraction": 0.02, "reward_risk": 2}}
+        with patch.object(tiered, "_run_analysis", runner):
+            accepted = client.post("/tiered/analyze", json=body)
+            assert accepted.status_code == 202
+            task_id = accepted.json()["task_id"]
+
+            again = client.post("/tiered/analyze", json={**body, "stock_code": "aapl"})
+            assert again.status_code == 409
+            assert again.json()["detail"] == {
+                "code": "duplicate_run", "task_id": task_id, "status": "running",
+            }
+            # one input changed: a different run, so it joins the line
+            other = client.post("/tiered/analyze", json={**body, "hold_weeks": 4})
+            assert other.status_code == 202
+            assert other.json()["status"] == "queued"
+            # and the queued one is a duplicate too
+            assert client.post("/tiered/analyze",
+                               json={**body, "hold_weeks": 4}).status_code == 409
+
+            release.set()
+            _poll_until_done(client, task_id)
+            _poll_until_done(client, other.json()["task_id"])
+
+        # finished runs never block a re-run
+        with patch.object(tiered, "_run_analysis",
+                          lambda code, **kwargs: _outcome(code)):
+            assert client.post("/tiered/analyze", json=body).status_code == 202
+
+    def test_duplicates_are_per_user(self, client, user, monkeypatch):
+        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        runner, release = self._gated_runner()
+        other = upsert_from_identity(Identity(provider="discord", subject="u2"))
+        save_user_settings(other["id"], llm_model="openai/gpt-5.6-luna", llm_api_key="k")
+        with patch.object(tiered, "_run_analysis", runner):
+            mine = client.post("/tiered/analyze", json={"stock_code": "AAPL"})
+            theirs = _signed_in_client(other).post("/tiered/analyze",
+                                                   json={"stock_code": "AAPL"})
+            assert mine.status_code == 202
+            assert theirs.status_code == 202
+            release.set()
+            _poll_until_done(client, mine.json()["task_id"])
+            _poll_until_done(_signed_in_client(other), theirs.json()["task_id"])
+
+    def test_a_queued_run_reads_the_owners_key_when_it_starts(self, client, user, monkeypatch):
+        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        runner, release = self._gated_runner()
+        seen = {}
+
+        def capturing(code, **kwargs):
+            seen[code] = kwargs.get("settings")
+            return runner(code, **kwargs)
+
+        with patch.object(tiered, "_run_analysis", capturing):
+            client.post("/tiered/analyze", json={"stock_code": "AAPL"})
+            queued = client.post("/tiered/analyze", json={"stock_code": "MSFT"}).json()
+            assert queued["status"] == "queued"
+            save_user_settings(user["id"], llm_api_key="sk-rotated")
+            release.set()
+            _poll_until_done(client, queued["task_id"])
+        assert seen["MSFT"].llm_api_key == "sk-rotated"
+
+    def test_a_queued_run_whose_owner_lost_their_key_fails_cleanly(
+        self, client, user, monkeypatch
+    ):
+        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        runner, release = self._gated_runner()
+        with patch.object(tiered, "_run_analysis", runner):
+            client.post("/tiered/analyze", json={"stock_code": "AAPL"})
+            queued = client.post("/tiered/analyze", json={"stock_code": "MSFT"}).json()
+            save_user_settings(user["id"], llm_api_key="")
+            release.set()
+            body = _poll_until_done(client, queued["task_id"])
+        assert body["status"] == "failed"
+        assert "no LLM model and API key" in body["error"]

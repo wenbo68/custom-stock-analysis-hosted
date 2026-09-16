@@ -2,9 +2,12 @@
 """Persistent history of tiered-analysis runs (tiered_runs table).
 
 The web tiered page shows these as a clickable run list: a run starts as
-``running``, flips to ``done`` (with the full serialized report) or
-``failed`` (with the error), and stays in the list as history across page
-navigation and server restarts.
+``queued`` (waiting for a free slot in the global run queue,
+src/tiered_analysis/run_queue.py), becomes ``running``, then flips to
+``done`` (with the full serialized report) or ``failed`` (with the
+error), and stays in the list as history across page navigation and
+server restarts. Queued rows outlive the process: the queue resumes them
+at startup, whereas running rows die with their thread and are failed.
 
 Storage is the product's existing sqlite database via DatabaseManager —
 one small table, no separate infrastructure.
@@ -14,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Collection, Dict, List, Optional
 
 from .llm_support import TRANSCRIPT_MAX_AGE_DAYS
 
@@ -26,6 +29,18 @@ DEFAULT_LIST_LIMIT = 50
 #: came back up: the background thread died with the old process, so the
 #: run can never finish. Worded for the history list.
 STALE_RUN_ERROR = "server restarted while this run was in progress"
+
+#: Run statuses. A run is "active" (queued or running) until it settles
+#: as done or failed — the duplicate check only looks at active runs.
+STATUS_QUEUED = "queued"
+STATUS_RUNNING = "running"
+STATUS_DONE = "done"
+STATUS_FAILED = "failed"
+ACTIVE_STATUSES = (STATUS_QUEUED, STATUS_RUNNING)
+
+#: The creation-time inputs that make two runs "the same run" (and that
+#: the history row shows while a run is in flight).
+INPUT_KEYS = ("tier", "capital", "risk_fraction", "reward_risk", "hold_weeks")
 
 
 def _session():
@@ -39,18 +54,23 @@ def create_run(
     stock_code: str,
     inputs: Optional[Dict[str, Any]] = None,
     owner_id: Optional[int] = None,
+    status: str = STATUS_RUNNING,
 ) -> None:
     """``inputs`` are the run's effective settings (tier, capital,
     risk_fraction, reward_risk, hold_weeks) — recorded at creation so the
-    history row shows them while the run is still in flight. ``owner_id``
-    is the signed-in user the run belongs to."""
+    history row shows them while the run is still in flight — plus, under
+    ``sizing_overrides``, the raw per-run sizing the caller sent, which
+    the queue hands to the engine when the run starts. ``owner_id`` is
+    the signed-in user the run belongs to. The web endpoint creates runs
+    ``queued``; the default keeps direct callers (tests, scripts) that
+    start their own thread on ``running``."""
     from src.storage import TieredRunRecord
 
     with _session() as session:
         session.add(TieredRunRecord(
             task_id=task_id,
             stock_code=stock_code,
-            status="running",
+            status=status,
             inputs_json=json.dumps(inputs) if inputs else None,
             owner_user_id=owner_id,
         ))
@@ -79,7 +99,66 @@ def mark_done(task_id: str, result: Dict[str, Any]) -> None:
 
 
 def mark_failed(task_id: str, error: str) -> None:
-    _update_run(task_id, status="failed", error=str(error))
+    _update_run(task_id, status=STATUS_FAILED, error=str(error))
+
+
+def mark_running(task_id: str) -> None:
+    """A queued run took a slot (the queue calls this as it starts the
+    thread)."""
+    _update_run(task_id, status=STATUS_RUNNING)
+
+
+def next_queued_run(exclude: Collection[str] = ()) -> Optional[Dict[str, Any]]:
+    """The oldest queued run not in ``exclude`` (task_id, stock_code,
+    owner_id, inputs), or None when nothing is waiting. First come,
+    first served: ordered by creation time, then id."""
+    from src.storage import TieredRunRecord
+
+    with _session() as session:
+        query = (
+            session.query(TieredRunRecord)
+            .filter_by(status=STATUS_QUEUED)
+            .order_by(TieredRunRecord.created_at.asc(), TieredRunRecord.id.asc())
+        )
+        skipped = [str(task_id) for task_id in exclude]
+        if skipped:
+            query = query.filter(TieredRunRecord.task_id.notin_(skipped))
+        row = query.first()
+        if row is None:
+            return None
+        return {
+            "task_id": row.task_id,
+            "stock_code": row.stock_code,
+            "owner_id": row.owner_user_id,
+            "inputs": _inputs_of(row),
+        }
+
+
+def find_active_duplicate(
+    owner_id: int, stock_code: str, inputs: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """The owner's queued or running run for the same ticker with the
+    same effective inputs (``INPUT_KEYS``), as {task_id, status}, or
+    None. Ticker comparison ignores case. A finished or failed run is
+    never a duplicate — re-running yesterday's analysis is legitimate."""
+    from sqlalchemy import func
+
+    from src.storage import TieredRunRecord
+
+    wanted = _digest_inputs(inputs or {})
+    with _session() as session:
+        rows = (
+            session.query(TieredRunRecord)
+            .filter(TieredRunRecord.owner_user_id == int(owner_id))
+            .filter(TieredRunRecord.status.in_(ACTIVE_STATUSES))
+            .filter(func.upper(TieredRunRecord.stock_code) == stock_code.strip().upper())
+            .order_by(TieredRunRecord.created_at.asc(), TieredRunRecord.id.asc())
+            .all()
+        )
+        for row in rows:
+            if _inputs_digest(row) == wanted:
+                return {"task_id": row.task_id, "status": row.status}
+    return None
 
 
 def fail_stale_running_runs(error: str = STALE_RUN_ERROR) -> int:
@@ -92,8 +171,8 @@ def fail_stale_running_runs(error: str = STALE_RUN_ERROR) -> int:
     with _session() as session:
         changed = (
             session.query(TieredRunRecord)
-            .filter_by(status="running")
-            .update({"status": "failed", "error": error},
+            .filter_by(status=STATUS_RUNNING)
+            .update({"status": STATUS_FAILED, "error": error},
                     synchronize_session=False)
         )
         session.commit()
@@ -221,10 +300,9 @@ def _result_digest(row: Any) -> Dict[str, Any]:
     return digest
 
 
-def _inputs_digest(row: Any) -> Dict[str, Any]:
-    """The creation-time inputs (tier/capital/risk_fraction/reward_risk/
-    hold_weeks), or {} when absent/unreadable — old rows never break the
-    list."""
+def _inputs_of(row: Any) -> Dict[str, Any]:
+    """The row's stored inputs as a dict, {} when absent/unreadable — old
+    rows never break the list."""
     raw = getattr(row, "inputs_json", None)
     if not raw:
         return {}
@@ -232,13 +310,33 @@ def _inputs_digest(row: Any) -> Dict[str, Any]:
         inputs = json.loads(raw)
     except ValueError:
         return {}
-    if not isinstance(inputs, dict):
-        return {}
-    return {
-        key: inputs[key]
-        for key in ("tier", "capital", "risk_fraction", "reward_risk", "hold_weeks")
-        if inputs.get(key) is not None
-    }
+    return inputs if isinstance(inputs, dict) else {}
+
+
+def _digest_inputs(inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """Just the ``INPUT_KEYS`` that are set — what the history row shows
+    and what the duplicate check compares."""
+    return {key: inputs[key] for key in INPUT_KEYS if inputs.get(key) is not None}
+
+
+def _inputs_digest(row: Any) -> Dict[str, Any]:
+    """The creation-time inputs (tier/capital/risk_fraction/reward_risk/
+    hold_weeks) of a row."""
+    return _digest_inputs(_inputs_of(row))
+
+
+def _queue_ahead(session: Any) -> Dict[str, int]:
+    """task_id -> how many queued runs (anyone's) are ahead of it in the
+    line, for the "Queued (2 ahead)" wording."""
+    from src.storage import TieredRunRecord
+
+    waiting = (
+        session.query(TieredRunRecord.task_id)
+        .filter_by(status=STATUS_QUEUED)
+        .order_by(TieredRunRecord.created_at.asc(), TieredRunRecord.id.asc())
+        .all()
+    )
+    return {task_id: position for position, (task_id,) in enumerate(waiting)}
 
 
 def list_runs(
@@ -259,7 +357,19 @@ def list_runs(
             .limit(safe_limit)
             .all()
         )
-        return [{**_row_summary(row), **_result_digest(row)} for row in rows]
+        ahead = (
+            _queue_ahead(session)
+            if any(row.status == STATUS_QUEUED for row in rows)
+            else {}
+        )
+        return [
+            {
+                **_row_summary(row),
+                **_result_digest(row),
+                "queue_ahead": ahead.get(row.task_id),
+            }
+            for row in rows
+        ]
 
 
 def get_run(task_id: str, owner_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -278,6 +388,11 @@ def get_run(task_id: str, owner_id: Optional[int] = None) -> Optional[Dict[str, 
         if owner_id is not None and row.owner_user_id != int(owner_id):
             return None
         summary = _row_summary(row)
+        summary["queue_ahead"] = (
+            _queue_ahead(session).get(row.task_id)
+            if row.status == STATUS_QUEUED
+            else None
+        )
         summary["result"] = None
         if row.result_json:
             try:

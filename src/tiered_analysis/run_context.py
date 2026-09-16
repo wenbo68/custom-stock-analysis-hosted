@@ -29,6 +29,8 @@ class RunSettings:
     """What one run may use. Empty fields fall back to the environment."""
 
     llm_model: Optional[str] = None
+    #: The cheaper model for screening chores; None = use ``llm_model``.
+    llm_sub_model: Optional[str] = None
     llm_api_key: Optional[str] = None
     data_keys: Mapping[str, str] = field(default_factory=dict)
 
@@ -49,6 +51,21 @@ def active_run_settings() -> RunSettings:
 def llm_model() -> Optional[str]:
     """The run's model, else ``LITELLM_MODEL``."""
     model = active_run_settings().llm_model or os.getenv("LITELLM_MODEL") or ""
+    return model.strip() or None
+
+
+def llm_sub_model() -> Optional[str]:
+    """The run's screening model: its own sub model, else its main model,
+    else ``NEWS_SCREEN_MODEL`` (the server's cheaper screening model).
+    A run that carries its own model never uses the server's screen
+    model — that would need the server's key."""
+    settings = active_run_settings()
+    model = (
+        settings.llm_sub_model
+        or settings.llm_model
+        or os.getenv("NEWS_SCREEN_MODEL")
+        or ""
+    )
     return model.strip() or None
 
 

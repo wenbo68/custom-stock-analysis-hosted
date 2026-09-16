@@ -41,6 +41,11 @@ The app can be hosted for many users (public-server branch, 2026-09-14):
   passes `PORT`, and trusts forwarded headers so OAuth callbacks stay
   https. Set `PUBLIC_BASE_URL` to the site's address. A restart marks
   any run still in flight as failed (runs are in-process threads).
+- **Run queue.** At most `TIERED_MAX_CONCURRENT_RUNS` analyses (default
+  2) run at once across all users; the rest wait in line and start by
+  themselves, and a restart resumes whatever was still waiting. Your
+  own unfinished run with the same ticker and inputs cannot be started
+  twice — the Start popup names the existing one.
 
 See `.env.example` for every variable and where to get each credential.
 

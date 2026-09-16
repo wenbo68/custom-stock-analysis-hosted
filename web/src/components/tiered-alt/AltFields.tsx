@@ -158,6 +158,8 @@ export const AltSelect = ({
 interface AltCommitInputProps {
   placeholder: string;
   inputMode?: 'decimal' | 'numeric';
+  /** 'password' hides what is typed (API keys); the box is still write-only. */
+  type?: 'text' | 'password';
   validate?: (raw: string) => boolean;
   onCommit: (value: string) => void;
 }
@@ -167,6 +169,7 @@ interface AltCommitInputProps {
 export const AltCommitInput = ({
   placeholder,
   inputMode,
+  type = 'text',
   validate,
   onCommit,
 }: AltCommitInputProps) => {
@@ -176,7 +179,8 @@ export const AltCommitInput = ({
 
   return (
     <input
-      type="text"
+      type={type}
+      autoComplete={type === 'password' ? 'off' : undefined}
       value={written}
       inputMode={inputMode}
       placeholder={placeholder}

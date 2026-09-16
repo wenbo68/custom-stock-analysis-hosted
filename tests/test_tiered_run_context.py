@@ -60,7 +60,7 @@ class TestFallbacks(unittest.TestCase):
 class TestActiveRun(unittest.TestCase):
     def setUp(self):
         self.settings = RunSettings(
-            llm_model="openai/gpt-4o-mini", llm_api_key="sk-user",
+            llm_model="openai/gpt-5.6-luna", llm_api_key="sk-user",
             data_keys={"finnhub": "user-finnhub"},
         )
         self.tracker = LlmUsageTracker(settings=self.settings)
@@ -70,7 +70,7 @@ class TestActiveRun(unittest.TestCase):
                                           "FINNHUB_API_KEY": "env-finnhub",
                                           "FRED_API_KEY": "env-fred"}):
             with self.tracker.activate():
-                self.assertEqual(llm_model(), "openai/gpt-4o-mini")
+                self.assertEqual(llm_model(), "openai/gpt-5.6-luna")
                 self.assertEqual(llm_api_key(), "sk-user")
                 self.assertEqual(data_key("finnhub"), "user-finnhub")
                 # a key the user did not bring falls back to the server's
@@ -87,8 +87,23 @@ class TestActiveRun(unittest.TestCase):
                     default_summarizer("p")
                     screen_summarizer("q")
         for call in fake.calls:
-            self.assertEqual(call["model"], "openai/gpt-4o-mini")
+            self.assertEqual(call["model"], "openai/gpt-5.6-luna")
             self.assertEqual(call["api_key"], "sk-user")
+
+    def test_screening_uses_the_run_sub_model_when_it_has_one(self):
+        fake = _FakeLitellm()
+        tracker = LlmUsageTracker(settings=RunSettings(
+            llm_model="openai/gpt-5.6-sol", llm_sub_model="openai/gpt-5.6-luna",
+            llm_api_key="sk-user",
+        ))
+        with mock.patch.dict(sys.modules, {"litellm": fake}):
+            with mock.patch.dict(os.environ, {"NEWS_SCREEN_MODEL": "env/screen"}):
+                with tracker.activate():
+                    default_summarizer("p")
+                    screen_summarizer("q")
+        self.assertEqual(fake.calls[0]["model"], "openai/gpt-5.6-sol")
+        self.assertEqual(fake.calls[1]["model"], "openai/gpt-5.6-luna")
+        self.assertEqual(fake.calls[1]["api_key"], "sk-user")
 
     def test_without_run_settings_no_key_is_passed(self):
         fake = _FakeLitellm()
@@ -113,10 +128,10 @@ class TestActiveRun(unittest.TestCase):
             thread = threading.Thread(target=worker)
             thread.start()
             thread.join()
-        self.assertEqual(seen, {"model": "openai/gpt-4o-mini", "key": "user-finnhub"})
+        self.assertEqual(seen, {"model": "openai/gpt-5.6-luna", "key": "user-finnhub"})
 
     def test_concurrent_runs_keep_their_own_settings(self):
-        other = LlmUsageTracker(settings=RunSettings(llm_model="deepseek/deepseek-chat",
+        other = LlmUsageTracker(settings=RunSettings(llm_model="deepseek/deepseek-flash",
                                                      llm_api_key="sk-other"))
         seen = {}
         barrier = threading.Barrier(2)
@@ -132,8 +147,8 @@ class TestActiveRun(unittest.TestCase):
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(seen["a"], ("openai/gpt-4o-mini", "sk-user"))
-        self.assertEqual(seen["b"], ("deepseek/deepseek-chat", "sk-other"))
+        self.assertEqual(seen["a"], ("openai/gpt-5.6-luna", "sk-user"))
+        self.assertEqual(seen["b"], ("deepseek/deepseek-flash", "sk-other"))
 
 
 if __name__ == "__main__":

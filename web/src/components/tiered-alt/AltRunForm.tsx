@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Play } from 'lucide-react';
-import type { TieredDepth, TieredMarketOpenGate } from '../../api/tiered';
+import type { TieredDepth, TieredDuplicateRun, TieredMarketOpenGate } from '../../api/tiered';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey } from '../../i18n/uiText';
 import { HelpTerm } from '../tiered/terms';
 import { tickerCurrency } from './altCurrency';
 import { AltPill, AltPillRow, AltSelect } from './AltFields';
 import { ALT_COLOR } from './altStyles';
-import { AltModal, MODAL_BODY } from './AltUi';
+import { AltModal, AltSectionLabel, MODAL_BODY } from './AltUi';
 
 // Tier 3 retired (outlook redesign) — the picker offers 1 and 2 only.
 const TIERS: TieredDepth[] = [1, 2];
@@ -62,6 +62,11 @@ const marketClock = (iso: string): string => iso.slice(11, 16);
 const localClock = (iso: string): string =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
+interface Notice {
+  title: string;
+  body: ReactNode;
+}
+
 export interface AltRunFormProps {
   ticker: string | null;
   tier: TieredDepth | null;
@@ -71,10 +76,20 @@ export interface AltRunFormProps {
   hold: string | null;
   submitting: boolean;
   error: string | null;
+  /** The account section's state: a run needs a signed-in user with a
+   *  main LLM and that provider's key. Missing ones join the Error
+   *  popup's list instead of failing on the server. */
+  signedIn: boolean;
+  hasMainLlm: boolean;
+  hasLlmKey: boolean;
   /** Clock gate: the backend rejected the start because the ticker's
    *  market is open — non-null shows the popup (market + session hours
    *  + the "run anyway" choice). */
   gate: TieredMarketOpenGate | null;
+  /** Duplicate run: the backend refused the start because this user's
+   *  own unfinished run has the same ticker and inputs — non-null shows
+   *  it in the Error popup. */
+  duplicate: TieredDuplicateRun | null;
   onTicker: (value: string | null) => void;
   onTier: (value: TieredDepth | null) => void;
   onCapital: (value: string | null) => void;
@@ -84,6 +99,7 @@ export interface AltRunFormProps {
   onStart: () => void;
   onRunAnyway: () => void;
   onGateClose: () => void;
+  onDuplicateClose: () => void;
 }
 
 // Section 1: the new-run form. Fields are write-only — every choice lands
@@ -103,6 +119,10 @@ export const AltRunForm = ({
   submitting,
   error,
   gate,
+  duplicate,
+  signedIn,
+  hasMainLlm,
+  hasLlmKey,
   onTicker,
   onTier,
   onCapital,
@@ -112,9 +132,40 @@ export const AltRunForm = ({
   onStart,
   onRunAnyway,
   onGateClose,
+  onDuplicateClose,
 }: AltRunFormProps) => {
   const { t } = useUiLanguage();
-  const [notice, setNotice] = useState<string | null>(null);
+  // A popup: "Heads up" for advice the user may ignore, "Error" for what
+  // stops the run (setError).
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const setHeadsUp = (body: ReactNode) => setNotice({ title: t('tiered.altForm.noticeTitle'), body });
+  const setError = (body: ReactNode) => setNotice({ title: t('tiered.altForm.errorTitle'), body });
+  // The duplicate refusal from the backend shows in the same Error popup
+  // as the form's own checks; it is derived from the prop, so closing
+  // the popup tells the page to drop it.
+  const shownNotice: Notice | null =
+    notice ??
+    (duplicate
+      ? {
+          title: t('tiered.altForm.errorTitle'),
+          body: (
+            <p>
+              {t(
+                duplicate.status === 'running'
+                  ? 'tiered.altForm.duplicateRunning'
+                  : 'tiered.altForm.duplicateQueued',
+                { ticker: ticker ?? '' },
+              )}
+            </p>
+          ),
+        }
+      : null);
+  const closeNotice = () => {
+    setNotice(null);
+    if (duplicate) {
+      onDuplicateClose();
+    }
+  };
 
   const currency = ticker ? tickerCurrency(ticker) : null;
 
@@ -128,15 +179,51 @@ export const AltRunForm = ({
 
   const commitCapital = (value: string) => {
     if (!ticker) {
-      setNotice(t('tiered.altForm.needTickerFirst'));
+      setHeadsUp(t('tiered.altForm.needTickerFirst'));
       return;
     }
     onCapital(value === capital ? null : value);
   };
 
   const handleStart = () => {
-    if (!ticker || tier === null || !capital || !riskPct || !reward || !hold) {
-      setNotice(t('tiered.altForm.allRequired'));
+    if (!signedIn) {
+      setError(t('tiered.user.signInFirst'));
+      return;
+    }
+    // Each part lists its section's fields in on-screen order; a part
+    // with nothing missing is left out.
+    const missingIn = (fields: ReadonlyArray<readonly [unknown, UiTextKey]>) =>
+      fields.filter(([filled]) => !filled).map(([, key]) => t(key));
+    const account = missingIn([
+      [hasMainLlm, 'tiered.altForm.req.mainLlm'],
+      [hasLlmKey, 'tiered.altForm.req.llmKey'],
+    ]);
+    const run = missingIn([
+      [ticker, 'tiered.altForm.req.ticker'],
+      [capital, 'tiered.altForm.req.capital'],
+      [riskPct, 'tiered.altForm.req.risk'],
+      [reward, 'tiered.altForm.req.reward'],
+      [hold, 'tiered.altForm.req.hold'],
+      [tier !== null, 'tiered.altForm.req.tier'],
+    ]);
+    if (account.length > 0 || run.length > 0) {
+      const part = (title: string, names: string[]) => (
+        <div>
+          <AltSectionLabel>{title}</AltSectionLabel>
+          <ul className="list-disc pl-5">
+            {names.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        </div>
+      );
+      setError(
+        <>
+          <p>{t('tiered.altForm.missingIntro')}</p>
+          {account.length > 0 ? part(t('tiered.user.title'), account) : null}
+          {run.length > 0 ? part(t('tiered.altForm.title'), run) : null}
+        </>,
+      );
       return;
     }
     onStart();
@@ -207,7 +294,7 @@ export const AltRunForm = ({
             // Below 1.5× the trade barely pays for its risk — warn (a
             // popup), but honor the choice: the run still goes ahead.
             if (value !== reward && Number(value) < 1.5) {
-              setNotice(t('tiered.altForm.lowRewardWarn', { value }));
+              setHeadsUp(t('tiered.altForm.lowRewardWarn', { value }));
             }
             onReward(value === reward ? null : value);
           }}
@@ -280,12 +367,8 @@ export const AltRunForm = ({
 
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
-      <AltModal
-        isOpen={notice !== null}
-        title={t('tiered.altForm.noticeTitle')}
-        onClose={() => setNotice(null)}
-      >
-        <p className={MODAL_BODY}>{notice}</p>
+      <AltModal isOpen={shownNotice !== null} title={shownNotice?.title ?? ''} onClose={closeNotice}>
+        <div className={MODAL_BODY}>{shownNotice?.body}</div>
       </AltModal>
 
       {/* Clock gate (2026-08-08): the market is open, so the app has no

@@ -505,7 +505,13 @@ export const AltRunHistory = ({
                   <span className="text-xs text-gray-500">
                     {run.tier == null ? '—' : t('tiered.altHistory.tier', { value: run.tier })}
                   </span>
-                  {run.status === 'running' ? (
+                  {run.status === 'queued' ? (
+                    <span className="text-xs text-amber-300">
+                      {run.queue_ahead == null
+                        ? t('tiered.status.queued')
+                        : t('tiered.status.queuedAhead', { ahead: run.queue_ahead })}
+                    </span>
+                  ) : run.status === 'running' ? (
                     <span className="text-xs text-sky-300">{t('tiered.status.running')}</span>
                   ) : run.status === 'failed' ? (
                     <span className="text-xs text-red-300">{t('tiered.status.failed')}</span>
@@ -524,6 +530,8 @@ export const AltRunHistory = ({
                       <p className="text-sm text-red-300">
                         {run.error ?? expandedError ?? t('tiered.error.title')}
                       </p>
+                    ) : run.status === 'queued' ? (
+                      <p className="text-sm text-gray-500">{t('tiered.queued')}</p>
                     ) : run.status === 'running' ? (
                       <p className="text-sm text-gray-500">{t('tiered.running')}</p>
                     ) : expandedResult ? (

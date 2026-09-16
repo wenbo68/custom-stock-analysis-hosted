@@ -313,6 +313,9 @@ class UserSettingsRecord(Base):
 
     user_id = Column(Integer, primary_key=True)
     llm_model = Column(String(128))
+    # The cheaper model for screening chores (news relevance); empty =
+    # the main model does that work too.
+    llm_sub_model = Column(String(128))
     llm_api_key_enc = Column(Text)
     finnhub_key_enc = Column(Text)
     alphavantage_key_enc = Column(Text)
@@ -413,6 +416,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             Base.metadata.create_all(self._engine)
             self._ensure_column(TieredRunRecord.__tablename__, "inputs_json", "TEXT")
             self._ensure_column(TieredRunRecord.__tablename__, "owner_user_id", "INTEGER")
+            self._ensure_column(UserSettingsRecord.__tablename__, "llm_sub_model", "VARCHAR(128)")
             self._ensure_schema_migration_record()
 
             self._initialized = True
