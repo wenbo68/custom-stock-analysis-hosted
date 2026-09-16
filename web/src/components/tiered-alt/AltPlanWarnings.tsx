@@ -6,6 +6,7 @@ import type { UiLanguage, UiTextKey } from '../../i18n/uiText';
 import { cn } from '../../utils/cn';
 import { flashElement, formatPrice, jumpToMetric, jumpToMetricFirst } from '../tiered/termHelpers';
 import { slashDate } from './altFormat';
+import { fillTemplate } from './altTemplate';
 import { ALT_LINK, FORMULA_LINE, FORMULA_RESULT } from './altStyles';
 import { AltModal, AltModalTitle, FVar, MODAL_BODY, MODAL_STRONG } from './AltUi';
 
@@ -17,7 +18,7 @@ import { AltModal, AltModalTitle, FVar, MODAL_BODY, MODAL_STRONG } from './AltUi
 // as the computed-cell popups), and the reward goal flashes the run
 // row's reward column.
 
-type PlanColumn = 'entry' | 'stop_loss' | 'take_profit' | 'shares';
+export type PlanColumn = 'entry' | 'stop_loss' | 'take_profit' | 'shares';
 
 const WARN_KEYWORD_KEYS: Record<string, UiTextKey> = {
   downtrend: 'tiered.alt.warnKey.downtrend',
@@ -152,15 +153,67 @@ const FormulaBody = ({
   </div>
 );
 
-// Fill a uiText template's {name} slots with live nodes; unknown slots
-// stay as text so a wording/values mismatch is visible, never silent.
-const TEMPLATE_TOKEN_RE = /(\{\w+\})/g;
-const fillTemplate = (template: string, nodes: Record<string, ReactNode>): ReactNode[] =>
-  template.split(TEMPLATE_TOKEN_RE).map((part, index) => {
-    const match = /^\{(\w+)\}$/.exec(part);
-    const node = match ? nodes[match[1]] : undefined;
-    return <span key={index}>{node !== undefined ? node : part}</span>;
-  });
+// The plan's reward-to-risk ratio as a clickable value: the popup shows
+// (target − entry) ÷ (entry − stop) with this run's prices plugged in,
+// each price jumping to its plan cell. Shared by the target column's
+// reward-below-goal warning and the conclusion card's "Buy later"
+// reason (owner request 2026-09-16), so the two can never differ.
+export interface RewardRatioValues {
+  entry: unknown;
+  stop_loss: unknown;
+  take_profit: unknown;
+  ratio: unknown;
+}
+
+export const RewardRatioValue = ({
+  values,
+  onJump,
+  closeAll = () => {},
+}: {
+  values: RewardRatioValues;
+  /** Scroll/flash the plan cell a plugged-in price came from. */
+  onJump: (key: PlanColumn) => void;
+  /** Close whatever popup stack sits behind the formula popup. */
+  closeAll?: () => void;
+}) => {
+  const { t } = useUiLanguage();
+  const price = (key: PlanColumn, value: unknown, closeSelf: () => void) => (
+    <JumpValue
+      text={wPrice(value)}
+      closeAll={() => {
+        closeSelf();
+        closeAll();
+      }}
+      onJump={() => onJump(key)}
+    />
+  );
+  return (
+    <ComputedValue
+      text={wNum(values.ratio)}
+      title={
+        <AltModalTitle subject={t('tiered.alt.warnF.ratio')} kind={t('tiered.alt.kind.formula')} />
+      }
+      body={(closeSelf) => (
+        <FormulaBody
+          words={
+            <>
+              (<FVar>{t('tiered.alt.f.target')}</FVar> − <FVar>{t('tiered.alt.f.entry')}</FVar>) ÷ (
+              <FVar>{t('tiered.alt.f.entry')}</FVar> − <FVar>{t('tiered.alt.f.stop')}</FVar>)
+            </>
+          }
+          plugged={
+            <>
+              ({price('take_profit', values.take_profit, closeSelf)} −{' '}
+              {price('entry', values.entry, closeSelf)}) ÷ ({price('entry', values.entry, closeSelf)}{' '}
+              − {price('stop_loss', values.stop_loss, closeSelf)})
+            </>
+          }
+          result={wNum(values.ratio)}
+        />
+      )}
+    />
+  );
+};
 
 // ---------- per-warning wiring: which value is live in which way ----------
 
@@ -445,30 +498,15 @@ const warningNodes = (
         templateKey: 'tiered.alt.rewardBelowGoal',
         nodes: {
           ratio: (
-            <ComputedValue
-              text={wNum(v.ratio)}
-              title={title('tiered.alt.warnF.ratio')}
-              body={(closeSelf) => (
-                <FormulaBody
-                  words={
-                    <>
-                      (<FVar>{t('tiered.alt.f.target')}</FVar> −{' '}
-                      <FVar>{t('tiered.alt.f.entry')}</FVar>) ÷ (
-                      <FVar>{t('tiered.alt.f.entry')}</FVar> −{' '}
-                      <FVar>{t('tiered.alt.f.stop')}</FVar>)
-                    </>
-                  }
-                  plugged={
-                    <>
-                      ({planJump('take_profit', wPrice(v.take_profit), stack(closeSelf))} −{' '}
-                      {planJump('entry', wPrice(v.entry), stack(closeSelf))}) ÷ (
-                      {planJump('entry', wPrice(v.entry), stack(closeSelf))} −{' '}
-                      {planJump('stop_loss', wPrice(v.stop_loss), stack(closeSelf))})
-                    </>
-                  }
-                  result={wNum(v.ratio)}
-                />
-              )}
+            <RewardRatioValue
+              values={{
+                entry: v.entry,
+                stop_loss: v.stop_loss,
+                take_profit: v.take_profit,
+                ratio: v.ratio,
+              }}
+              onJump={(key) => flashElement(env.cellTarget(key))}
+              closeAll={closeAll}
             />
           ),
           goal: env.taskId ? (

@@ -9,10 +9,12 @@ import type {
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey } from '../../i18n/uiText';
 import { cn } from '../../utils/cn';
-import { formatPrice, sentimentCitations } from '../tiered/termHelpers';
+import { flashElement, formatPrice, sentimentCitations } from '../tiered/termHelpers';
 import { isPlanNote } from './altWarningText';
 import { HelpTerm as BaseHelpTerm } from '../tiered/terms';
-import { directionOutlook } from './altFormat';
+import { adjustedCellId, computedCellId, directionOutlook } from './altFormat';
+import { RewardRatioValue, type PlanColumn, type RewardRatioValues } from './AltPlanWarnings';
+import { fillTemplate } from './altTemplate';
 import { ALT_LINK, OUTLOOK_TEXT } from './altStyles';
 import {
   AltCard,
@@ -139,6 +141,37 @@ interface AltConclusionProps {
   runDate?: Date | null;
 }
 
+// The numbers behind a "Buy later": the plan review's reward-below-goal
+// warning carries them; a run without that warning (none expected) falls
+// back to the same arithmetic over the plan levels.
+const rewardRatioValues = (result: TieredResult): RewardRatioValues | null => {
+  const warning = (result.plan_warnings?.take_profit ?? []).find(
+    (entry) => entry.id === 'reward_below_goal',
+  );
+  if (warning) {
+    const v = warning.values;
+    return { entry: v.entry, stop_loss: v.stop_loss, take_profit: v.take_profit, ratio: v.ratio };
+  }
+  const { entry, stop_loss, take_profit } = result.levels;
+  if (entry == null || stop_loss == null || take_profit == null || entry === stop_loss) {
+    return null;
+  }
+  return {
+    entry,
+    stop_loss,
+    take_profit,
+    ratio: (take_profit - entry) / (entry - stop_loss),
+  };
+};
+
+// Flash the plan cell a price came from: the adjusted cell when the
+// plan review moved that level, else the computed one.
+const jumpToPlanCell = (key: PlanColumn) => {
+  if (!flashElement(adjustedCellId(key))) {
+    flashElement(computedCellId(key));
+  }
+};
+
 // The run's bottom line, above everything else: the impersonal outlook,
 // the personal action code derived from the outlook and the plan, and
 // the previous-day staleness note. (The old earnings warning is gone —
@@ -156,6 +189,9 @@ const AltConclusion = ({ result, runDate }: AltConclusionProps) => {
   // outlook word IS the whole story — no action, no note. (The max hold
   // time moved to the run-history row, 2026-08-09.)
   const stopped = outlook === 'stopped';
+  // "Buy later" says why, inline: the plan's current reward-to-risk,
+  // clickable for its arithmetic (owner request 2026-09-16).
+  const rewardValues = action === 'enter_later' ? rewardRatioValues(result) : null;
   return (
     <AltCard testId="alt-conclusion">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
@@ -167,6 +203,15 @@ const AltConclusion = ({ result, runDate }: AltConclusionProps) => {
         {!stopped ? (
           <AltFact label={t('tiered.alt.action')} helpKey="tiered.help.action">
             {t(`tiered.action.${action}` as UiTextKey)}
+            {rewardValues ? (
+              <span data-testid="alt-action-reason">
+                {' ('}
+                {fillTemplate(t('tiered.alt.actionRatio'), {
+                  ratio: <RewardRatioValue values={rewardValues} onJump={jumpToPlanCell} />,
+                })}
+                {')'}
+              </span>
+            ) : null}
           </AltFact>
         ) : null}
         <span className="ml-auto">

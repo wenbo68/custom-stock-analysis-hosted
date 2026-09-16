@@ -265,6 +265,39 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.getByTestId('alt-levels-table')).toBeInTheDocument();
   });
 
+  it('enter_later shows the current reward-to-risk, clickable for its arithmetic', () => {
+    // The plan review's numbers win over the raw levels.
+    const planWarnings: TieredPlanWarnings = {
+      entry: [],
+      stop_loss: [],
+      take_profit: [
+        {
+          id: 'reward_below_goal',
+          values: { entry: 330, stop_loss: 314.9, take_profit: 334.7, ratio: 0.3112, goal: 2 },
+        },
+      ],
+      shares: [],
+    };
+    renderResult(makeOutlookResult({ action: 'enter_later', plan_warnings: planWarnings }));
+    const reason = screen.getByTestId('alt-action-reason');
+    expect(reason).toHaveTextContent(/\((当前盈亏比为|current reward-to-risk ratio is) 0\.31\)/);
+    fireEvent.click(within(reason).getByRole('button', { name: '0.31' }));
+    // The formula popup: words, this run's prices, the result.
+    expect(screen.getByText('= 0.31')).toBeInTheDocument();
+    expect(screen.getAllByText('334.70').length).toBeGreaterThan(0);
+  });
+
+  it('enter_later without a plan review computes the ratio from the levels', () => {
+    // LEVELS: (108 − 96) ÷ (96 − 90) = 2
+    renderResult(makeOutlookResult({ action: 'enter_later', plan_warnings: null }));
+    expect(screen.getByTestId('alt-action-reason')).toHaveTextContent(/ 2\)/);
+  });
+
+  it('enter shows no reason suffix', () => {
+    renderResult(makeOutlookResult({ action: 'enter' }));
+    expect(screen.queryByTestId('alt-action-reason')).not.toBeInTheDocument();
+  });
+
   it('no_trade shows no trade-plan section at all', () => {
     renderResult(
       makeOutlookResult({
