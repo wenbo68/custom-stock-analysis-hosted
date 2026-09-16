@@ -68,7 +68,7 @@ def _technicals_dim():
 class _FakeQuickJudge:
     """Canned BUY verdict — levels wiring is what's under test here."""
 
-    def run(self, symbol, dimensions, levels, hold_weeks):
+    def run(self, symbol, dimensions, hold_weeks):
         from src.tiered_analysis.quick_judge import QuickResult, QuickVerdict
         from src.tiered_analysis.schema import Direction
 

@@ -18,7 +18,7 @@ from src.tiered_analysis.quick_judge import (
     QuickResult,
     QuickVerdict,
 )
-from src.tiered_analysis.schema import Direction, SniperLevels
+from src.tiered_analysis.schema import Direction
 
 
 def _dims():
@@ -36,19 +36,14 @@ def _dims():
     ]
 
 
-_LEVELS = SniperLevels(
-    entry=180.5, secondary_entry=178.0, stop_loss=172.0, take_profit=195.0
-)
-
-
 def _run(summarizer, hold_weeks=3):
     return QuickJudge(summarizer=summarizer).run(
-        "AAPL", _dims(), _LEVELS, hold_weeks=hold_weeks
+        "AAPL", _dims(), hold_weeks=hold_weeks
     )
 
 
 class TestPrompt(unittest.TestCase):
-    def test_prompt_carries_hold_time_levels_and_evidence(self):
+    def test_prompt_carries_hold_time_and_evidence_but_no_plan_levels(self):
         prompts = []
 
         def summarizer(prompt):
@@ -61,8 +56,9 @@ class TestPrompt(unittest.TestCase):
         prompt = prompts[0]
         self.assertIn("3 weeks", prompt)
         self.assertIn("AAPL", prompt)
-        self.assertIn("entry=180.5", prompt)
-        self.assertIn("stop=172.0", prompt)
+        # Plan levels are not the judge's business (2026-09-16).
+        self.assertNotIn("plan levels", prompt)
+        self.assertNotIn("entry=", prompt)
         self.assertIn("technicals", prompt)
         self.assertIn("56.28", prompt)
         self.assertIn("rates unchanged", prompt)

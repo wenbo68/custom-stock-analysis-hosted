@@ -35,7 +35,6 @@ from .llm_support import (
 from .providers.base import DimensionResult
 from .schema import (
     Direction,
-    SniperLevels,
     coerce_price,
     hold_weeks_text,
 )
@@ -56,8 +55,6 @@ MAX_ATTEMPTS = 2
 _PROMPT_TEMPLATE = """You are the sole analyst judging a swing trade on {symbol}.
 The position would be held for up to {hold_text} (the user's chosen max
 hold time) — judge every piece of evidence against that horizon.
-
-Formula-computed plan levels: entry={entry}, backup={secondary_entry}, stop={stop_loss}, target={take_profit}
 
 Collected evidence (the ONLY facts you may use — no outside knowledge):
 {evidence}
@@ -161,16 +158,15 @@ class QuickJudge:
         self,
         symbol: str,
         dimensions: Sequence[DimensionResult],
-        levels: SniperLevels,
         hold_weeks: int,
     ) -> QuickResult:
+        # The judge sees the hold horizon and the evidence only. The
+        # formula plan levels used to ride along (owner decision
+        # 2026-09-16: removed — the judge is asked for an outlook, not a
+        # plan, and the levels are not citable evidence).
         prompt = _PROMPT_TEMPLATE.format(
             symbol=symbol,
             hold_text=hold_weeks_text(hold_weeks),
-            entry=levels.entry,
-            secondary_entry=levels.secondary_entry,
-            stop_loss=levels.stop_loss,
-            take_profit=levels.take_profit,
             evidence=evidence_block(dimensions, display=True),
         )
         warnings: List[str] = []

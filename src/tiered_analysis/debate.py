@@ -416,7 +416,6 @@ This is a SWING TRADE held for up to {hold_text} (the user's chosen max
 hold time). Judge every piece of evidence against that horizon — use
 your own judgment about what matters at this timescale (owner decision
 2026-08-08: the same number drives the report and the forward test).
-Formula-computed plan levels: entry={entry}, backup={secondary_entry}, stop={stop_loss}, target={take_profit}
 
 Collected evidence (the ONLY facts you may use — no outside knowledge):
 {evidence_block}
@@ -768,10 +767,9 @@ class DebateEngine:
         context = _CONTEXT_TEMPLATE.format(
             symbol=symbol,
             hold_text=hold_weeks_text(hold_weeks),
-            entry=tier1.levels.entry,
-            secondary_entry=tier1.levels.secondary_entry,
-            stop_loss=tier1.levels.stop_loss,
-            take_profit=tier1.levels.take_profit,
+            # The plan levels are deliberately NOT in the context (owner
+            # decision 2026-09-16): the debate judges the outlook from
+            # citable evidence, and the levels are neither.
             # Display-formatted numbers: the model must cite what the
             # report pages show, so it only ever sees those strings.
             evidence_block=evidence_block(dimensions, display=True),

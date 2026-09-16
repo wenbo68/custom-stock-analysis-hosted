@@ -460,7 +460,7 @@ def run_tiered_analysis(
             # warnings, no fallback — same contract as the debate.
             with tracker.stage("tier1_quick"):
                 quick = (quick_judge or QuickJudge()).run(
-                    symbol, dimensions, levels, hold_weeks=hold_weeks
+                    symbol, dimensions, hold_weeks=hold_weeks
                 )
             verdict = quick.verdict
             report = TierReport(

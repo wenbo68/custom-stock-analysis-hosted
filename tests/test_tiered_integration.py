@@ -121,7 +121,7 @@ class _FakeQuickJudge:
         else:
             self._result = QuickResult(warnings=list(warnings))
 
-    def run(self, symbol, dimensions, levels, hold_weeks):
+    def run(self, symbol, dimensions, hold_weeks):
         self.calls.append((symbol, hold_weeks))
         return self._result
 
