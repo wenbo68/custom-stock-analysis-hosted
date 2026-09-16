@@ -13,7 +13,7 @@ run history.
 
 - `server.py` / `api/` — FastAPI backend (the tiered API + static frontend)
 - `src/tiered_analysis/` — the analysis engine
-- `src/storage.py` — database (run history, daily price bars)
+- `src/storage.py` — database (run history, transcripts, caches)
 - `data_provider/` — multi-source daily price bars with automatic fallback
 - `web/` — React frontend (builds into `static/`)
 - `scripts/run_tiered_analysis.py` — one-off CLI run

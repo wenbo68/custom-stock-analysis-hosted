@@ -8,13 +8,11 @@ uvicorn[standard]>=0.27.0   # ASGI server
 
 # --- core ---
 python-dotenv>=1.0.0        # .env loading
-sqlalchemy>=2.0.0           # ORM (run history, transcripts, caches, daily bars)
+sqlalchemy>=2.0.0           # ORM (run history, transcripts, caches)
 psycopg[binary]>=3.1,<4     # Postgres driver (DATABASE_URL on the public host)
 pandas>=2.0.0               # Dataframes for price bars
-numpy>=1.24.0               # Numeric computing (data_provider)
-requests>=2.31.0            # HTTP for the news/fundamentals providers
-tenacity>=8.2.0             # Retry support in the data fetchers
-fake-useragent>=1.4.0       # Required at import time by the eastmoney fetchers
+requests>=2.31.0            # HTTP for the news/fundamentals providers and price-bar fetchers
+tenacity>=8.2.0             # Retry decorators on the price-bar fetchers
 exchange-calendars>=4.13.0  # Trading calendars (clock gate + grading windows)
 
 # --- sign-in ---
@@ -26,16 +24,14 @@ cryptography>=42            # Fernet encryption of stored user keys
 litellm>=1.80.10,!=1.82.7,!=1.82.8,<2.0.0   # Unified LLM client (same pin as parent repo)
 tiktoken>=0.8.0,<0.12.0     # Token counting for litellm (parent repo pins <0.12, see its #537)
 
-# --- data sources (price-bar fallback chain; at least one must be installed) ---
+# --- data sources (daily price-bar fallback chain) ---
+# A-shares: efinance -> Tencent (plain HTTP, no library) -> akshare -> yfinance
+# Hong Kong: akshare -> yfinance
+# US: Finnhub -> AlphaVantage (both plain HTTP, only when their API key is
+#     set) -> yfinance; US indices go to yfinance first.
 efinance>=0.5.5             # Priority 0: East Money
-yfinance>=0.2.0             # Fallback: Yahoo Finance (also used by the US providers)
-akshare>=1.12.0             # Priority 1: East Money crawler
-
-# Optional extra fallback sources — uncomment if you configure them:
-# tushare>=1.4.0            # Needs TUSHARE_TOKEN
-# pytdx>=1.72               # Tongdaxin quote servers
-# baostock>=0.8.0
-# tickflow>=0.1.24          # Needs TICKFLOW_API_KEY
+akshare>=1.12.0             # Priority 1: East Money crawler (also the HK source)
+yfinance>=0.2.0             # Priority 4: Yahoo Finance, last resort for every market
 
 # --- tests ---
 pytest>=8.0.0

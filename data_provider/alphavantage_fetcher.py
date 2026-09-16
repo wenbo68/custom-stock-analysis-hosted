@@ -10,13 +10,10 @@ Markets: US only
 import logging
 import os
 from datetime import datetime
-from typing import Optional
-
 import pandas as pd
 import requests
 
 from .base import BaseFetcher, DataFetchError, STANDARD_COLUMNS
-from .realtime_types import UnifiedRealtimeQuote, RealtimeSource
 from .us_index_mapping import is_us_stock_code
 
 logger = logging.getLogger(__name__)
@@ -121,70 +118,3 @@ class AlphaVantageFetcher(BaseFetcher):
         keep = ['code'] + STANDARD_COLUMNS
         df = df[[col for col in keep if col in df.columns]]
         return df
-
-    def get_realtime_quote(self, stock_code: str) -> Optional[UnifiedRealtimeQuote]:
-        if not self._api_key or not self._is_us_stock(stock_code):
-            return None
-
-        symbol = stock_code.strip().upper()
-        try:
-            self.random_sleep(0.5, 1.5)
-            resp = requests.get(_AV_BASE_URL, params={
-                'function': 'GLOBAL_QUOTE',
-                'symbol': symbol,
-                'apikey': self._api_key,
-            }, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.warning(f"[AlphaVantage] Realtime quote failed for {symbol}: {e}")
-            return None
-
-        gq = data.get('Global Quote', {})
-        price_str = gq.get('05. price')
-        if not price_str:
-            return None
-
-        price = float(price_str)
-        prev_close = float(gq.get('08. previous close', 0))
-        change_pct_str = gq.get('10. change percent', '0%').replace('%', '')
-        change_pct = float(change_pct_str) if change_pct_str else None
-
-        return UnifiedRealtimeQuote(
-            code=symbol,
-            source=RealtimeSource.FALLBACK,
-            price=price,
-            change_pct=round(change_pct, 2) if change_pct is not None else None,
-            change_amount=round(float(gq.get('09. change', 0)), 4),
-            volume=int(float(gq.get('06. volume', 0))),
-            amount=None,
-            volume_ratio=None,
-            turnover_rate=None,
-            amplitude=None,
-            open_price=float(gq.get('02. open', 0)),
-            high=float(gq.get('03. high', 0)),
-            low=float(gq.get('04. low', 0)),
-            pre_close=prev_close,
-        )
-
-    def get_stock_name(self, stock_code: str) -> Optional[str]:
-        if not self._api_key or not self._is_us_stock(stock_code):
-            return None
-
-        symbol = stock_code.strip().upper()
-        try:
-            resp = requests.get(_AV_BASE_URL, params={
-                'function': 'SYMBOL_SEARCH',
-                'keywords': symbol,
-                'apikey': self._api_key,
-            }, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.debug(f"[AlphaVantage] Symbol search failed for {symbol}: {e}")
-            return None
-
-        for match in data.get('bestMatches', []):
-            if match.get('1. symbol') == symbol and match.get('2. name'):
-                return match['2. name']
-        return None

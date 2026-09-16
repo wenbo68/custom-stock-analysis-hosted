@@ -10,13 +10,10 @@ Markets: US only
 import logging
 import os
 from datetime import datetime
-from typing import Optional
-
 import pandas as pd
 import requests
 
 from .base import BaseFetcher, DataFetchError, STANDARD_COLUMNS
-from .realtime_types import UnifiedRealtimeQuote, RealtimeSource
 from .us_index_mapping import is_us_stock_code
 
 logger = logging.getLogger(__name__)
@@ -95,75 +92,3 @@ class FinnhubFetcher(BaseFetcher):
         keep = ['code'] + STANDARD_COLUMNS
         df = df[[col for col in keep if col in df.columns]]
         return df
-
-    def get_realtime_quote(self, stock_code: str) -> Optional[UnifiedRealtimeQuote]:
-        if not self._api_key or not self._is_us_stock(stock_code):
-            return None
-
-        symbol = stock_code.strip().upper()
-        try:
-            self.random_sleep(0.3, 0.8)
-            resp = requests.get(
-                f"{_FINNHUB_BASE_URL}/quote",
-                params={'symbol': symbol, 'token': self._api_key},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.warning(f"[Finnhub] Realtime quote failed for {symbol}: {e}")
-            return None
-
-        price = data.get('c')
-        if not price:
-            return None
-
-        prev_close = data.get('pc', 0)
-        change_pct = data.get('dp')
-        change_amount = data.get('d')
-        high = data.get('h')
-        low = data.get('l')
-        open_price = data.get('o')
-
-        amplitude = None
-        if high and low and prev_close and prev_close > 0:
-            amplitude = round((high - low) / prev_close * 100, 2)
-
-        return UnifiedRealtimeQuote(
-            code=symbol,
-            source=RealtimeSource.FALLBACK,
-            price=price,
-            change_pct=round(change_pct, 2) if change_pct is not None else None,
-            change_amount=round(change_amount, 4) if change_amount is not None else None,
-            volume=data.get('v'),
-            amount=None,
-            volume_ratio=None,
-            turnover_rate=None,
-            amplitude=amplitude,
-            open_price=open_price,
-            high=high,
-            low=low,
-            pre_close=prev_close,
-        )
-
-    def get_stock_name(self, stock_code: str) -> Optional[str]:
-        if not self._api_key or not self._is_us_stock(stock_code):
-            return None
-
-        symbol = stock_code.strip().upper()
-        try:
-            resp = requests.get(
-                f"{_FINNHUB_BASE_URL}/search",
-                params={'q': symbol, 'token': self._api_key},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.debug(f"[Finnhub] Symbol search failed for {symbol}: {e}")
-            return None
-
-        for item in data.get('result', []):
-            if item.get('symbol') == symbol and item.get('description'):
-                return item['description']
-        return None
