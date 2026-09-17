@@ -49,7 +49,7 @@ class Direction(str, Enum):
 class Outlook(str, Enum):
     """The impersonal judgment about the stock (outlook redesign,
     2026-07-20): what the evidence says, with no knowledge of the user's
-    position. Renamed from the old buy/hold/sell verdict — an assessment
+    position. Renamed from the old buy/hold/sell outlook — an assessment
     can't literally mean "you should sell" when it doesn't know whether
     you own anything."""
 
@@ -212,7 +212,7 @@ class TierReport:
     #: (reason, evidence, rejection). JSON-ready dict; None on pre-v2 reports.
     levels_detail: Optional[Dict[str, Any]] = None
     #: v2 slice 4 audit trail (tier-2 reports only): debate turns + judge
-    #: verdict with anchored reasons. JSON-ready dict; None elsewhere.
+    #: outlook with anchored reasons. JSON-ready dict; None elsewhere.
     debate_detail: Optional[Dict[str, Any]] = None
     #: Max hold time in weeks the run was judged against (2026-08-08);
     #: None on reports stored before the hold-time picker existed.

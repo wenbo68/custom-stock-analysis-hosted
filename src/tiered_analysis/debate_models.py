@@ -166,11 +166,11 @@ class VoteModel(_StageModel):
     vote's mark. Numbers inside the reason must be cited with the same
     code-checked links the bullets use."""
 
-    verdict: Literal["valid", "invalid"]
+    validity: Literal["valid", "invalid"]
     reason: Optional[str] = None
     links: List[LinkModel] = Field(default_factory=list)
     #: The voter's own importance rating of the bullet (1-5), cast
-    #: regardless of the verdict — it joins the bullet's weight median.
+    #: regardless of the validity — it joins the bullet's weight median.
     weight: Weight = DEFAULT_WEIGHT
     #: One short plain sentence explaining the rating (see the item's
     #: field of the same name).

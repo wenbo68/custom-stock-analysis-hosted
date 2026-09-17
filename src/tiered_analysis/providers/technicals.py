@@ -15,7 +15,7 @@ v2 design (TODO.md "technical fields — FINAL"):
   double-counted by an LLM as independent evidence (stack + structure +
   slope + trend reads as four confirmations of one fact), so judgments
   ship only as their composite label. Ingredients live in code and, for
-  a *neutral* label, in the explanation text — a neutral verdict
+  a *neutral* label, in the explanation text — a neutral reading
   collapses two opposite situations and only its inputs distinguish them.
 - **Coordinates stay** — price levels (the one-year high, the 50/200-day
   averages, pivot support/resistance) are not confirmations of anything;
@@ -303,7 +303,7 @@ def macd_histogram_series(
 
     The raw MACD/signal lines are internal computation now: the histogram
     plus the line's sign carry everything the momentum label needs, and
-    publishing the operands alongside the verdict double-counts them.
+    publishing the operands alongside the reading double-counts them.
     """
     if len(closes) < slow + signal - 1:
         return None, []
@@ -555,7 +555,7 @@ def _trend_explanation(
 ) -> str:
     """Method text, per the explanation style rule (TODO.md 2026-07-27):
     an agreeing label gets method only — re-listing each ingredient's
-    verdict would smuggle the double-counting back in as prose. A neutral
+    reading would smuggle the double-counting back in as prose. A neutral
     label states which ingredient said what, because neutral collapses
     two opposite situations that only the ingredients distinguish."""
     method = (

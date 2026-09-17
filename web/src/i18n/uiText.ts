@@ -42,18 +42,18 @@ const zh = {
   // 交易计划警告弹窗的 'tiered.alt.warnKey.reward_below_goal'。
   'tiered.note.key.missingData': '数据缺失',
   'tiered.note.key.fetchFailed': '抓取失败',
-  'tiered.note.key.citations': '引用核查',
-  'tiered.note.key.aiReply': 'AI 回复',
-  'tiered.note.key.levels': '价格参考位',
-  'tiered.note.key.verdict': '结论',
-  'tiered.note.key.vote': '投票',
-  'tiered.note.key.debate': '辩论',
-  'tiered.note.key.riskCheck': '风险压测',
-  'tiered.note.key.settings': '设置',
-  'tiered.note.key.newsCap': '新闻上限',
+  'tiered.note.key.citations': '引用无效',
+  'tiered.note.key.aiReply': 'AI 回复无效',
+  'tiered.note.key.levels': '价位问题',
+  'tiered.note.key.outlook': '无展望',
+  'tiered.note.key.vote': '投票问题',
+  'tiered.note.key.debate': '证据不足',
+  'tiered.note.key.riskCheck': '计划复核未完成',
+  'tiered.note.key.settings': '设置无效',
+  'tiered.note.key.newsCap': '新闻已截断',
   // 无规则匹配时的兜底关键词——所有用户可见的“数据说明”一律叫
   // “警告”（所有者要求 2026-08-25）。
-  'tiered.note.key.other': '警告',
+  'tiered.note.key.other': '未知问题',
   'tiered.alt.summaryGroup': '总结',
   'tiered.note.barsLoadFailed': '日线行情加载失败，因此所有技术面数字都无法计算。',
   'tiered.note.yahooSummaryFailed': 'Yahoo Finance 摘要页加载失败，相关字段为空。',
@@ -160,7 +160,7 @@ const zh = {
   'tiered.note.noAtrStop': '缺少波动幅度数据（ATR），无法计算止损价。',
   'tiered.note.noAtrStopTarget': '缺少波动幅度数据（ATR），止损价和目标价都无法计算。',
   'tiered.note.noEntryNoStop': '没有可用的买入价，因此无法设置止损。',
-  'tiered.note.summaryFailed': '裁判的文字总结生成失败——公式算出的结论不受影响。',
+  'tiered.note.summaryFailed': '裁判的文字总结生成失败——公式算出的展望不受影响。',
   'tiered.note.badSetting': '有一项仓位设置不是数字，已忽略。',
   'tiered.help.entry': '理想买入价。\n通常靠近支撑位——此前买盘出现过的价位。',
   'tiered.help.stopLoss': '止损位。\n跌到这里说明判断错了——在此卖出可控制亏损。',
@@ -172,10 +172,10 @@ const zh = {
   'tiered.status.running': '分析中',
   'tiered.status.failed': '失败',
   'tiered.help.depth':
-    '层级 1（初步分析）：四份数据报告加一次 AI 结论。\n层级 2（深度分析）：跳过单次 AI 结论，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
+    '层级 1（初步分析）：四份数据报告加一次 AI 展望。\n层级 2（深度分析）：跳过单次 AI 展望，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
   'tiered.llmUsage': '本次运行 AI 调用 {calls} 次（约 {tokens} tokens）',
   'tiered.help.llmUsage':
-    '本次运行发起的 AI 调用次数与 token 总量（token 是计费单位）。\n层级 1 的结论由产品内置流程完成，不计入。',
+    '本次运行发起的 AI 调用次数与 token 总量（token 是计费单位）。\n层级 1 的展望由产品内置流程完成，不计入。',
   'tiered.transcript.title': '查看 AI 对话记录（{count} 次调用）',
   'tiered.transcript.loading': '加载中…',
   'tiered.transcript.error': '无法加载对话记录：{error}',
@@ -193,7 +193,7 @@ const zh = {
   'tiered.levelModal.references': '参考依据',
   'tiered.help.debate':
     '两位分析师各自独立通读四份报告，列出全部看多与看空证据；一次合并调用把两份清单对齐去重。\n每条证据引用的数值都由代码逐一校验：数值必须与报告显示的完全一致、且出现在句子里；不合格的引用会退回给 AI 修正（最多 3 次），仍失败的整条划线剔除。\n每条证据按多数票决定去留（最多 3 票）：作者自动算一张有效票，两位分析师都独立列出的证据直接确认；只有一位列出的证据由复核 AI 投第二票；1 比 1 平局时由决胜票裁定。\n代码按看多/看空条数算出得分——AI 不经手任何数字。',
-  'tiered.debate.noVerdict': '辩论未产生可用结论——本次运行没有展望，请重新运行（详见警告）。',
+  'tiered.debate.noOutlook': '辩论未产生展望——请重新运行（详见警告）。',
   'tiered.tree.bullish': '看多',
   'tiered.tree.bearish': '看空',
   'tiered.tree.valid': '有效',
@@ -214,7 +214,7 @@ const zh = {
   'tiered.tree.codeCheck': '代码检查结果',
   'tiered.note.listerDegradedRole': '{role}——评分表连续不合规，本次只使用另一位分析师的评分表。',
   'tiered.note.sheetsVoided': '两位分析师的评分表连续不合规——深度分析作废。',
-  'tiered.note.noOutlook': '深度分析未能得出结论，本次运行没有展望——请重新运行该股票。',
+  'tiered.note.noOutlook': '深度分析未能得出展望——请重新运行该股票。',
   'tiered.note.checkDegraded': '复核投票连续不合规——各条证据仅按作者一票计入。',
   'tiered.note.tiebreakDegraded': '决胜投票连续不合规——平票的证据按未决处理，不计入得分。',
   'tiered.note.voteDiscarded': '一张投票的引用经多次修正仍未通过代码校验——该票作废。',
@@ -423,13 +423,12 @@ const zh = {
   'tiered.alt.warnKey.downtrend': '逆势',
   'tiered.alt.warnKey.earnings_soon': '财报临近',
   'tiered.alt.warnKey.macro_event_soon': '宏观事件临近',
-  'tiered.alt.warnKey.gap_atr': '隔夜跳空',
-  'tiered.alt.warnKey.gap_worst': '最差单日',
-  'tiered.alt.warnKey.reward_below_goal': '盈亏比',
+  'tiered.alt.warnKey.gap_atr': '隔夜跳空风险',
+  'tiered.alt.warnKey.gap_worst': '最差单日跳空风险',
+  'tiered.alt.warnKey.reward_below_goal': '盈亏比偏低',
   'tiered.alt.checkKey.downtrend': '逆势',
   'tiered.alt.checkKey.liquidity': '流动性',
   'tiered.alt.checkKey.volatility': '波动',
-  'tiered.alt.checkKey.stop_vs_swing_low': '摆动低点',
   'tiered.alt.checkKey.stop_vs_support': '支撑位',
   'tiered.alt.reviewFail.title': '为什么维持原计算值',
   'tiered.alt.reviewFail.intro':
@@ -451,7 +450,7 @@ const zh = {
   'tiered.action.enter': '现在买入',
   'tiered.action.enter_later': '稍后再买',
   'tiered.action.no_trade': '不交易',
-  'tiered.action.unknown': '重跑——本次运行未产生可用结论',
+  'tiered.action.unknown': '重跑——本次运行未产生展望',
   'tiered.help.outlook':
     '「展望」是对这只股票本身的判断（看多 / 中性 / 看空），与你是否持有无关。\n「操作」由代码根据展望推出：看多→现在买入（交易计划的盈亏比达到你设定的目标）或稍后再买（低于目标）；中性或看空→不交易。',
   'tiered.help.action':
@@ -472,7 +471,7 @@ const zh = {
     '每位 AI 还会给每条证据打 1-5 的重要性评分（1 = 非常次要，5 = 非常重要）；证据的最终分是所有评分的中位数，总分按它加权：10 × 看多证据的权重和 ÷ 全部证据的权重和。点击分数或勾叉可看理由。',
   'tiered.tree.lister': '列出者 {n}',
   'tiered.tree.checker': '核查员 {n}',
-  'tiered.tree.verdictLine': '判定：{value}',
+  'tiered.tree.validityLine': '结果：{value}',
   'tiered.tree.reasonPrefix': '理由：',
   'tiered.tree.scoreLine': '评分：{value}',
   'tiered.tree.scoresList': '各方评分：{value}',
@@ -525,19 +524,19 @@ const en: Record<UiTextKey, string> = {
   // never AI-generated. The reward-ratio note reuses the plan-warnings
   // keyword 'tiered.alt.warnKey.reward_below_goal'.
   'tiered.note.key.missingData': 'Missing data',
-  'tiered.note.key.fetchFailed': 'Fetch failed',
-  'tiered.note.key.citations': 'Citation check',
-  'tiered.note.key.aiReply': 'AI reply',
-  'tiered.note.key.levels': 'Price levels',
-  'tiered.note.key.verdict': 'Verdict',
-  'tiered.note.key.vote': 'Vote',
-  'tiered.note.key.debate': 'Debate',
-  'tiered.note.key.riskCheck': 'Risk check',
-  'tiered.note.key.settings': 'Settings',
-  'tiered.note.key.newsCap': 'News cap',
+  'tiered.note.key.fetchFailed': 'Failed fetch',
+  'tiered.note.key.citations': 'Invalid citation',
+  'tiered.note.key.aiReply': 'Unusable AI reply',
+  'tiered.note.key.levels': 'Price level problem',
+  'tiered.note.key.outlook': 'No outlook',
+  'tiered.note.key.vote': 'Vote problem',
+  'tiered.note.key.debate': 'No usable evidence',
+  'tiered.note.key.riskCheck': 'Unfinished plan review',
+  'tiered.note.key.settings': 'Invalid setting',
+  'tiered.note.key.newsCap': 'Trimmed news',
   // The fallback keyword when no rule matches — every user-facing
   // "data note" reads "warning" (owner request 2026-08-25).
-  'tiered.note.key.other': 'Warning',
+  'tiered.note.key.other': 'Unknown problem',
   'tiered.alt.summaryGroup': 'Summary',
   // Audit 2026-08-08: plain-English wording for notes that used to reach
   // the screen as raw backend text (exception reprs, variable names).
@@ -709,7 +708,7 @@ const en: Record<UiTextKey, string> = {
     'No volatility data (ATR) was available, so neither the stop-loss nor the target price could be computed.',
   'tiered.note.noEntryNoStop': 'There is no usable entry price, so no stop-loss could be set.',
   'tiered.note.summaryFailed':
-    'The judge’s written summary couldn’t be produced — the computed verdict is unaffected.',
+    'The judge’s written summary couldn’t be produced — the computed outlook is unaffected.',
   'tiered.note.badSetting': 'One sizing setting isn’t a number and was ignored.',
   'tiered.help.entry':
     'Ideal buy price.\nUsually near a support level — a price where buyers stepped in before.',
@@ -723,10 +722,10 @@ const en: Record<UiTextKey, string> = {
   'tiered.status.running': 'Running',
   'tiered.status.failed': 'Failed',
   'tiered.help.depth':
-    'Tier 1 (preliminary analysis): the four data reports plus one AI verdict.\nTier 2 (deep analysis): skips the single AI verdict — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
+    'Tier 1 (preliminary analysis): the four data reports plus one AI outlook.\nTier 2 (deep analysis): skips the single AI outlook — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
   'tiered.llmUsage': 'This run used {calls} AI calls (~{tokens} tokens)',
   'tiered.help.llmUsage':
-    'AI calls this run made, and their total tokens (the billing unit).\nThe tier-1 verdict runs in the product’s built-in flow and is not counted.',
+    'AI calls this run made, and their total tokens (the billing unit).\nThe tier-1 outlook runs in the product’s built-in flow and is not counted.',
   'tiered.transcript.title': 'View AI transcript ({count} calls)',
   'tiered.transcript.loading': 'Loading…',
   'tiered.transcript.error': 'Could not load the transcript: {error}',
@@ -746,8 +745,8 @@ const en: Record<UiTextKey, string> = {
   'tiered.levelModal.references': 'References',
   'tiered.help.debate':
     'Two analysts independently read the four reports and each lists ALL the evidence — bullish and bearish; a merge call lines the two lists up.\nCode verifies every cited value: it must match the report’s displayed number exactly and appear in the sentence; failed citations go back to the AI to fix (up to 3 times), and bullets still broken are crossed out and dropped.\nEach bullet lives or dies by majority vote (at most 3 votes): its author counts as one valid vote, so a bullet both analysts listed independently is confirmed on the spot; a checker AI casts the second vote on single-author bullets; a deciding vote breaks 1-1 ties.\nCode counts the surviving bullish vs bearish bullets into the score — no AI touches the numbers.',
-  'tiered.debate.noVerdict':
-    'The debate produced no usable verdict — this run has no outlook; re-run the stock (see Warnings).',
+  'tiered.debate.noOutlook':
+    'The debate produced no outlook — re-run the stock (see Warnings).',
   'tiered.tree.bullish': 'bullish',
   'tiered.tree.bearish': 'bearish',
   'tiered.tree.valid': 'valid',
@@ -776,7 +775,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.note.sheetsVoided':
     'Both analysts kept returning invalid grade sheets — the deep analysis was voided.',
   'tiered.note.noOutlook':
-    'The deep analysis produced no verdict, so this run has no outlook — re-run the stock.',
+    'The deep analysis produced no outlook — re-run the stock.',
   'tiered.note.checkDegraded':
     'The check round kept coming back invalid — bullets were counted on their author’s vote alone.',
   'tiered.note.tiebreakDegraded':
@@ -994,15 +993,14 @@ const en: Record<UiTextKey, string> = {
   // The fixed keyword each risk line opens with (code-picked from the
   // check id, never AI-written).
   'tiered.alt.warnKey.downtrend': 'Downtrend',
-  'tiered.alt.warnKey.earnings_soon': 'Earnings',
-  'tiered.alt.warnKey.macro_event_soon': 'Macro event',
-  'tiered.alt.warnKey.gap_atr': 'Overnight gap',
-  'tiered.alt.warnKey.gap_worst': 'Worst-day gap',
-  'tiered.alt.warnKey.reward_below_goal': 'Reward ratio',
+  'tiered.alt.warnKey.earnings_soon': 'Earnings soon',
+  'tiered.alt.warnKey.macro_event_soon': 'Macro event soon',
+  'tiered.alt.warnKey.gap_atr': 'Overnight gap risk',
+  'tiered.alt.warnKey.gap_worst': 'Worst-day gap risk',
+  'tiered.alt.warnKey.reward_below_goal': 'Low reward ratio',
   'tiered.alt.checkKey.downtrend': 'Downtrend',
   'tiered.alt.checkKey.liquidity': 'Liquidity',
   'tiered.alt.checkKey.volatility': 'Volatility',
-  'tiered.alt.checkKey.stop_vs_swing_low': 'Swing low',
   'tiered.alt.checkKey.stop_vs_support': 'Support',
   'tiered.alt.reviewFail.title': 'Why the plan keeps its computed numbers',
   'tiered.alt.reviewFail.intro':
@@ -1048,7 +1046,7 @@ const en: Record<UiTextKey, string> = {
     'Each AI also rates every bullet’s importance 1-5 (1 = very minor, 5 = very important); a bullet’s final score is the median of its ratings, and the total score is weighted by it: 10 × the bullish bullets’ weight ÷ all bullets’ weight. Click a score or a mark for the reasoning.',
   'tiered.tree.lister': 'Lister {n}',
   'tiered.tree.checker': 'Checker {n}',
-  'tiered.tree.verdictLine': 'verdict: {value}',
+  'tiered.tree.validityLine': 'result: {value}',
   'tiered.tree.reasonPrefix': 'reason:',
   'tiered.tree.scoreLine': 'score: {value}',
   'tiered.tree.scoresList': 'Scores: {value}',

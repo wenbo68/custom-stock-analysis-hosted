@@ -49,7 +49,7 @@ export const AltSectionLabel = ({ children }: { children: ReactNode }) => (
 
 // Every popup title on the alt page names two things: WHAT the popup is
 // about (a metric, a plan level, a check) and WHICH KIND of popup it is
-// (formula / adjustment / warnings / why blank / a verdict). They used to
+// (formula / adjustment / warnings / why blank / an outlook). They used to
 // run together as one "subject: kind" sentence, which read as a single
 // long label. Owner request 2026-08-08: split them, and always onto TWO
 // LINES — subject first, kind under it — so the shape of the header is

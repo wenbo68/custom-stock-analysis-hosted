@@ -826,7 +826,7 @@ def _shares_detail(
 @dataclass(frozen=True)
 class _RoundPlan:
     """One round's fully-evaluated plan: cumulative adjustments applied
-    to the bases, mechanical share recompute, AI trim verdict."""
+    to the bases, mechanical share recompute, AI trim decision."""
 
     decisions: Dict[str, Any]
     adjust_warnings: List[str]
@@ -879,7 +879,7 @@ def review_plan(
 ) -> PlanReview:
     """Run the check-adjust cycle and produce the final plan block.
 
-    Only called for BUY verdicts (there is nothing to size or adjust on
+    Only called for bullish outlooks (there is nothing to size or adjust on
     a hold/sell). Up to ``MAX_ADJUST_ROUNDS`` rounds: flag → the AI
     adjusts → the plan-dependent checks re-run on the adjusted plan.
     Converged (no plan-dependent check fires) → the cumulative
@@ -1017,7 +1017,7 @@ def review_plan(
                 )
                 warnings.append(f"plan review LLM call failed: {exc}")
                 # No completed-but-flagged round yet → plain outage, keep
-                # the computed plan without the failure verdict.
+                # the computed plan without the failure result.
                 converged = not review_failures
                 break
             warnings.extend(
@@ -1055,7 +1055,7 @@ def review_plan(
             prompt_checks = flagged
 
     if converged:
-        # Only the final plan's guardrail verdicts surface — intermediate
+        # Only the final plan's guardrail results surface — intermediate
         # rounds' rejections were superseded by later proposals.
         warnings.extend(plan.adjust_warnings)
         if plan.shares_rejection is not None:

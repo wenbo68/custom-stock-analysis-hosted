@@ -15,8 +15,8 @@ opposite caching behavior:
    entries are pruned once the article's publish date ages out of any
    possible card window (``CACHE_MAX_AGE_DAYS``); until then they never
    go stale. Uncached articles are judged in size-bounded batches that
-   run in PARALLEL threads, and verdicts are compact arrays
-   (``[n, about, materiality]``) because verdict-TYPING time dominates
+   run in PARALLEL threads, and judgments are compact arrays
+   (``[n, about, materiality]``) because judgment-TYPING time dominates
    latency (measured 2026-08-15; ``include_reasons=True`` restores the
    audit phrase for trials).
 
@@ -51,7 +51,7 @@ shows only what passed the bar: the ceiling never pads.
    fail-soft fallback.
 
 Fail-soft contract: an LLM failure (config missing, bad JSON, missing
-verdicts) must never HIDE news. An article without a usable judgment is
+judgments) must never HIDE news. An article without a usable judgment is
 kept with materiality None — which passes selection — with a warning,
 and such fallbacks are NEVER written to the cache (a failure must not
 persist as fact). A failed grouping call degrades to no grouping
@@ -68,7 +68,7 @@ Two prompt sets share these mechanics (``ScreenPrompts``,
 it about this company?") and ``WORLD_PROMPTS`` (the world_events
 provider — general market/world news, "is it about the macro backdrop,
 and how much could it move the OVERALL market?").
-Everything below the prompt layer — verdict parsing, caching,
+Everything below the prompt layer — judgment parsing, caching,
 grouping, ranking, selection — is prompt-set-blind.
 """
 from __future__ import annotations
@@ -187,7 +187,7 @@ Articles:
 # group -> select -> rank -> summarize) are shared with company news;
 # only the judgment lens differs: "is this about the macro/world
 # backdrop, and how much could it move the OVERALL market?" instead of
-# "is this about the company?". The compact verdict array keeps the
+# "is this about the company?". The compact judgment array keeps the
 # same positional shape ([n, relevant, materiality]) so every parser
 # and cache below is prompt-set-blind.
 # ---------------------------------------------------------------------------
@@ -313,7 +313,7 @@ def build_judge_prompt(
     """The judge prompt: numbered headline+abstract lines.
 
     ``include_reasons`` adds a per-article audit phrase to the requested
-    output — trials only; production skips it because verdict-typing
+    output — trials only; production skips it because judgment-typing
     time dominates the whole pipeline's latency.
     """
     return prompts.judge.format(
@@ -458,7 +458,7 @@ def _clean_judgment(raw: Any, count: int) -> Optional[Dict[str, Any]]:
 
 
 def _kept_fallback(index: int) -> Dict[str, Any]:
-    """The fail-soft judgment: no usable model verdict -> keep the
+    """The fail-soft judgment: no usable model judgment -> keep the
     article. ``from_model`` False keeps it out of the cache — a failure
     must never persist as fact."""
     return {
@@ -523,7 +523,7 @@ def llm_judge_news(
     missing = count - len(by_index)
     if missing:
         warnings.append(
-            f"news judge verdict missing for {missing} article(s) — those kept"
+            f"news judge gave no judgment for {missing} article(s) — those kept"
         )
     judgments = [by_index.get(i) or _kept_fallback(i) for i in range(count)]
     return {"judgments": judgments, "warnings": warnings}
@@ -965,12 +965,12 @@ def summarize_articles_cached(
 
 def select_events(
     entries: Sequence[Mapping[str, Any]],
-    verdicts: Sequence[Mapping[str, Any]],
+    judgments: Sequence[Mapping[str, Any]],
     threshold: int = INCLUDE_THRESHOLD,
 ) -> Dict[str, Any]:
     """Plain-code selection over screened articles — no further AI.
 
-    ``verdicts`` are judgments plus an ``event`` key (0-based index of
+    ``judgments`` are judgments plus an ``event`` key (0-based index of
     the group's anchor article). Collapses each event group to its most
     important article (highest materiality; an abstract beats a bare
     headline, then newest, break ties) and keeps every event whose best
@@ -978,7 +978,7 @@ def select_events(
     lives in ``screen_news`` (rank-ordered). Unknown materiality (an
     LLM failure upstream) passes selection: fail-soft never hides news.
 
-    Returns ``{"selected": [{"entry", "verdict", "materiality",
+    Returns ``{"selected": [{"entry", "judgment", "materiality",
     "group_size"}], "mention_only": n, "below_threshold": n,
     "warnings": [...]}`` with ``selected`` ordered by materiality, then
     date, newest first.
@@ -986,11 +986,11 @@ def select_events(
     warnings: List[str] = []
     groups: Dict[int, List[Mapping[str, Any]]] = {}
     mention_only = 0
-    for verdict in verdicts:
-        if not verdict["about_company"]:
+    for judgment in judgments:
+        if not judgment["about_company"]:
             mention_only += 1
             continue
-        groups.setdefault(verdict["event"], []).append(verdict)
+        groups.setdefault(judgment["event"], []).append(judgment)
 
     events: List[Dict[str, Any]] = []
     for members in groups.values():
@@ -1013,7 +1013,7 @@ def select_events(
         events.append(
             {
                 "entry": entries[best["index"]],
-                "verdict": best,
+                "judgment": best,
                 "materiality": max(scores) if scores else None,
                 "group_size": len(members),
             }
@@ -1097,11 +1097,11 @@ def screen_news(
         for local in local_group:
             anchor_of[candidates[local]] = anchor
 
-    verdicts = [
+    judgments = [
         {**judgment, "event": anchor_of.get(judgment["index"], judgment["index"])}
         for judgment in judgments
     ]
-    selection = select_events(entries, verdicts, threshold=threshold)
+    selection = select_events(entries, judgments, threshold=threshold)
     selected = selection["selected"]
 
     # Ceiling: rank the finalists (comparative, reliable at this size)

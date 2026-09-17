@@ -153,7 +153,7 @@ const HELPER_VAR_LABEL: Record<string, string> = {
   atm_put_price: 'at-the-money put price',
   stock_price: 'stock price',
   // Sector comparison receipt ingredients (2026-08-04): the sector
-  // ETF's returns are receipt-only; diff_1m/3m feed the verdict rules.
+  // ETF's returns are receipt-only; diff_1m/3m feed the outlook rules.
   sector_return_1m: 'sector return (1m)',
   sector_return_3m: 'sector return (3m)',
   diff_1m: 'return diff (1m)',

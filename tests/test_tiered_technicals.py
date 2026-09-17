@@ -435,7 +435,7 @@ class TestTechnicalsProvider(unittest.TestCase):
 
     def test_retired_fields_stay_retired(self):
         # The v2 payload publishes composites, not their ingredients, and
-        # no code-computed verdict: no score, no EMA pair, no raw MACD
+        # no code-computed outlook: no score, no EMA pair, no raw MACD
         # lines, no bias, no flat swing keys.
         payload = _full_provider(_wave_bars(320)).collect("AAPL").payload
         flat = set(payload.keys())
@@ -611,7 +611,7 @@ class TestTechnicalsProvider(unittest.TestCase):
 
     def test_no_composite_score_is_handed_to_the_judgment_stages(self):
         # The payload is dumped verbatim into the LLM prompt, so a
-        # code-computed 0-100 verdict in it would pre-answer the question
+        # code-computed 0-100 outlook in it would pre-answer the question
         # those stages exist to answer and invite anchoring.
         payload = _full_provider(_wave_bars(320)).collect("AAPL").payload
         self.assertNotIn("score", payload)

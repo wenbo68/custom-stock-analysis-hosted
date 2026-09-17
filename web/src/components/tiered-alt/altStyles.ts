@@ -4,7 +4,7 @@ import type { TieredResult, TieredRunStatus } from '../../api/tiered';
 export const TAG_BASE =
   'inline-flex items-center rounded px-[9px] py-0.5 text-xs font-semibold ring-1 ring-inset';
 
-// Verdicts render as plain colored text, not pills.
+// Outlooks render as plain colored text, not pills.
 export const DIRECTION_TEXT: Record<TieredResult['direction'], string> = {
   buy: 'text-emerald-300',
   hold: 'text-amber-300',
@@ -12,7 +12,7 @@ export const DIRECTION_TEXT: Record<TieredResult['direction'], string> = {
   unknown: 'text-gray-400',
 };
 
-// Outlooks share the verdict palette: bullish = buy green, neutral =
+// Outlooks share the outlook palette: bullish = buy green, neutral =
 // hold amber, bearish = sell red.
 export const OUTLOOK_TEXT: Record<string, string> = {
   bullish: 'text-emerald-300',
@@ -20,7 +20,7 @@ export const OUTLOOK_TEXT: Record<string, string> = {
   bearish: 'text-red-300',
   unknown: 'text-gray-400',
   // Staleness gate (2026-08-08): the run halted before any analysis —
-  // deliberately plain, neither a verdict color nor the failure red.
+  // deliberately plain, neither an outlook color nor the failure red.
   stopped: 'text-gray-300',
 };
 

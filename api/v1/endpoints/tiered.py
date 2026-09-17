@@ -93,7 +93,7 @@ def _serialize_levels(levels: Any) -> Dict[str, Any]:
 
 
 def _serialize_tier_section(report: Any) -> Optional[Dict[str, Any]]:
-    """Tier 2 section: verdict + audit trail, no dimension duplication."""
+    """Tier 2 section: outlook + audit trail, no dimension duplication."""
     if report is None:
         return None
     section: Dict[str, Any] = {

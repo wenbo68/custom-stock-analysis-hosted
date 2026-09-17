@@ -34,7 +34,7 @@ def passthrough_screener(symbol, entries, company):
     )
     return {
         "selected": [
-            {"entry": entry, "verdict": None, "materiality": None, "group_size": 1}
+            {"entry": entry, "judgment": None, "materiality": None, "group_size": 1}
             for entry in entries
         ],
         "mention_only": 0,
@@ -423,7 +423,7 @@ class TestCollect(unittest.TestCase):
                 "selected": [
                     {
                         "entry": entries[0],
-                        "verdict": None,
+                        "judgment": None,
                         "materiality": 5,
                         "group_size": 16,
                         "card_text": "Apple shipped its AI overhaul.",
@@ -461,14 +461,14 @@ class TestCollect(unittest.TestCase):
                 "selected": [
                     {
                         "entry": entries[1],  # 2026-08-07
-                        "verdict": None,
+                        "judgment": None,
                         "materiality": 5,
                         "group_size": 1,
                         "card_text": "The big old event.",
                     },
                     {
                         "entry": entries[0],  # 2026-08-12
-                        "verdict": None,
+                        "judgment": None,
                         "materiality": 4,
                         "group_size": 1,
                         "card_text": "The newer event.",

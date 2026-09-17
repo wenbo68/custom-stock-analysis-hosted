@@ -271,7 +271,7 @@ class AdjustmentProposal:
 
 @dataclass(frozen=True)
 class LevelDecision:
-    """Final verdict for one level: base, accepted adjustment, or rejection."""
+    """Final decision for one level: base, accepted adjustment, or rejection."""
 
     base: Optional[LevelBasis] = None
     adjusted: Optional[float] = None

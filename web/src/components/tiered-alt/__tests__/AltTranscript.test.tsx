@@ -16,7 +16,7 @@ const entry = (overrides: Partial<TieredTranscriptEntry> = {}): TieredTranscript
   structured: 'schema',
   error: null,
   prompt: 'the prompt',
-  reply: '{"verdict": "buy"}',
+  reply: '{"outlook": "buy"}',
   ...overrides,
 });
 
@@ -41,7 +41,7 @@ describe('AltTranscript', () => {
 
     await waitFor(() => expect(screen.getByText(/tier1_quick/)).toBeInTheDocument());
     expect(loader).toHaveBeenCalledWith('task-1');
-    expect(screen.getByText('{"verdict": "buy"}')).toBeInTheDocument();
+    expect(screen.getByText('{"outlook": "buy"}')).toBeInTheDocument();
     expect(screen.getAllByText('the prompt')).toHaveLength(2);
     expect(screen.getByText(/boom/)).toBeInTheDocument();
     expect(screen.getAllByText(/15 tokens/)).toHaveLength(2);

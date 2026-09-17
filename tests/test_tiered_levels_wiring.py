@@ -66,14 +66,14 @@ def _technicals_dim():
 
 
 class _FakeQuickJudge:
-    """Canned BUY verdict — levels wiring is what's under test here."""
+    """Canned BUY outlook — levels wiring is what's under test here."""
 
     def run(self, symbol, dimensions, hold_weeks):
-        from src.tiered_analysis.quick_judge import QuickResult, QuickVerdict
+        from src.tiered_analysis.quick_judge import QuickResult, QuickOutlook
         from src.tiered_analysis.schema import Direction
 
         return QuickResult(
-            verdict=QuickVerdict(
+            outlook=QuickOutlook(
                 direction=Direction.BUY,
                 final_score=7.5,
                 summary="buy the pullback",
@@ -88,7 +88,7 @@ def _run(providers=None):
         providers=providers or [_StubProvider(_technicals_dim())],
         quick_judge=_FakeQuickJudge(),
         earnings_lookup=lambda symbol, market: EarningsInfo(),
-        # BUY verdicts whose plan trips a check (the downtrend test)
+        # BUY outlooks whose plan trips a check (the downtrend test)
         # consult the plan-review AI; without this canned "no change
         # helps" reply the test made a REAL network LLM call whenever an
         # earlier test had already loaded .env (found via the run

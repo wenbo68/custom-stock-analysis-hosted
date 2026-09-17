@@ -160,7 +160,7 @@ class TestJudge(unittest.TestCase):
         self.assertTrue(result["judgments"][1]["about_company"])
         self.assertIsNone(result["judgments"][1]["materiality"])
         self.assertFalse(result["judgments"][1]["from_model"])
-        self.assertTrue(any("missing for 2" in w for w in result["warnings"]))
+        self.assertTrue(any("gave no judgment for 2" in w for w in result["warnings"]))
 
     def test_garbage_json_keeps_everything_with_warning(self):
         result = llm_judge_news("GOOGL", entries(), summarize=canned("not json"))
@@ -192,7 +192,7 @@ class TestJudge(unittest.TestCase):
         result = llm_judge_news("GOOGL", entries(), summarize=canned(response))
         self.assertTrue(result["judgments"][1]["about_company"])
         self.assertIsNone(result["judgments"][1]["materiality"])
-        self.assertTrue(any("missing for 2" in w for w in result["warnings"]))
+        self.assertTrue(any("gave no judgment for 2" in w for w in result["warnings"]))
 
     def test_empty_input_makes_no_llm_call(self):
         summarize = canned("{}")
@@ -300,7 +300,7 @@ class TestJudgeCached(unittest.TestCase):
         # Judgments land on the right global positions.
         self.assertEqual(result["judgments"][0]["materiality"], 5)   # cache hit
         self.assertFalse(result["judgments"][1]["about_company"])    # judged
-        # And the fresh verdicts are now cached for tomorrow.
+        # And the fresh judgments are now cached for tomorrow.
         self.assertEqual(self.cache.get("https://example.com/micron")["about"], False)
 
     def test_fail_soft_fallbacks_are_never_cached(self):
@@ -483,7 +483,7 @@ class TestSummarizeCached(unittest.TestCase):
 
 
 class TestSelectEvents(unittest.TestCase):
-    def verdict(self, index, about=True, materiality=3, event=None):
+    def judgment(self, index, about=True, materiality=3, event=None):
         return {
             "index": index,
             "about_company": about,
@@ -500,11 +500,11 @@ class TestSelectEvents(unittest.TestCase):
             self.entry("routine rewrite", summary="A rewrite."),
             self.entry("the big original", summary="What happened."),
         ]
-        verdicts = [
-            self.verdict(0, materiality=4, event=0),
-            self.verdict(1, materiality=5, event=0),
+        judgments = [
+            self.judgment(0, materiality=4, event=0),
+            self.judgment(1, materiality=5, event=0),
         ]
-        result = select_events(items, verdicts)
+        result = select_events(items, judgments)
         self.assertEqual(len(result["selected"]), 1)
         chosen = result["selected"][0]
         # The highest-scored member represents the group (owner decision
@@ -518,41 +518,41 @@ class TestSelectEvents(unittest.TestCase):
             self.entry("bare headline rewrite"),
             self.entry("original with abstract", summary="What happened."),
         ]
-        verdicts = [
-            self.verdict(0, materiality=4, event=0),
-            self.verdict(1, materiality=4, event=0),
+        judgments = [
+            self.judgment(0, materiality=4, event=0),
+            self.judgment(1, materiality=4, event=0),
         ]
-        result = select_events(items, verdicts)
+        result = select_events(items, judgments)
         self.assertEqual(
             result["selected"][0]["entry"]["title"], "original with abstract"
         )
 
     def test_threshold_cuts_low_scores_and_counts_them(self):
         items = [self.entry("big"), self.entry("listicle")]
-        verdicts = [
-            self.verdict(0, materiality=4),
-            self.verdict(1, materiality=1),
+        judgments = [
+            self.judgment(0, materiality=4),
+            self.judgment(1, materiality=1),
         ]
-        result = select_events(items, verdicts, threshold=3)
+        result = select_events(items, judgments, threshold=3)
         self.assertEqual(len(result["selected"]), 1)
         self.assertEqual(result["below_threshold"], 1)
 
     def test_mention_only_articles_never_form_events(self):
         items = [self.entry("about us"), self.entry("about someone else")]
-        verdicts = [
-            self.verdict(0, materiality=4),
-            self.verdict(1, about=False, materiality=0),
+        judgments = [
+            self.judgment(0, materiality=4),
+            self.judgment(1, about=False, materiality=0),
         ]
-        result = select_events(items, verdicts)
+        result = select_events(items, judgments)
         self.assertEqual(len(result["selected"]), 1)
         self.assertEqual(result["mention_only"], 1)
 
     def test_unknown_materiality_passes_selection(self):
-        # Fail-soft upstream: a verdict the LLM never delivered must not
+        # Fail-soft upstream: a judgment the LLM never delivered must not
         # vanish here.
         items = [self.entry("unjudged story")]
-        verdicts = [self.verdict(0, materiality=None)]
-        result = select_events(items, verdicts, threshold=3)
+        judgments = [self.judgment(0, materiality=None)]
+        result = select_events(items, judgments, threshold=3)
         self.assertEqual(len(result["selected"]), 1)
         self.assertIsNone(result["selected"][0]["materiality"])
 

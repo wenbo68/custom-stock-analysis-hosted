@@ -68,8 +68,6 @@ function makeWeightedDebate(): TieredDebateDetail {
         author_weights: [3, 3],
         weight: 3,
         votes: [],
-        response: null,
-        judge: null,
         final_status: 'counted',
         exclusion_reason: null,
       },
@@ -87,19 +85,17 @@ function makeWeightedDebate(): TieredDebateDetail {
         votes: [
           {
             role: 'checker',
-            verdict: 'valid',
+            validity: 'valid',
             reason: 'Supported by the source.',
             links: [{ ref: 'citation:2', value: null }],
             weight: 2,
           },
         ],
-        response: null,
-        judge: null,
         final_status: 'counted',
         exclusion_reason: null,
       },
     ],
-    verdict: {
+    outlook: {
       direction: 'hold',
       summary: 'Weighted to hold.',
       final_score: 5.45,
@@ -183,7 +179,7 @@ function makeRichDebate(): TieredDebateDetail {
         votes: [
           {
             role: 'checker',
-            verdict: 'invalid',
+            validity: 'invalid',
             reason: 'The deal risk is already priced in.',
             links: [],
             weight: 2,
@@ -191,7 +187,7 @@ function makeRichDebate(): TieredDebateDetail {
           },
           {
             role: 'decider',
-            verdict: 'valid',
+            validity: 'valid',
             reason: 'The objection is speculation.',
             links: [],
             weight: 2,
@@ -305,7 +301,7 @@ describe('AltResult outlook conclusion', () => {
     fireEvent.click(within(conclusion).getByTestId('alt-notes-button'));
     const dialog = screen.getByRole('dialog');
     // The analysis note stays; both plan notes are gone with the plan.
-    expect(dialog).toHaveTextContent(/Verdict|结论/);
+    expect(dialog).toHaveTextContent(/No outlook|无展望/);
     expect(dialog).not.toHaveTextContent(/0\.28/);
     expect(within(dialog).getAllByRole('listitem')).toHaveLength(1);
   });
@@ -441,7 +437,7 @@ describe('AltResult plan-card data notes vs the warnings row', () => {
     expect(dialog).not.toHaveTextContent(/1\.67/);
     expect(dialog).not.toHaveTextContent(/downtrend|逆势低吸/);
     // Unrelated notes stay.
-    expect(dialog).toHaveTextContent(/price levels|价格参考位/i);
+    expect(dialog).toHaveTextContent(/price level problem|价位问题/i);
   });
 });
 
@@ -476,8 +472,8 @@ describe('AltResult weighted vote formula', () => {
         warnings: [],
         debate_detail: {
           ...makeWeightedDebate(),
-          verdict: {
-            ...makeWeightedDebate().verdict!,
+          outlook: {
+            ...makeWeightedDebate().outlook!,
             summary_structure: {
               summary: [{ text: 'The outlook is neutral.', links: [], children: [] }],
               technicals: [
@@ -579,7 +575,7 @@ describe('AltResult v11 detail tree', () => {
     fireEvent.click(marks[0]);
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveTextContent(/列出者 1|Lister 1/);
-    expect(dialog).toHaveTextContent(/判定：有效|verdict: valid/);
+    expect(dialog).toHaveTextContent(/结果：有效|result: valid/);
     expect(dialog).toHaveTextContent('The 14-day RSI (71.20) is above 70.');
     expect(dialog).toHaveTextContent(/评分：4|score: 4/);
     expect(dialog).toHaveTextContent('Strong but not decisive.');
@@ -592,7 +588,7 @@ describe('AltResult v11 detail tree', () => {
     );
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveTextContent(/核查员 1|Checker 1/);
-    expect(dialog).toHaveTextContent(/判定：无效|verdict: invalid/);
+    expect(dialog).toHaveTextContent(/结果：无效|result: invalid/);
     expect(dialog).toHaveTextContent('The deal risk is already priced in.');
     expect(dialog).toHaveTextContent(/评分：2|score: 2/);
     expect(dialog).toHaveTextContent('A minor point either way.');

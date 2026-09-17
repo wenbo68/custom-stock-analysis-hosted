@@ -148,7 +148,7 @@ def _deep_outcome(symbol="AAPL"):
         direction=Direction.BUY,
         confidence="0.70", levels=base.report.levels,
         narrative="bull case holds",
-        debate_detail={"verdict": {"direction": "buy", "confidence": 0.7}},
+        debate_detail={"outlook": {"direction": "buy", "confidence": 0.7}},
     )
     state = TierState(
         symbol=symbol, market=Market.US,
@@ -336,7 +336,7 @@ class TestTieredDepthAndSizingApi:
         # No coverage grades anywhere in the serialized run (2026-08-19).
         assert "coverage" not in result["final"]
         assert "coverage" not in result["tier2"]
-        assert result["tier2"]["debate_detail"]["verdict"]["direction"] == "buy"
+        assert result["tier2"]["debate_detail"]["outlook"]["direction"] == "buy"
         assert result["sizing"]["shares"] == 83
         assert result["llm_usage"]["total"]["calls"] == 3
         # outlook redesign additions

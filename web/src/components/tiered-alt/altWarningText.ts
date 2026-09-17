@@ -20,7 +20,7 @@ const KEY = {
   citations: 'tiered.note.key.citations',
   aiReply: 'tiered.note.key.aiReply',
   levels: 'tiered.note.key.levels',
-  verdict: 'tiered.note.key.verdict',
+  outlook: 'tiered.note.key.outlook',
   vote: 'tiered.note.key.vote',
   debate: 'tiered.note.key.debate',
   riskCheck: 'tiered.note.key.riskCheck',
@@ -189,13 +189,13 @@ const NOTE_RULES: NoteRule[] = [
       }),
   },
   {
-    pattern: /^both analyst grade sheets invalid after retry — tier-2 verdict voided$/,
-    keywordKey: KEY.verdict,
+    pattern: /^both analyst grade sheets invalid after retry — tier-2 outlook voided$/,
+    keywordKey: KEY.outlook,
     toText: (_m, t) => t('tiered.note.sheetsVoided'),
   },
   {
-    pattern: /^debate produced no verdict — no outlook \(re-run\)$/,
-    keywordKey: KEY.verdict,
+    pattern: /^debate produced no outlook — no outlook \(re-run\)$/,
+    keywordKey: KEY.outlook,
     toText: (_m, t) => t('tiered.note.noOutlook'),
   },
   {
@@ -261,7 +261,7 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.emptyLedger'),
   },
   {
-    pattern: /^(?:judge summary unparseable|summary LLM call failed: .*) — computed verdict stands$/,
+    pattern: /^(?:judge summary unparseable|summary LLM call failed: .*) — computed outlook stands$/,
     keywordKey: KEY.aiReply,
     toText: (_m, t) => t('tiered.note.summaryFailed'),
   },
@@ -534,15 +534,15 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.planNoConverge'),
   },
 
-  // Verdict.
+  // Outlook.
   {
     pattern: /^no gradable report fields collected/,
-    keywordKey: KEY.verdict,
+    keywordKey: KEY.outlook,
     toText: (_m, t) => t('tiered.note.noGradableFields'),
   },
   {
     pattern: /^no collected evidence to vote on/,
-    keywordKey: KEY.verdict,
+    keywordKey: KEY.outlook,
     toText: (_m, t) => t('tiered.note.noEvidenceToVote'),
   },
 
@@ -563,7 +563,7 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.newsJudgeFailed'),
   },
   {
-    pattern: /^news judge verdict missing for (\d+) article\(s\) — those kept$/,
+    pattern: /^news judge gave no judgment for (\d+) article\(s\) — those kept$/,
     keywordKey: KEY.aiReply,
     toText: (m, t) => t('tiered.note.newsJudgeMissing', { count: m[1] }),
   },

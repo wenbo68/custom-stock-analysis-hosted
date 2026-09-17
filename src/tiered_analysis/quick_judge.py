@@ -7,12 +7,12 @@ hold time. The owner is separating the tiered (alt) pipeline from the
 legacy app, so the quick tier now runs the tiered package's own judge:
 a single call that reads the SAME dimensions the deep debate
 reads, judges them against the SAME hold horizon, and scores on the
-SAME 0-10 scale with the same verdict cut-points (``debate.SELL_BELOW``
+SAME 0-10 scale with the same outlook cut-points (``debate.SELL_BELOW``
 / ``debate.HOLD_MAX``).
 
 That makes quick vs deep a clean experiment: same evidence, same
 horizon, same scale — one judge in one call versus the multi-persona
-debate. The verdict travels on ``TierReport.debate_detail`` in a
+debate. The outlook travels on ``TierReport.debate_detail`` in a
 distinct ``quick-1`` format so the signal logger picks up the score
 (and score band) through the exact same door as the debate's.
 """
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 #: Stored-detail format marker (``report.debate_detail.format``). A
 #: string, deliberately outside the debate's numeric format lineage —
 #: the web's debate-tree renderers key on numeric formats and must
-#: never try to render a quick verdict as a debate.
+#: never try to render a quick outlook as a debate.
 QUICK_DETAIL_FORMAT = "quick-1"
 
 #: One honest retry: the judge runs at temperature 0, so a bare re-ask
@@ -86,7 +86,7 @@ Reply again with ONLY the required JSON object.
 class _QuickReplyForm(BaseModel):
     """The judge's wire shape, handed to the provider for decode-time
     enforcement (structured output mode, 2026-08-25). The range and
-    non-empty checks in ``_parse_verdict`` stay the validator behind
+    non-empty checks in ``_parse_outlook`` stay the validator behind
     the existing show-the-problem retry."""
 
     score: float
@@ -94,7 +94,7 @@ class _QuickReplyForm(BaseModel):
 
 
 @dataclass(frozen=True)
-class QuickVerdict:
+class QuickOutlook:
     """The one-call judge's decision on the debate's 0-10 scale."""
 
     direction: Direction
@@ -107,24 +107,24 @@ class QuickResult:
     """Outcome of one quick-judge run — failures are warnings, never
     exceptions (the pipeline's fail-loud contract)."""
 
-    verdict: Optional[QuickVerdict] = None
+    outlook: Optional[QuickOutlook] = None
     warnings: List[str] = field(default_factory=list)
 
     def to_detail(self) -> Dict[str, Any]:
-        """JSON-ready verdict for ``report.debate_detail`` — the same
-        ``verdict.final_score`` shape the signal logger reads from deep
+        """JSON-ready outlook for ``report.debate_detail`` — the same
+        ``outlook.final_score`` shape the signal logger reads from deep
         runs, under the quick format marker."""
         detail: Dict[str, Any] = {"format": QUICK_DETAIL_FORMAT}
-        if self.verdict is not None:
-            detail["verdict"] = {
-                "direction": self.verdict.direction.value,
-                "final_score": self.verdict.final_score,
+        if self.outlook is not None:
+            detail["outlook"] = {
+                "direction": self.outlook.direction.value,
+                "final_score": self.outlook.final_score,
             }
         return detail
 
 
-def _parse_verdict(raw: str) -> Tuple[Optional[QuickVerdict], Optional[str]]:
-    """Validate one reply; returns ``(verdict, None)`` or ``(None, why)``."""
+def _parse_outlook(raw: str) -> Tuple[Optional[QuickOutlook], Optional[str]]:
+    """Validate one reply; returns ``(outlook, None)`` or ``(None, why)``."""
     parsed = parse_llm_json(raw)
     if parsed is None:
         return None, "reply is not a JSON object"
@@ -136,7 +136,7 @@ def _parse_verdict(raw: str) -> Tuple[Optional[QuickVerdict], Optional[str]]:
         return None, "summary must be a non-empty string"
     score = round(score, 2)
     return (
-        QuickVerdict(
+        QuickOutlook(
             direction=direction_from_final(score),
             final_score=score,
             summary=summary.strip(),
@@ -146,7 +146,7 @@ def _parse_verdict(raw: str) -> Tuple[Optional[QuickVerdict], Optional[str]]:
 
 
 class QuickJudge:
-    """One LLM call, one verdict; the summarizer is a test seam."""
+    """One LLM call, one outlook; the summarizer is a test seam."""
 
     def __init__(
         self,
@@ -182,11 +182,11 @@ class QuickJudge:
                 logger.warning("quick judge LLM call failed for %s: %s", symbol, exc)
                 warnings.append(f"quick judge LLM call failed: {exc}")
                 continue
-            verdict, problem = _parse_verdict(raw)
-            if verdict is not None:
-                return QuickResult(verdict=verdict, warnings=warnings)
+            outlook, problem = _parse_outlook(raw)
+            if outlook is not None:
+                return QuickResult(outlook=outlook, warnings=warnings)
             warnings.append(f"quick judge reply rejected: {problem}")
             attempt_prompt = _RETRY_TEMPLATE.format(prompt=prompt, problem=problem)
         return QuickResult(
-            warnings=warnings + ["quick judge produced no verdict — no outlook (re-run)"]
+            warnings=warnings + ["quick judge produced no outlook (re-run)"]
         )

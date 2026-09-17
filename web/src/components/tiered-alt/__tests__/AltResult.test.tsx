@@ -139,8 +139,6 @@ function makeTreeDebateV9(): TieredDebateDetail {
         problems: [],
         authors: 2,
         votes: [],
-        response: null,
-        judge: null,
         final_status: 'counted',
         exclusion_reason: null,
       },
@@ -156,19 +154,17 @@ function makeTreeDebateV9(): TieredDebateDetail {
         votes: [
           {
             role: 'checker',
-            verdict: 'invalid',
+            validity: 'invalid',
             reason: 'A single close below one level is not a trend.',
             links: [],
           },
           {
             role: 'decider',
-            verdict: 'invalid',
+            validity: 'invalid',
             reason: 'The objection holds.',
             links: [],
           },
         ],
-        response: null,
-        judge: null,
         final_status: 'excluded',
         exclusion_reason: 'outvoted',
       },
@@ -182,8 +178,6 @@ function makeTreeDebateV9(): TieredDebateDetail {
         problems: ["item T3 link 'technicals.score': claimed value '999' must be copied exactly as the report displays it: '68'"],
         authors: 1,
         votes: [],
-        response: null,
-        judge: null,
         final_status: 'excluded',
         exclusion_reason: 'citation_failed',
       },
@@ -199,18 +193,16 @@ function makeTreeDebateV9(): TieredDebateDetail {
         votes: [
           {
             role: 'checker',
-            verdict: 'valid',
+            validity: 'valid',
             reason: 'Supported by the source.',
             links: [{ ref: 'citation:2', value: null }],
           },
         ],
-        response: null,
-        judge: null,
         final_status: 'counted',
         exclusion_reason: null,
       },
     ],
-    verdict: {
+    outlook: {
       direction: 'hold',
       summary: 'Only balanced evidence survived.',
       final_score: 5.0,
@@ -453,7 +445,7 @@ describe('AltResult', () => {
     const result = {
       ...makeResult(),
       warnings: [
-        'judge summary unparseable — computed verdict stands',
+        'judge summary unparseable — computed outlook stands',
         'some brand-new warning shape the frontend has never seen',
       ],
     };
@@ -463,7 +455,7 @@ describe('AltResult', () => {
     fireEvent.click(within(screen.getByTestId('alt-conclusion')).getByTestId('alt-notes-button'));
     // Known shape → fixed keyword + friendly sentence; the raw backend
     // text is no longer shown (owner decision 2026-07-24).
-    expect(screen.getByText(/AI reply|AI 回复/)).toBeInTheDocument();
+    expect(screen.getByText(/Unusable AI reply|AI 回复无效/)).toBeInTheDocument();
     expect(screen.queryByText(/judge summary unparseable/)).not.toBeInTheDocument();
     // Unknown shape → raw text unchanged under the generic keyword.
     expect(
@@ -538,7 +530,7 @@ describe('AltResult evidence vote tree', () => {
     expect(screen.queryByText(/^counted$|^excluded$/)).not.toBeInTheDocument();
   });
 
-  it('opens the flat formula from the header score; no verdict-bands block', () => {
+  it('opens the flat formula from the header score; no outlook-bands block', () => {
     renderTreeV9();
     // The arithmetic no longer sits inside the transcript fold.
     expect(screen.queryByTestId('alt-tree-scores')).not.toBeInTheDocument();
@@ -548,7 +540,7 @@ describe('AltResult evidence vote tree', () => {
     expect(screen.getByTestId('alt-tree-final-formula')).toHaveTextContent('= 10 × 1 / 2');
     expect(scores).toHaveTextContent('= 5.00');
     expect(scores).not.toHaveTextContent(/below 4 sell|低于 4 卖出/);
-    expect(screen.queryByTestId('alt-tree-verdict')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-tree-outlook')).not.toBeInTheDocument();
   });
 
   it('wraps long claims with a hanging indent (two-column grid rows)', () => {

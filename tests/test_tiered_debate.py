@@ -18,10 +18,10 @@ display string; the claim must contain it), the vote citation contract
 (reasons stating numbers must cite them; unfixable votes are
 discarded), struck bullets from either analyst, the Pydantic
 retry-once contract, and every failure rule — both sheets failing voids
-the verdict (the run has no outlook; no tier-1 fallback), one sheet
+the outlook (the run has no outlook; no tier-1 fallback), one sheet
 failing proceeds with the other, a failed check round counts bullets on the author's
 vote alone, a failed deciding round excludes ties as unresolved, and a
-broken summary never voids a computed verdict.
+broken summary never voids a computed outlook.
 
 The two sheet calls (and their fix loops) run in parallel threads, so
 the fake LLM routes replies by prompt content, not call order.
@@ -35,7 +35,7 @@ import unittest
 from src.tiered_analysis.debate import (
     DebateEngine,
     DebateResult,
-    DebateVerdict,
+    DebateOutlook,
     direction_from_final,
     gradable_field_refs,
     value_pattern,
@@ -198,9 +198,9 @@ STILL_BROKEN_T2 = _item("T2", "technicals", "bearish", BROKEN_CLOSE_CLAIM,
                         [_vlink("technicals.close", "999")])
 
 
-def _vote(verdict="valid", reason=None, links=(), weight=2,
+def _vote(validity="valid", reason=None, links=(), weight=2,
           weight_reason=None):
-    return {"verdict": verdict, "reason": reason, "links": list(links),
+    return {"validity": validity, "reason": reason, "links": list(links),
             "weight": weight, "weight_reason": weight_reason}
 
 
@@ -504,7 +504,7 @@ class GradeSheetContractTest(unittest.TestCase):
             _replies(lister1=_sheet_reply(incomplete)),
             retry_replies={"lister1": _sheet_reply(SHEET_1)},
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         retry_prompt = next(
             p for p in fake.prompts
             if RETRY_MARKER in p and "You are the FIRST analyst" in p
@@ -517,7 +517,7 @@ class GradeSheetContractTest(unittest.TestCase):
             _replies(lister1=_sheet_reply(invented)),
             retry_replies={"lister1": _sheet_reply(SHEET_1)},
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         retry_prompt = next(
             p for p in fake.prompts
             if RETRY_MARKER in p and "You are the FIRST analyst" in p
@@ -534,7 +534,7 @@ class GradeSheetContractTest(unittest.TestCase):
             "technicals.sma_200": _grade("bullish", "Graded a blank field."),
         }
         result, fake = _run(_replies(lister1=_sheet_reply(with_blank)))
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertFalse(any(RETRY_MARKER in p for p in fake.prompts))
         self.assertFalse(
             any(i.get("field") == "technicals.sma_200" for i in result.items)
@@ -546,7 +546,7 @@ class GradeSheetContractTest(unittest.TestCase):
             _replies(lister1=_sheet_reply(claimless)),
             retry_replies={"lister1": _sheet_reply(SHEET_1)},
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         retry_prompt = next(
             p for p in fake.prompts
             if RETRY_MARKER in p and "You are the FIRST analyst" in p
@@ -564,40 +564,40 @@ class GradeSheetContractTest(unittest.TestCase):
 
 
 class ChoreographyTest(unittest.TestCase):
-    def test_full_run_five_calls_and_the_computed_verdict(self):
+    def test_full_run_five_calls_and_the_computed_outlook(self):
         result, fake = _run()
         self.assertEqual(
             sorted(fake.stages()),
             sorted(["lister1", "lister2", "check", "decider", "summary"]),
         )
-        verdict = result.verdict
-        self.assertIsNotNone(verdict)
+        outlook = result.outlook
+        self.assertIsNotNone(outlook)
         # flat counting: 3 bullish of 6 bullets → 5.0
-        self.assertEqual(verdict.initial_score, 5.0)
-        self.assertEqual(verdict.final_score, 5.0)
-        self.assertEqual(verdict.direction, Direction.HOLD)
+        self.assertEqual(outlook.initial_score, 5.0)
+        self.assertEqual(outlook.final_score, 5.0)
+        self.assertEqual(outlook.direction, Direction.HOLD)
         # The flat text renders the outline one line per non-empty group;
         # the outline itself rides in summary_structure.
         self.assertEqual(
-            verdict.summary,
+            outlook.summary,
             "Summary: The evidence splits down the middle.\n"
             "Technicals: Trend and momentum point in opposite directions. "
             "RSI is neutral.\n"
             "Positioning: Short interest is modest.",
         )
         self.assertEqual(
-            verdict.summary_structure["summary"],
+            outlook.summary_structure["summary"],
             [{"text": "The evidence splits down the middle.",
               "links": [], "children": []}],
         )
-        self.assertEqual(verdict.summary_structure["fundamentals"], [])
+        self.assertEqual(outlook.summary_structure["fundamentals"], [])
         self.assertEqual(
-            verdict.pools["initial"]["dimensions"]["technicals"],
+            outlook.pools["initial"]["dimensions"]["technicals"],
             {"bullish": 2, "bearish": 1, "total": 3,
              "bullish_weight": 4, "bearish_weight": 2, "total_weight": 6},
         )
-        self.assertEqual(verdict.pools["final"]["bullish"], 3)
-        self.assertEqual(verdict.pools["final"]["bearish"], 3)
+        self.assertEqual(outlook.pools["final"]["bullish"], 3)
+        self.assertEqual(outlook.pools["final"]["bearish"], 3)
 
     def test_the_two_sheets_run_before_everything_else(self):
         _, fake = _run()
@@ -626,7 +626,7 @@ class ChoreographyTest(unittest.TestCase):
         t2 = _item_by_id(result, "T2")
         self.assertEqual(t2["authors"], 1)
         self.assertEqual(
-            [(v["role"], v["verdict"]) for v in t2["votes"]],
+            [(v["role"], v["validity"]) for v in t2["votes"]],
             [("checker", "invalid"), ("decider", "valid")],
         )
         self.assertEqual(t2["final_status"], "counted")  # 2-1
@@ -673,7 +673,7 @@ class ChoreographyTest(unittest.TestCase):
         result, _ = _run(
             _replies(lister2=_sheet_reply(disputed), check=_check(votes))
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         t1 = _item_by_id(result, "T1")  # the first analyst's bullish RSI
         self.assertEqual(t1["direction"], "bullish")
         self.assertEqual(t1["authors"], 1)
@@ -694,8 +694,8 @@ class VoteOutcomeTest(unittest.TestCase):
         self.assertEqual(t2["final_status"], "excluded")  # 1-2
         self.assertEqual(t2["exclusion_reason"], "outvoted")
         # final: 3 bullish of the 5 remaining bullets → 6.0 hold
-        self.assertEqual(result.verdict.final_score, 6.0)
-        self.assertEqual(result.verdict.direction, Direction.HOLD)
+        self.assertEqual(result.outlook.final_score, 6.0)
+        self.assertEqual(result.outlook.direction, Direction.HOLD)
 
     def test_failed_deciding_round_excludes_ties_as_unresolved(self):
         result, _ = _run(_replies(decider="not json"))
@@ -712,7 +712,7 @@ class VoteOutcomeTest(unittest.TestCase):
 
     def test_failed_check_round_counts_bullets_on_the_author_alone(self):
         result, fake = _run(_replies(check="not json"))
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertTrue(
             any("check round invalid after retry — bullets counted on" in w
                 for w in result.warnings)
@@ -739,10 +739,10 @@ class VoteOutcomeTest(unittest.TestCase):
                 decider=_decider(deciders),
             )
         )
-        verdict = result.verdict
-        self.assertEqual(verdict.pools["final"]["total"], 0)
-        self.assertEqual(verdict.final_score, 5.0)
-        self.assertEqual(verdict.direction, Direction.HOLD)
+        outlook = result.outlook
+        self.assertEqual(outlook.pools["final"]["total"], 0)
+        self.assertEqual(outlook.final_score, 5.0)
+        self.assertEqual(outlook.direction, Direction.HOLD)
         self.assertTrue(any("no surviving evidence to weigh" in w for w in result.warnings))
         self.assertTrue(
             any("the final score rests on a thin base" in w for w in result.warnings)
@@ -768,9 +768,9 @@ class WeightTest(unittest.TestCase):
         t1 = _item_by_id(result, "T1")
         self.assertEqual(t1["author_weights"], [5, 5])
         self.assertEqual(t1["weight"], 5)
-        self.assertEqual(result.verdict.pools["final"]["bullish_weight"], 9)
-        self.assertEqual(result.verdict.pools["final"]["total_weight"], 15)
-        self.assertEqual(result.verdict.final_score, round(10 * 9 / 15, 2))
+        self.assertEqual(result.outlook.pools["final"]["bullish_weight"], 9)
+        self.assertEqual(result.outlook.pools["final"]["total_weight"], 15)
+        self.assertEqual(result.outlook.final_score, round(10 * 9 / 15, 2))
 
     def test_three_voters_take_the_median(self):
         # T2: author 2, checker invalid 3, decider valid 3 → median 3.
@@ -788,7 +788,7 @@ class WeightTest(unittest.TestCase):
         self.assertEqual([v["weight"] for v in t2["votes"]], [3, 3])
         self.assertEqual(t2["weight"], 3)
         # bearish weight 3+2+2=7 of 13 → 10×6/13 bullish.
-        self.assertEqual(result.verdict.final_score, round(10 * 6 / 13, 2))
+        self.assertEqual(result.outlook.final_score, round(10 * 6 / 13, 2))
 
     def test_two_voters_take_the_mean_so_halves_happen(self):
         # T3: its single author rated it 3; the checker rates it 2 → 2.5.
@@ -800,7 +800,7 @@ class WeightTest(unittest.TestCase):
         t3 = _item_by_id(result, "T3")
         self.assertEqual(t3["author_weights"], [3])
         self.assertEqual(t3["weight"], 2.5)
-        self.assertEqual(result.verdict.pools["final"]["total_weight"], 12.5)
+        self.assertEqual(result.outlook.pools["final"]["total_weight"], 12.5)
 
     def test_both_author_ratings_ride_in_on_the_field_match(self):
         # First analyst rates the RSI a 1, the second a 5 → mean 3.
@@ -824,10 +824,10 @@ class WeightTest(unittest.TestCase):
                 for ref, grade in sheet.items()
             }
 
-        bare = {key: {"verdict": vote["verdict"], "reason": vote["reason"],
+        bare = {key: {"outlook": vote["validity"], "reason": vote["reason"],
                       "links": vote["links"]}
                 for key, vote in json.loads(_check())["votes"].items()}
-        bare_decider = {key: {"verdict": vote["verdict"],
+        bare_decider = {key: {"outlook": vote["validity"],
                               "reason": vote["reason"], "links": vote["links"]}
                         for key, vote in json.loads(_decider())["votes"].items()}
         result, _ = _run(
@@ -838,9 +838,9 @@ class WeightTest(unittest.TestCase):
                 decider=_decider(bare_decider),
             )
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertEqual(_item_by_id(result, "T1")["author_weights"], [3, 3])
-        self.assertEqual(result.verdict.final_score, 5.0)
+        self.assertEqual(result.outlook.final_score, 5.0)
 
     def test_the_author_rating_survives_a_citation_fix(self):
         # The fix reply comes back without the original rating or its
@@ -934,9 +934,9 @@ class StruckBulletTest(unittest.TestCase):
         check_prompt = next(p for p in fake.prompts if stage_of(p) == "check")
         self.assertNotIn("999", check_prompt)
         # …and never enters a pool: initial = T1, P1, P2, T3, P3.
-        self.assertEqual(result.verdict.pools["initial"]["total"], 5)
+        self.assertEqual(result.outlook.pools["initial"]["total"], 5)
         # flat counting: 3 bullish of the 5 surviving bullets → 6.0
-        self.assertEqual(result.verdict.initial_score, 6.0)
+        self.assertEqual(result.outlook.initial_score, 6.0)
 
     def test_an_unfixable_second_sheet_bullet_is_struck_too(self):
         broken_days = {
@@ -965,7 +965,7 @@ class StruckBulletTest(unittest.TestCase):
         self.assertTrue(p3["struck"])
         self.assertEqual(p3["exclusion_reason"], "citation_failed")
         self.assertEqual(p3["votes"], [])
-        self.assertEqual(result.verdict.pools["initial"]["total"], 5)
+        self.assertEqual(result.outlook.pools["initial"]["total"], 5)
 
     def test_a_fixed_bullet_rejoins_without_a_trace(self):
         result, fake = _run(
@@ -1068,7 +1068,7 @@ class RetryContractTest(unittest.TestCase):
             _replies(lister1=_sheet_reply(incomplete)),
             retry_replies={"lister1": _sheet_reply(SHEET_1)},
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertTrue(
             any("first analyst grade sheet needed a retry" in w
                 for w in result.warnings)
@@ -1093,7 +1093,7 @@ class RetryContractTest(unittest.TestCase):
             _replies(lister1=_sheet_reply(crossref)),
             retry_replies={"lister1": _sheet_reply(SHEET_1)},
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         retry_prompt = next(
             p for p in fake.prompts
             if RETRY_MARKER in p and "You are the FIRST analyst" in p
@@ -1104,11 +1104,11 @@ class RetryContractTest(unittest.TestCase):
 class FailureRulesTest(unittest.TestCase):
     def test_both_sheets_invalid_twice_voids(self):
         result, _ = _run(_replies(lister1="not json", lister2="not json"))
-        self.assertIsNone(result.verdict)
+        self.assertIsNone(result.outlook)
         self.assertEqual(result.items, [])
         self.assertTrue(
             any("both analyst grade sheets invalid after retry — tier-2 "
-                "verdict voided" in w for w in result.warnings)
+                "outlook voided" in w for w in result.warnings)
         )
 
     def test_one_sheet_invalid_twice_proceeds_with_the_other(self):
@@ -1119,7 +1119,7 @@ class FailureRulesTest(unittest.TestCase):
         result, fake = _run(
             _replies(lister1="not json", check=_check(votes))
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertTrue(
             any("first analyst grade sheet invalid after retry — "
                 "proceeding with the other sheet only" in w
@@ -1143,33 +1143,33 @@ class FailureRulesTest(unittest.TestCase):
             )
         ]
         result, fake = _run(dimensions=blank_dims)
-        self.assertIsNone(result.verdict)
+        self.assertIsNone(result.outlook)
         self.assertEqual(fake.prompts, [])
         self.assertTrue(
             any("no gradable report fields collected" in w
                 for w in result.warnings)
         )
 
-    def test_broken_summary_never_voids_a_computed_verdict(self):
+    def test_broken_summary_never_voids_a_computed_outlook(self):
         result, _ = _run(_replies(summary="not json"))
-        self.assertIsNotNone(result.verdict)
-        self.assertEqual(result.verdict.summary, "")
+        self.assertIsNotNone(result.outlook)
+        self.assertEqual(result.outlook.summary, "")
         self.assertTrue(
-            any("judge summary unparseable — computed verdict stands" in w
+            any("judge summary unparseable — computed outlook stands" in w
                 for w in result.warnings)
         )
 
-    def test_summary_llm_failure_never_voids_a_computed_verdict(self):
+    def test_summary_llm_failure_never_voids_a_computed_outlook(self):
         result, _ = _run(_replies(summary=RuntimeError("llm down")))
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertTrue(
-            any("summary LLM call failed" in w and "computed verdict stands" in w
+            any("summary LLM call failed" in w and "computed outlook stands" in w
                 for w in result.warnings)
         )
 
-    def test_llm_failure_mid_debate_fails_loud_without_a_verdict(self):
+    def test_llm_failure_mid_debate_fails_loud_without_a_outlook(self):
         result, _ = _run(_replies(check=RuntimeError("llm down")))
-        self.assertIsNone(result.verdict)
+        self.assertIsNone(result.outlook)
         self.assertTrue(any("debate LLM call failed" in w for w in result.warnings))
 
     def test_summary_number_without_a_link_goes_through_the_fix_loop(self):
@@ -1199,7 +1199,7 @@ class FailureRulesTest(unittest.TestCase):
         })
         result, fake = _run(_replies(summary=broken, summary_fix=fixed))
         self.assertIn("summary_fix", fake.stages())
-        bullet = result.verdict.summary_structure["technicals"][0]
+        bullet = result.outlook.summary_structure["technicals"][0]
         self.assertEqual(bullet["links"],
                          [{"ref": "technicals.rsi_14", "value": "71.20"}])
         self.assertFalse(
@@ -1208,7 +1208,7 @@ class FailureRulesTest(unittest.TestCase):
 
     def test_unfixable_summary_links_are_dropped_not_voiding(self):
         # A link pointing at a grouping path never verifies; after the fix
-        # rounds it is dropped, the sentence stays, and the verdict stands.
+        # rounds it is dropped, the sentence stays, and the outlook stands.
         broken = json.dumps({
             "summary": [{"text": "The outlook is neutral.", "links": [],
                          "children": []}],
@@ -1222,9 +1222,9 @@ class FailureRulesTest(unittest.TestCase):
             "macro_econ": [],
         })
         result, _ = _run(_replies(summary=broken, summary_fix=broken))
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         self.assertEqual(
-            result.verdict.summary_structure["technicals"][0]["links"], []
+            result.outlook.summary_structure["technicals"][0]["links"], []
         )
         self.assertTrue(
             any("summary citations unfixable" in w for w in result.warnings)
@@ -1245,7 +1245,7 @@ class UsageTrackingTest(unittest.TestCase):
         with tracker.activate():
             with tracker.stage("tier2_debate"):
                 result = engine.run("AAPL", _tier1(dimensions=dims), dims)
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         detail = tracker.to_detail()
         self.assertEqual(detail["stages"]["tier2_debate"]["calls"], 5)
         self.assertEqual(detail["stages"]["tier2_debate"]["prompt_tokens"], 50)
@@ -1268,7 +1268,7 @@ class UsageTrackingTest(unittest.TestCase):
         with tracker.activate():
             with tracker.stage("tier2_debate"):
                 result = engine.run("AAPL", _tier1(dimensions=dims), dims)
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
         detail = tracker.to_detail()
         self.assertEqual(detail["stages"]["tier2_debate"]["calls"], 6)
 
@@ -1322,7 +1322,6 @@ class PromptContentTest(unittest.TestCase):
         self.assertIn("bullish weight 6", summary)
         self.assertIn("of 12 total", summary)
         self.assertIn("outlook: neutral", summary)
-        self.assertNotIn("verdict:", summary)
 
     def test_grade_and_vote_prompts_carry_the_weight_rubric(self):
         _, fake = _run()
@@ -1346,23 +1345,23 @@ class DetailShapeTest(unittest.TestCase):
         self.assertEqual(len(detail["items"]), 6)
         # v12 addition: every bullet names the field it grades.
         self.assertEqual(detail["items"][0]["field"], "technicals.rsi_14")
-        verdict = detail["verdict"]
-        self.assertEqual(verdict["direction"], "hold")
-        self.assertEqual(verdict["final_score"], 5.0)
-        self.assertEqual(verdict["initial_score"], 5.0)
-        self.assertIn("final", verdict["pools"])
-        self.assertNotIn("adjusted", verdict["pools"])
-        self.assertEqual(verdict["pools"]["final"]["total"], 6)
+        outlook = detail["outlook"]
+        self.assertEqual(outlook["direction"], "hold")
+        self.assertEqual(outlook["final_score"], 5.0)
+        self.assertEqual(outlook["initial_score"], 5.0)
+        self.assertIn("final", outlook["pools"])
+        self.assertNotIn("adjusted", outlook["pools"])
+        self.assertEqual(outlook["pools"]["final"]["total"], 6)
         # The inert pre-v8 keys are gone (2026-09-16).
         for legacy in ("adjusted_score", "confidence", "scoring", "weight",
                        "reasons_for", "final_score_rounded"):
-            self.assertNotIn(legacy, verdict)
+            self.assertNotIn(legacy, outlook)
 
     def test_voided_run_still_serializes(self):
         result, _ = _run(_replies(lister1="not json", lister2="not json"))
         detail = result.to_detail()
         json.dumps(detail)
-        self.assertIsNone(detail["verdict"])
+        self.assertIsNone(detail["outlook"])
         self.assertEqual(detail["items"], [])
 
 
@@ -1385,10 +1384,10 @@ class TestTier2Stage(unittest.TestCase):
             state.dimensions = dimensions
         return state
 
-    def _verdict_result(self, direction=Direction.HOLD):
+    def _outlook_result(self, direction=Direction.HOLD):
         return DebateResult(
             items=[],
-            verdict=DebateVerdict(
+            outlook=DebateOutlook(
                 direction=direction,
                 final_score=6.0,
                 summary="ruling",
@@ -1397,8 +1396,8 @@ class TestTier2Stage(unittest.TestCase):
             ),
         )
 
-    def test_verdict_updates_direction_and_keeps_levels(self):
-        engine = _FakeEngine(self._verdict_result())
+    def test_outlook_updates_direction_and_keeps_levels(self):
+        engine = _FakeEngine(self._outlook_result())
         state = self._state(_tier1(Direction.BUY), dimensions=[_technicals()])
         report = Tier2Stage(engine=engine).run(state)
         self.assertEqual(report.tier, 2)
@@ -1410,7 +1409,7 @@ class TestTier2Stage(unittest.TestCase):
         self.assertIsNotNone(report.debate_detail)
         self.assertEqual(report.debate_detail["format"], 11)
 
-    def test_no_verdict_is_unknown_never_tier1_fallback(self):
+    def test_no_outlook_is_unknown_never_tier1_fallback(self):
         # Outlook redesign: a failed vote fails honestly — no silently
         # substituting the one-blob judge's direction.
         engine = _FakeEngine(DebateResult(warnings=["judge exploded"]))
@@ -1425,7 +1424,7 @@ class TestTier2Stage(unittest.TestCase):
         self.assertTrue(any("foundation" in w for w in report.warnings))
 
     def test_no_evidence_skips_engine_entirely(self):
-        engine = _FakeEngine(self._verdict_result())
+        engine = _FakeEngine(self._outlook_result())
         state = self._state(_tier1(Direction.BUY))  # no dimensions anywhere
         report = Tier2Stage(engine=engine).run(state)
         self.assertEqual(report.direction, Direction.UNKNOWN)
@@ -1433,10 +1432,10 @@ class TestTier2Stage(unittest.TestCase):
         self.assertEqual(engine.calls, [])
 
     def test_dimensions_fall_back_to_tier1_report(self):
-        engine = _FakeEngine(self._verdict_result())
+        engine = _FakeEngine(self._outlook_result())
         tier1 = _tier1(Direction.BUY, dimensions=[_technicals()])
         report = Tier2Stage(engine=engine).run(self._state(tier1))
-        self.assertEqual(report.direction, Direction.HOLD)  # verdict landed
+        self.assertEqual(report.direction, Direction.HOLD)  # outlook landed
         self.assertEqual(engine.calls, [("AAPL", 1)])
 
 
@@ -1564,13 +1563,13 @@ class NewsDimensionTest(unittest.TestCase):
         self.assertEqual(suit["final_status"], "counted")
 
         # News bullets join the pools like any other dimension.
-        news_pool = result.verdict.pools["final"]["dimensions"]["company_events"]
+        news_pool = result.outlook.pools["final"]["dimensions"]["company_events"]
         self.assertEqual(news_pool["total"], 2)
         self.assertEqual(news_pool["bullish"], 1)
         self.assertEqual(news_pool["bearish"], 1)
         # And the summary carries the company-news group.
-        self.assertTrue(result.verdict.summary_structure["company_events"])
-        self.assertIn("Company news:", result.verdict.summary)
+        self.assertTrue(result.outlook.summary_structure["company_events"])
+        self.assertIn("Company news:", result.outlook.summary)
 
     def test_summary_news_links_need_no_value(self):
         # What the prompt asks for and what real models send: the news
@@ -1598,7 +1597,7 @@ class NewsDimensionTest(unittest.TestCase):
             any("judge summary unparseable" in w for w in result.warnings),
             result.warnings,
         )
-        news_bullets = result.verdict.summary_structure["company_events"]
+        news_bullets = result.outlook.summary_structure["company_events"]
         self.assertEqual(len(news_bullets), 2)
         self.assertEqual(news_bullets[0]["links"][0]["ref"], N_REFS[0])
         self.assertEqual(news_bullets[1]["links"][0]["ref"], N_REFS[1])

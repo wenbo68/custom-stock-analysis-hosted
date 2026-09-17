@@ -162,7 +162,7 @@ export const LinkedClaimV7 = ({
     <span
       className={cn(
         'text-gray-200',
-        // The strikethrough IS the verdict: code could not verify this
+        // The strikethrough IS the outlook: code could not verify this
         // bullet's citations even after the fix rounds.
         struck && 'line-through decoration-gray-500 opacity-60',
       )}
@@ -225,7 +225,7 @@ export const LinkedTextV8 = ({
   return (
     <span
       className={cn(
-        // The strikethrough IS the verdict: struck by the code citation
+        // The strikethrough IS the outlook: struck by the code citation
         // check, or voted out of the final pool.
         struck && 'line-through decoration-gray-500 opacity-60',
       )}
@@ -283,19 +283,19 @@ const VoteItem = ({
   const dead = item.final_status === 'excluded';
   const votes = item.votes ?? [];
   const authorVotes = item.author_votes ?? [];
-  // v11 modal body — the owner-spec'd shape (2026-07-22): a verdict
+  // v11 modal body — the owner-spec'd shape (2026-07-22): a validity
   // line, the validity reason, a divider, then the voter's 1-5
   // significance score and why they rated it that. No bold anywhere.
   const scoreBody = (
-    verdictOk: boolean,
+    isValid: boolean,
     reasonNode: ReactNode,
     weight: number | null | undefined,
     weightReason?: string | null,
   ) => (
     <div className={MODAL_BODY}>
       <p>
-        {t('tiered.tree.verdictLine', {
-          value: t(verdictOk ? 'tiered.tree.valid' : 'tiered.tree.invalid'),
+        {t('tiered.tree.validityLine', {
+          value: t(isValid ? 'tiered.tree.valid' : 'tiered.tree.invalid'),
         })}
       </p>
       <p>
@@ -328,7 +328,7 @@ const VoteItem = ({
     onShow({
       title: t('tiered.tree.checker', { n: index + 1 }),
       body: scoreBody(
-        vote.verdict === 'valid',
+        vote.validity === 'valid',
         vote.reason ? <LinkedTextV8 text={vote.reason} links={vote.links ?? []} /> : '—',
         vote.weight,
         vote.weight_reason,
@@ -398,7 +398,7 @@ const VoteItem = ({
         {votes.map((vote, index) => (
           <MarkButton
             key={index}
-            label={vote.verdict === 'valid' ? '✓' : '✗'}
+            label={vote.validity === 'valid' ? '✓' : '✗'}
             onClick={() => showRichVote(vote, index)}
           />
         ))}
@@ -426,8 +426,8 @@ const EXPLAIN_KEYS = [
 // card (owner decision 2026-07-22), no longer inside the transcript fold.
 export const DebateScores = ({ detail }: { detail: TieredDebateDetail }) => {
   const { t } = useUiLanguage();
-  const verdict = detail.verdict;
-  const finalPool = verdict?.pools?.final ?? null;
+  const outlook = detail.outlook;
+  const finalPool = outlook?.pools?.final ?? null;
   const numerator = finalPool?.bullish_weight ?? null;
   const denominator = finalPool?.total_weight ?? null;
   // Show the plugged-in formula only when it reproduces the stored
@@ -438,9 +438,9 @@ export const DebateScores = ({ detail }: { detail: TieredDebateDetail }) => {
       : null;
   const showFormula =
     flat != null &&
-    verdict?.final_score != null &&
-    Math.abs(flat - verdict.final_score) < 0.005;
-  if (!verdict || !finalPool) {
+    outlook?.final_score != null &&
+    Math.abs(flat - outlook.final_score) < 0.005;
+  if (!outlook || !finalPool) {
     return null;
   }
   return (
@@ -458,7 +458,7 @@ export const DebateScores = ({ detail }: { detail: TieredDebateDetail }) => {
           = 10 × {numerator} / {denominator}
         </p>
       ) : null}
-      <p className={FORMULA_RESULT}>= {verdict.final_score?.toFixed(2)}</p>
+      <p className={FORMULA_RESULT}>= {outlook.final_score?.toFixed(2)}</p>
     </div>
   );
 };

@@ -240,7 +240,7 @@ def _stopped_outcome(
     hold_weeks: int,
     tracker: LlmUsageTracker,
 ) -> TieredRunOutcome:
-    """A run halted by the staleness gate: data cards only, no verdict.
+    """A run halted by the staleness gate: data cards only, no outlook.
 
     The outlook IS the whole user-facing story (owner decision
     2026-08-08): no analysis or plan sections exist, no message is shown
@@ -331,7 +331,7 @@ def run_tiered_analysis(
     dimensions; fundamentals carries the next earnings date) → formula
     levels → the chosen judge (depth 1 = the tiered package's one-call
     quick judge; depth 2 = the evidence vote) → on a BUY
-    verdict, the AI plan review (deterministic checks may trim shares /
+    outlook, the AI plan review (deterministic checks may trim shares /
     move stop / move target, with cited reasons, and produce the
     trade-plan card's structured warnings) → outlook + action (code
     table over the outlook and the plan's reward-to-risk) → sizing.
@@ -437,27 +437,27 @@ def run_tiered_analysis(
         state = TierState(symbol=symbol, market=market, hold_weeks=hold_weeks)
         if depth == 1:
             # The quick judge (2026-08-10): the tiered package's own
-            # one-call verdict over the same dimensions the debate
+            # one-call outlook over the same dimensions the debate
             # reads (all six since 2026-08-16, both news cards included),
-            # judged against the same max hold time. No verdict
+            # judged against the same max hold time. No outlook
             # (LLM down, bad replies) → UNKNOWN direction, fail-loud
             # warnings, no fallback — same contract as the debate.
             with tracker.stage("tier1_quick"):
                 quick = (quick_judge or QuickJudge()).run(
                     symbol, dimensions, hold_weeks=hold_weeks
                 )
-            verdict = quick.verdict
+            outlook = quick.outlook
             report = TierReport(
                 tier=1,
                 symbol=symbol,
                 market=market,
-                direction=verdict.direction if verdict else Direction.UNKNOWN,
-                # The verdict is the 0-10 score in debate_detail; the
+                direction=outlook.direction if outlook else Direction.UNKNOWN,
+                # The outlook is the 0-10 score in debate_detail; the
                 # legacy sentiment-score/confidence columns stay empty
                 # (same shape as tier-2 reports).
                 confidence=None,
                 score=None,
-                narrative=verdict.summary if verdict else None,
+                narrative=outlook.summary if outlook else None,
                 levels=levels,
                 levels_detail=levels_detail,
                 dimensions=dimensions,
@@ -467,7 +467,7 @@ def run_tiered_analysis(
         else:
             # Depth 2 skips the one-blob call entirely: the debate is the
             # judge, so the foundation report is the data layer + levels
-            # with no verdict of its own. That is the documented depth-2
+            # with no outlook of its own. That is the documented depth-2
             # contract, not a data problem — so no warning for it.
             report = TierReport(
                 tier=1,
@@ -488,7 +488,7 @@ def run_tiered_analysis(
                 final = (tier2_stage or Tier2Stage()).run(state)
             state.reports[2] = final
 
-        # AI plan review (BUY verdicts only): the deterministic checks
+        # AI plan review (BUY outlooks only): the deterministic checks
         # may trim the share count or move stop/target with cited
         # reasons, and produce the plan card's structured warnings.
         review = None

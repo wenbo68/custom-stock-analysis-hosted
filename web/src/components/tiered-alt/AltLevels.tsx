@@ -64,9 +64,6 @@ const CHECK_KEYWORD_KEYS: Record<string, UiTextKey> = {
   downtrend: 'tiered.alt.checkKey.downtrend',
   liquidity: 'tiered.alt.checkKey.liquidity',
   volatility: 'tiered.alt.checkKey.volatility',
-  stop_vs_swing_low: 'tiered.alt.checkKey.stop_vs_swing_low',
-  // v2 (2026-07-27): the stop check compares against the nearest pivot
-  // support now; stored runs keep the old id above.
   stop_vs_support: 'tiered.alt.checkKey.stop_vs_support',
 };
 

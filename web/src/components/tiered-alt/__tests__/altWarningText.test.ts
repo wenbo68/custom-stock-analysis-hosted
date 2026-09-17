@@ -11,7 +11,7 @@ describe('friendlyWarning — debate stage notes lead with the AI role', () => {
       'first analyst grade sheet needed a retry — first reply was invalid',
       t,
     );
-    expect(note?.keyword).toBe('AI reply');
+    expect(note?.keyword).toBe('Unusable AI reply');
     expect(note?.text).toBe('Lister 1 — the first reply was invalid; the retry succeeded.');
   });
 
@@ -52,7 +52,7 @@ describe('friendlyWarning — debate stage notes lead with the AI role', () => {
 describe('friendlyWarning — v12 voided-run notes are translated', () => {
   it('both grade sheets failing translates (v12 wording)', () => {
     const note = friendlyWarning(
-      'both analyst grade sheets invalid after retry — tier-2 verdict voided',
+      'both analyst grade sheets invalid after retry — tier-2 outlook voided',
       t,
     );
     expect(note?.text).toBe(
@@ -62,7 +62,7 @@ describe('friendlyWarning — v12 voided-run notes are translated', () => {
 
   it('the no-outlook note translates with the re-run advice', () => {
     const note = friendlyWarning(
-      'debate produced no verdict — no outlook (re-run)',
+      'debate produced no outlook (re-run)',
       t,
     );
     expect(note?.text).toContain('re-run');
@@ -143,16 +143,16 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
       'Downtrend',
     ],
     ['sma_50 unavailable — trend check skipped', 'Missing data'],
-    ['no close price — deterministic levels cannot be computed', 'Price levels'],
+    ['no close price — deterministic levels cannot be computed', 'Price level problem'],
     [
       'no structural support anchors (sma_50 / sma_200 / support_1) — no entry base, so no deterministic levels',
-      'Price levels',
+      'Price level problem',
     ],
-    ['technicals unavailable — deterministic levels cannot be computed', 'Price levels'],
-    ['duplicate adjustment for entry ignored (first proposal kept)', 'Price levels'],
-    ["adjustment for unknown level 'foo' ignored", 'Price levels'],
+    ['technicals unavailable — deterministic levels cannot be computed', 'Price level problem'],
+    ['duplicate adjustment for entry ignored (first proposal kept)', 'Price level problem'],
+    ["adjustment for unknown level 'foo' ignored", 'Price level problem'],
     // src/tiered_analysis/providers/technicals.py
-    ['bars_loader failed for AAPL: HTTPError()', 'Fetch failed'],
+    ['bars_loader failed for AAPL: HTTPError()', 'Failed fetch'],
     ['insufficient history for AAPL: 9 bars < 15 required', 'Missing data'],
     [
       'only 120 daily bars (<253): the one-year fields cover the history that exists',
@@ -163,7 +163,7 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
       'Missing data',
     ],
     ['benchmark index not configured for this market', 'Missing data'],
-    ['benchmark index bars unavailable: HTTPError()', 'Fetch failed'],
+    ['benchmark index bars unavailable: HTTPError()', 'Failed fetch'],
     ['benchmark index history too short (30 bars)', 'Missing data'],
     ['benchmark index history too short for the regime read', 'Missing data'],
     // src/tiered_analysis/providers/positioning.py
@@ -182,29 +182,29 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
       'no fetched option expiration falls after the next report date — implied report-day move omitted',
       'Missing data',
     ],
-    ['Yahoo summary failed for AAPL: HTTPError()', 'Fetch failed'],
-    ['institutional holders failed for AAPL: HTTPError()', 'Fetch failed'],
-    ['insider transactions failed for AAPL: HTTPError()', 'Fetch failed'],
-    ['options chain failed for AAPL: HTTPError()', 'Fetch failed'],
+    ['Yahoo summary failed for AAPL: HTTPError()', 'Failed fetch'],
+    ['institutional holders failed for AAPL: HTTPError()', 'Failed fetch'],
+    ['insider transactions failed for AAPL: HTTPError()', 'Failed fetch'],
+    ['options chain failed for AAPL: HTTPError()', 'Failed fetch'],
     ['no listed options found for AAPL', 'Missing data'],
-    ['earnings date lookup failed for AAPL: HTTPError()', 'Fetch failed'],
+    ['earnings date lookup failed for AAPL: HTTPError()', 'Failed fetch'],
     ['Yahoo returned no short-interest fields for AAPL', 'Missing data'],
     ['Yahoo returned no ownership fields for AAPL', 'Missing data'],
     // src/tiered_analysis/providers/fundamentals_us.py
-    ['earnings history failed for AAPL: HTTPError()', 'Fetch failed'],
+    ['earnings history failed for AAPL: HTTPError()', 'Failed fetch'],
     [
       'no earnings history rows for AAPL — the beat and report-day-move fields are blank',
       'Missing data',
     ],
-    ['bars for earnings reaction failed: HTTPError()', 'Fetch failed'],
+    ['bars for earnings reaction failed: HTTPError()', 'Failed fetch'],
     [
       'too few earnings reports inside the bar history (2) for the earnings-day move',
       'Missing data',
     ],
-    ['EPS estimate trend failed for AAPL: HTTPError()', 'Fetch failed'],
+    ['EPS estimate trend failed for AAPL: HTTPError()', 'Failed fetch'],
     // src/tiered_analysis/providers/macro_econ.py
-    ['FRED_API_KEY is not set; get a free key at fred.stlouisfed.org', 'Settings'],
-    ['FRED release calendar for inflation data (CPI) failed: HTTPError()', 'Fetch failed'],
+    ['FRED_API_KEY is not set; get a free key at fred.stlouisfed.org', 'Invalid setting'],
+    ['FRED release calendar for inflation data (CPI) failed: HTTPError()', 'Failed fetch'],
     ['no upcoming inflation data (CPI) release date found', 'Missing data'],
     [
       "FOMC decision-date table exhausted; extend FOMC_DECISION_DATES from the Fed's published calendar",
@@ -223,26 +223,26 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
       'sector comparison needs the market benchmark returns, which are absent; sector comparison fields absent',
       'Missing data',
     ],
-    ['sector ETF XLK bars unavailable: HTTPError(); sector comparison fields absent', 'Fetch failed'],
+    ['sector ETF XLK bars unavailable: HTTPError(); sector comparison fields absent', 'Failed fetch'],
     ['sector ETF XLK history too short (30 bars); sector comparison fields absent', 'Missing data'],
     // src/tiered_analysis/tiers.py + debate.py + plan_review.py
-    ['no collected evidence to vote on — no outlook (re-run)', 'Verdict'],
-    ['debate LLM call failed: RuntimeError()', 'AI reply'],
-    ['no gradable report fields collected — tier-2 verdict voided', 'Verdict'],
+    ['no collected evidence to vote on — no outlook (re-run)', 'No outlook'],
+    ['debate LLM call failed: RuntimeError()', 'Unusable AI reply'],
+    ['no gradable report fields collected — tier-2 outlook voided', 'No outlook'],
     [
       'plan-review adjustment for stop_loss dropped — citations unfixable: bad ref',
-      'Citation check',
+      'Invalid citation',
     ],
-    ['plan-review reply problem: missing field', 'AI reply'],
-    ['plan review skipped: LlmConfigError()', 'Settings'],
-    ['plan review LLM call failed: RuntimeError()', 'AI reply'],
+    ['plan-review reply problem: missing field', 'Unusable AI reply'],
+    ['plan review skipped: LlmConfigError()', 'Invalid setting'],
+    ['plan review LLM call failed: RuntimeError()', 'Unusable AI reply'],
     [
       'plan review did not converge: the adjusted plan still tripped risk checks after every round, so all adjustments were discarded and the computed plan stands',
-      'Risk check',
+      'Unfinished plan review',
     ],
     // src/tiered_analysis/integration.py + settings.py
-    ['positioning provider crashed: RuntimeError()', 'Fetch failed'],
-    ['TIERED_REWARD_RISK=0.5 must be above 1 — using the default 2.0', 'Settings'],
+    ['positioning provider crashed: RuntimeError()', 'Failed fetch'],
+    ['TIERED_REWARD_RISK=0.5 must be above 1 — using the default 2.0', 'Invalid setting'],
   ];
 
   it.each(SAMPLES)('rewrites %s', (raw, keyword) => {
@@ -257,12 +257,12 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
     // plan_review.py prefixes retried rounds; ^-anchored patterns would
     // otherwise all miss.
     const note = friendlyWarning('round 2: plan-review reply problem: missing field', t);
-    expect(note?.keyword).toBe('AI reply');
+    expect(note?.keyword).toBe('Unusable AI reply');
   });
 
   it('an unknown shape keeps its raw text under the generic keyword', () => {
     const note = friendlyWarning('something nobody has ever written', t);
-    expect(note.keyword).toBe('Warning');
+    expect(note.keyword).toBe('Unknown problem');
     expect(note.text).toBe('something nobody has ever written');
   });
 });
@@ -280,14 +280,14 @@ describe('friendlyWarning — news-screen stage notes', () => {
         `${stage} needed a retry — first reply was invalid`,
         t,
       );
-      expect(note.keyword).toBe('AI reply');
+      expect(note.keyword).toBe('Unusable AI reply');
       expect(note.text).toBe(`${role} — the first reply was invalid; the retry succeeded.`);
     }
   });
 
   it('a grouping reply that was not JSON reads as a merge miss, not engineer-speak', () => {
     const note = friendlyWarning('news grouping returned no usable JSON — no grouping', t);
-    expect(note.keyword).toBe('AI reply');
+    expect(note.keyword).toBe('Unusable AI reply');
     expect(note.text).toContain('merges articles covering the same story');
     expect(note.text).not.toContain('JSON');
   });
@@ -305,7 +305,7 @@ describe('friendlyWarning — news-screen stage notes', () => {
       'busy news window: 14 event(s) ranked below the top 20 and trimmed',
       t,
     );
-    expect(note.keyword).toBe('News cap');
+    expect(note.keyword).toBe('Trimmed news');
     expect(note.text).toContain('14');
     expect(note.text).toContain('top 20');
   });
@@ -330,7 +330,7 @@ describe('friendlyWarning — news-screen stage notes', () => {
 
   it('partial-coverage notes carry their counts', () => {
     expect(
-      friendlyWarning('news judge verdict missing for 3 article(s) — those kept', t).text,
+      friendlyWarning('news judge gave no judgment for 3 article(s) — those kept', t).text,
     ).toContain('3');
     expect(
       friendlyWarning(

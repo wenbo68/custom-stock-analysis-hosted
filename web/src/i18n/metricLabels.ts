@@ -137,7 +137,7 @@ const en: Record<string, MetricEntry> = {
   },
   sector_vs_market_label: {
     short: 'Sector performance relative to market',
-    full: "A one-word verdict from the two sector numbers above: leader = the sector beat the market over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.",
+    full: "A one-word reading from the two sector numbers above: leader = the sector beat the market over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.",
     interp: 'The middle layer between the market and the single stock — a leading sector is a tailwind for longs in it.',
     blank: 'The two sector return-difference numbers above are blank, so there is nothing to conclude from.',
   },
@@ -155,7 +155,7 @@ const en: Record<string, MetricEntry> = {
   },
   stock_vs_sector_label: {
     short: 'Stock performance relative to sector',
-    full: 'A one-word verdict: leader = the stock beat its own sector over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.',
+    full: 'A one-word reading: leader = the stock beat its own sector over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.',
     interp: 'Separates a genuinely strong stock from one carried by a hot sector — a laggard inside a leading sector is the weakest member of a strong club.',
     blank: 'The stock-vs-sector diffs above are blank, so there is nothing to conclude from.',
   },
@@ -215,7 +215,7 @@ const en: Record<string, MetricEntry> = {
   },
   rs_label: {
     short: 'Stock performance relative to market',
-    full: 'A one-word verdict from the two stock-vs-market numbers: leader = beat the market over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.',
+    full: 'A one-word reading from the two stock-vs-market numbers: leader = beat the market over both the 1-month and 3-month windows; laggard = lost to it over both; neutral = mixed.',
     interp: 'Prefer buying leaders — buying a laggard needs a clear reason from the other reports.',
     blank: 'The two return-difference numbers above are blank (no benchmark set up or the index data failed to load), so there is nothing to conclude from.',
   },
@@ -285,7 +285,7 @@ const en: Record<string, MetricEntry> = {
   },
   momentum: {
     short: 'Momentum',
-    full: 'A one-word verdict combining the RSI and MACD gauges:\nstrong = pushing up hard; weak = pushing down; fading = price still high but the push is dying; basing = price still low but the push is building; neutral = neither.',
+    full: 'A one-word reading combining the RSI and MACD gauges:\nstrong = pushing up hard; weak = pushing down; fading = price still high but the push is dying; basing = price still low but the push is building; neutral = neither.',
     interp: 'strong supports new buys; fading warns the move is running out of fuel while the price still looks fine; basing flags an early turn upward.',
     blank: 'The "14d RSI" row or the MACD histogram behind it is unavailable because the history is too short.',
   },

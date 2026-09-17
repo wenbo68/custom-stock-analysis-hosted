@@ -45,8 +45,8 @@ const AltBlock = ({
 // ---------- tier cards ----------
 
 // One header fact — quiet label, prominent value; the same styling for
-// verdict, size, stop loss and score alike (children may recolor the
-// value, e.g. the verdict's buy/hold/sell tint).
+// outlook, size, stop loss and score alike (children may recolor the
+// value, e.g. the outlook's buy/hold/sell tint).
 const AltFact = ({
   label,
   helpKey,
@@ -73,7 +73,7 @@ interface TierHeaderProps {
 // one row of `Label: value` facts — Outlook first, then any side facts
 // (the deep-analysis score) — and the data-notes mark pinned top-right:
 // nothing when there is nothing to report, ⚠ when there is. The stored
-// verdict is still buy/hold/sell; the outlook rename maps it to
+// outlook is still buy/hold/sell; the outlook rename maps it to
 // bullish/neutral/bearish for display.
 const TierHeader = ({ section, notes, side }: TierHeaderProps) => {
   const { t } = useUiLanguage();
@@ -263,14 +263,14 @@ const AltDebate = ({ section }: AltDebateProps) => {
   const { t } = useUiLanguage();
   const [scoreOpen, setScoreOpen] = useState(false);
   const detail = section.debate_detail ?? null;
-  const verdict = detail?.verdict ?? null;
+  const outlook = detail?.outlook ?? null;
   return (
     <AltCard testId="alt-tier2">
       <TierHeader
         section={section}
         notes={section.warnings}
         side={
-          verdict?.final_score != null ? (
+          outlook?.final_score != null ? (
             <AltFact label={t('tiered.score')} helpKey="tiered.help.debateScore">
               {/* Clicking the score opens its arithmetic (owner
                   decision 2026-07-22 — moved out of the fold). */}
@@ -280,21 +280,21 @@ const AltDebate = ({ section }: AltDebateProps) => {
                 className={cn('cursor-pointer tabular-nums', ALT_LINK)}
                 onClick={() => setScoreOpen(true)}
               >
-                {verdict.final_score.toFixed(2)}/10
+                {outlook.final_score.toFixed(2)}/10
               </button>
             </AltFact>
           ) : null
         }
       />
-      {verdict?.summary_structure ? (
+      {outlook?.summary_structure ? (
         <div className="mb-2">
-          <AltSummaryOutline structure={verdict.summary_structure} />
+          <AltSummaryOutline structure={outlook.summary_structure} />
         </div>
       ) : section.narrative ? (
         <p className="mb-2 text-sm leading-relaxed">{section.narrative}</p>
       ) : null}
-      {!verdict ? (
-        <p className="text-sm text-amber-300">{t('tiered.debate.noVerdict')}</p>
+      {!outlook ? (
+        <p className="text-sm text-amber-300">{t('tiered.debate.noOutlook')}</p>
       ) : null}
       {detail ? <AltDebateTree detail={detail} /> : null}
       {detail ? (

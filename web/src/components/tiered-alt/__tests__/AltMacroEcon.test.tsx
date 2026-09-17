@@ -193,7 +193,7 @@ describe('AltDimensions — technicals market vs sector vs stock', () => {
     window.localStorage.setItem('dsa.uiLanguage', 'en');
   });
 
-  it('labels the sector comparison rows and the renamed verdicts', () => {
+  it('labels the sector comparison rows and the renamed readings', () => {
     render(
       <UiLanguageProvider>
         <AltDimensions dimensions={[makeTechnicalsMarket()]} />

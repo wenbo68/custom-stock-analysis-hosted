@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline tests for the tier-1 quick judge (the one-call verdict that
+"""Offline tests for the tier-1 quick judge (the one-call outlook that
 replaced the legacy DSA-blob delegate, 2026-08-10). No LLM, no network."""
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from src.tiered_analysis.quick_judge import (
     QUICK_DETAIL_FORMAT,
     QuickJudge,
     QuickResult,
-    QuickVerdict,
+    QuickOutlook,
 )
 from src.tiered_analysis.schema import Direction
 
@@ -75,7 +75,7 @@ class TestPrompt(unittest.TestCase):
         self.assertNotIn("1 weeks", prompts[0])
 
 
-class TestVerdict(unittest.TestCase):
+class TestOutlook(unittest.TestCase):
     def test_score_maps_to_direction_with_debate_cutpoints(self):
         cases = [
             (7.4, Direction.BUY),
@@ -89,23 +89,23 @@ class TestVerdict(unittest.TestCase):
             result = _run(
                 lambda p, s=score: f'{{"score": {s}, "summary": "Reasoning."}}'
             )
-            self.assertIsNotNone(result.verdict, score)
-            self.assertEqual(result.verdict.direction, expected, score)
-            self.assertEqual(result.verdict.final_score, round(score, 2))
+            self.assertIsNotNone(result.outlook, score)
+            self.assertEqual(result.outlook.direction, expected, score)
+            self.assertEqual(result.outlook.final_score, round(score, 2))
 
     def test_score_rounds_to_two_decimals(self):
         result = _run(lambda p: '{"score": 6.666, "summary": "Close call."}')
-        self.assertEqual(result.verdict.final_score, 6.67)
+        self.assertEqual(result.outlook.final_score, 6.67)
 
     def test_summary_is_stripped(self):
         result = _run(lambda p: '{"score": 7, "summary": "  Padded.  "}')
-        self.assertEqual(result.verdict.summary, "Padded.")
+        self.assertEqual(result.outlook.summary, "Padded.")
 
     def test_fenced_json_is_accepted(self):
         result = _run(
             lambda p: '```json\n{"score": 7, "summary": "Fenced reply."}\n```'
         )
-        self.assertIsNotNone(result.verdict)
+        self.assertIsNotNone(result.outlook)
 
 
 class TestFailures(unittest.TestCase):
@@ -122,7 +122,7 @@ class TestFailures(unittest.TestCase):
 
         self.assertEqual(len(prompts), 2)
         self.assertIn("rejected", prompts[1])
-        self.assertEqual(result.verdict.direction, Direction.SELL)
+        self.assertEqual(result.outlook.direction, Direction.SELL)
         self.assertTrue(any("rejected" in w for w in result.warnings))
 
     def test_out_of_range_or_missing_fields_are_rejected(self):
@@ -136,9 +136,9 @@ class TestFailures(unittest.TestCase):
             "[]",
         ):
             result = _run(lambda p, r=reply: r)
-            self.assertIsNone(result.verdict, reply)
+            self.assertIsNone(result.outlook, reply)
 
-    def test_all_attempts_bad_means_no_verdict_and_honest_warnings(self):
+    def test_all_attempts_bad_means_no_outlook_and_honest_warnings(self):
         calls = []
 
         def summarizer(prompt):
@@ -147,8 +147,8 @@ class TestFailures(unittest.TestCase):
 
         result = _run(summarizer)
         self.assertEqual(len(calls), MAX_ATTEMPTS)
-        self.assertIsNone(result.verdict)
-        self.assertTrue(any("no verdict" in w for w in result.warnings))
+        self.assertIsNone(result.outlook)
+        self.assertTrue(any("no outlook" in w for w in result.warnings))
 
     def test_llm_config_error_stops_immediately(self):
         calls = []
@@ -159,7 +159,7 @@ class TestFailures(unittest.TestCase):
 
         result = _run(summarizer)
         self.assertEqual(len(calls), 1)
-        self.assertIsNone(result.verdict)
+        self.assertIsNone(result.outlook)
         self.assertTrue(any("LITELLM_MODEL" in w for w in result.warnings))
 
     def test_transient_llm_crash_is_retried_then_reported(self):
@@ -171,25 +171,25 @@ class TestFailures(unittest.TestCase):
 
         result = _run(summarizer)
         self.assertEqual(len(calls), MAX_ATTEMPTS)
-        self.assertIsNone(result.verdict)
+        self.assertIsNone(result.outlook)
         self.assertTrue(any("socket closed" in w for w in result.warnings))
 
 
 class TestDetail(unittest.TestCase):
-    def test_detail_carries_format_and_verdict_score(self):
+    def test_detail_carries_format_and_outlook_score(self):
         detail = QuickResult(
-            verdict=QuickVerdict(
+            outlook=QuickOutlook(
                 direction=Direction.BUY, final_score=7.25, summary="Up."
             )
         ).to_detail()
         self.assertEqual(detail["format"], QUICK_DETAIL_FORMAT)
-        self.assertEqual(detail["verdict"]["final_score"], 7.25)
-        self.assertEqual(detail["verdict"]["direction"], "buy")
+        self.assertEqual(detail["outlook"]["final_score"], 7.25)
+        self.assertEqual(detail["outlook"]["direction"], "buy")
 
-    def test_failed_result_detail_has_no_verdict(self):
+    def test_failed_result_detail_has_no_outlook(self):
         detail = QuickResult(warnings=["boom"]).to_detail()
         self.assertEqual(detail["format"], QUICK_DETAIL_FORMAT)
-        self.assertNotIn("verdict", detail)
+        self.assertNotIn("outlook", detail)
 
 
 if __name__ == "__main__":

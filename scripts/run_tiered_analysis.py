@@ -2,7 +2,7 @@
 """Run tiered analysis v1 for one or more symbols (production wiring).
 
 For each symbol this collects the dimensions (technicals, fundamentals,
-macro, positioning, news), runs the chosen judge, and prints the verdict
+macro, positioning, news), runs the chosen judge, and prints the outlook
 and trade plan.
 
 Usage:

@@ -105,31 +105,12 @@ export type TieredPlanWarning = {
 // Per-column warning lists for the plan table's Warnings row.
 export type TieredPlanWarnings = Record<string, TieredPlanWarning[]>;
 
-export type TieredAnchoredReason = {
-  claim: string;
-  evidence: string[];
-};
-
 // v4 judge grade for one validity axis: the 0-5 score plus, below 5, the
 // exact offending sentence and why it is wrong (both null at 5/5 → N/A).
 export type TieredAxisGrade = {
   score: number;
   quote?: string | null;
   why?: string | null;
-};
-
-// One debater's numbers — its own 0-10 position score plus the judge's
-// three 0-5 validity grades; weight = (sum of grades) / 15. v3 runs store
-// the position score as `bullishness` and the axes as bare numbers; v4
-// runs store `position_score` and axis objects with quote/why comments.
-export type TieredDebaterScore = {
-  position_score?: number;
-  bullishness?: number;
-  citation_validity: number | TieredAxisGrade;
-  knowledge_validity: number | TieredAxisGrade;
-  logical_validity: number | TieredAxisGrade;
-  weight: number;
-  notes?: string | null;
 };
 
 // --- v5/v6/v7 debate tree (defender/attacker/judge) ---
@@ -146,40 +127,6 @@ export type TieredDebateLink = {
   mismatch?: boolean;
 };
 
-// One citation-or-logic check; 'invalid' carries the reason + citations.
-export type TieredDebateCheck = {
-  verdict: 'valid' | 'invalid';
-  reason: string | null;
-  citations: string[];
-};
-
-// The defender's response to one challenge: its own checks ON the
-// attack/addition. v6 stores the citation/logic pair (both valid →
-// accepted); v7 stores the single `check` (valid → accepted). All three
-// fields optional so both generations type-check.
-export type TieredDebateResponse = {
-  accepted: boolean;
-  citation_check?: TieredDebateCheck;
-  logic_check?: TieredDebateCheck;
-  check?: TieredDebateCheck;
-};
-
-// The judge's word on one axis of a defender item: its own check when the
-// axis was unattacked, a ruling on the attack when it was.
-export type TieredDebateJudgeAxis = {
-  kind: 'reason_check' | 'attack_ruling';
-  verdict: 'valid' | 'invalid' | 'attack_right' | 'attack_wrong';
-  reason: string | null;
-  citations: string[];
-};
-
-export type TieredDebateJudgeAddition = {
-  kind: 'addition_ruling';
-  verdict: 'real' | 'bogus';
-  reason: string | null;
-  citations: string[];
-};
-
 // One v8 vote on a bullet: the check round's second vote or the
 // deciding round's tiebreaker. Reasons carry the same code-verified
 // links the bullets use. v10 votes carry the voter's own importance
@@ -187,7 +134,7 @@ export type TieredDebateJudgeAddition = {
 // sentence saying why (weight_reason).
 export type TieredDebateVote = {
   role: 'checker' | 'decider';
-  verdict: 'valid' | 'invalid';
+  validity: 'valid' | 'invalid';
   reason: string | null;
   links: TieredDebateLink[];
   weight?: number;
@@ -202,21 +149,13 @@ export type TieredDebateAuthorVote = {
   weight_reason?: string | null;
 };
 
-// One evidence item of the tree with everything that happened to it.
-// v5 runs store citations + the count/outcome ledger; v6 runs store
-// links + value_check + the per-axis checks; v7 runs store single-axis
-// fields (attacker_check, one response, one judge line) plus struck +
-// problems for bullets whose citations code could not fix; v8 runs
-// store authors (how many analysts listed it independently) + votes —
-// all optional so every generation renders.
+// One evidence item of the vote tree with everything that happened to it.
 export type TieredDebateItem = {
   id: string;
   dimension: string;
   direction: 'bullish' | 'bearish';
   claim: string;
-  citations?: string[];
   links?: TieredDebateLink[];
-  value_check?: { verdict: 'valid' | 'invalid'; problems: string[] } | null;
   struck?: boolean;
   problems?: string[];
   authors?: number;
@@ -228,21 +167,6 @@ export type TieredDebateItem = {
   author_weights?: number[];
   author_votes?: TieredDebateAuthorVote[];
   weight?: number | null;
-  added_by_attacker?: boolean;
-  attacker_checks?: { citation: TieredDebateCheck; logic: TieredDebateCheck } | null;
-  attacker_check?: TieredDebateCheck | null;
-  responses?: {
-    citation: TieredDebateResponse | null;
-    logic: TieredDebateResponse | null;
-  };
-  response: TieredDebateResponse | null;
-  judge:
-    | { citation: TieredDebateJudgeAxis; logic: TieredDebateJudgeAxis }
-    | TieredDebateJudgeAddition
-    | TieredDebateJudgeAxis
-    | null;
-  count?: { numerator: number; denominator: number } | null;
-  outcome?: 'valid' | 'invalid' | 'neutral' | null;
   final_status?: 'counted' | 'excluded' | null;
   exclusion_reason?: string | null;
 };
@@ -315,7 +239,7 @@ export type TieredDebateDetail = {
   // 5/6/7 on tree-format runs; absent on everything stored before.
   format?: number;
   items?: TieredDebateItem[];
-  verdict: {
+  outlook: {
     direction: string;
     summary: string;
     // The fixed-outline report the summary stage fills (summary + one
@@ -342,7 +266,7 @@ export type TieredEarnings = {
   note: string | null;
 };
 
-// The deepest tier's verdict in summary form — what the run ends on.
+// The deepest tier's outlook in summary form — what the run ends on.
 export type TieredFinal = {
   tier: number;
   direction: 'buy' | 'hold' | 'sell' | 'unknown';

@@ -143,7 +143,7 @@ export const plainNumber = (value: number): string => String(Number(value));
 export const computedCellId = (key: string): string => `alt-level-computed-${key}`;
 export const adjustedCellId = (key: string): string => `alt-level-adjusted-${key}`;
 
-// The outlook word for a tier verdict — the outlook redesign renamed
+// The outlook word for a tier outlook — the outlook redesign renamed
 // buy/hold/sell to bullish/neutral/bearish everywhere the UI speaks.
 export const directionOutlook = (direction: string | null | undefined): string => {
   switch (direction) {

@@ -144,9 +144,9 @@ _SCREEN_LABEL = "the overall market"
 #: Deterministic spam blacklist (owner request 2026-08-19, token cost).
 #: The world feed's junk is dominated by one auto-generated genre:
 #: "Fund X bought N shares of Company Y" holdings notices. Measured
-#: over every article the judge had verdicted to date (3,828):
+#: over every article the judge had judged to date (3,828):
 #: MarketBeat alone accounted for 1,856 of the 3,442 off-topic
-#: verdicts against 3 on-topic ever — and all 3 were themselves
+#: judgments against 3 on-topic ever — and all 3 were themselves
 #: single-fund holdings pieces, i.e. judge slips, not macro stories.
 SPAM_PUBLISHERS = frozenset({"marketbeat"})
 

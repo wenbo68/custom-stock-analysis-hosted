@@ -558,7 +558,7 @@ class TestWorldPromptSet(unittest.TestCase):
         # Article lines render identically under both lenses.
         self.assertIn("[1] (2026-08-16, Reuters)", world)
 
-    def test_judge_parses_world_verdicts_through_the_shared_parser(self):
+    def test_judge_parses_world_judgments_through_the_shared_parser(self):
         prompts_seen = []
 
         def fake_llm(prompt):

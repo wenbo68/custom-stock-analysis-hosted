@@ -40,7 +40,7 @@ importance 1-5 (v11 owner spec, 2026-07-20: 1 = very minor, 3 = normal
 evidence, 5 = very important — thesis-changing) and gives one short
 plain sentence saying why (``weight_reason``, shown in the UI's check
 modals). Listers rate their own bullets in the same call; check/decider
-votes carry a weight alongside the verdict. A bullet's final weight is
+votes carry a weight alongside the validity. A bullet's final weight is
 the MEDIAN of its voters' weights (two voters → their mean, so halves
 happen). The outlook score is computed by code from the direction tags
 and the weights:
@@ -49,16 +49,16 @@ and the weights:
 headers). Two snapshots: initial (the merged list before voting,
 weighted by the authors' own ratings, stored for the audit trail only)
 and final (the bullets the votes left standing, weighted by the full
-voter median — the displayed score). Verdict on the 2-decimal final:
+voter median — the displayed score). Outlook on the 2-decimal final:
 < 4 sell, 4-6 hold, > 6 buy. Empty final pool → 5.00, hold, warning.
 
 4-5 base LLM calls (two grade sheets parallel with their fix loops →
 code merge → check round → deciding round only when there are ties →
 summary), all temperature 0. Every stage fills a strict Pydantic form;
 an invalid reply gets ONE retry with the errors shown, then: both
-sheets failing voids the tier-2 verdict — the run has no outlook and
+sheets failing voids the tier-2 outlook — the run has no outlook and
 says re-run (no fallback: depth 2 never runs the tier-1 one-blob
-verdict, so there is nothing to fall back to); one
+outlook, so there is nothing to fall back to); one
 sheet failing proceeds with the other; a failed check round counts
 bullets on their author's vote alone; a failed deciding round excludes
 the tied bullets as unresolved; the summary's failure never voids
@@ -116,7 +116,7 @@ from .schema import (
     hold_weeks_text,
 )
 
-#: Verdict bands on the 2-decimal final score (owner spec).
+#: Outlook bands on the 2-decimal final score (owner spec).
 SELL_BELOW = 4.0
 HOLD_MAX = 6.0
 
@@ -140,7 +140,7 @@ _NUMERIC_REASON_RE = re.compile(r"\d+\.\d+|\d+(?:\.\d+)?\s?%")
 
 
 def direction_from_final(final: float) -> Direction:
-    """The fixed mapping from the 0-10 final score to a verdict."""
+    """The fixed mapping from the 0-10 final score to an outlook."""
     if final < SELL_BELOW:
         return Direction.SELL
     if final <= HOLD_MAX:
@@ -157,7 +157,7 @@ class AnchoredReason:
 
 
 @dataclass(frozen=True)
-class DebateVerdict:
+class DebateOutlook:
     direction: Direction
     #: The final pool's weighted score: 10 × Σweight(bullish) / Σweight(all).
     final_score: float
@@ -178,15 +178,15 @@ class DebateVerdict:
 class DebateResult:
     #: The evidence list, one dict per bullet (see _base_item for the shape).
     items: List[Dict[str, Any]] = field(default_factory=list)
-    verdict: Optional[DebateVerdict] = None
+    outlook: Optional[DebateOutlook] = None
     warnings: List[str] = field(default_factory=list)
 
     def to_detail(self) -> Dict[str, Any]:
         """JSON-ready audit trail for storage and the debate-tree UI."""
-        verdict: Optional[Dict[str, Any]] = None
-        if self.verdict is not None:
-            v = self.verdict
-            verdict = {
+        outlook: Optional[Dict[str, Any]] = None
+        if self.outlook is not None:
+            v = self.outlook
+            outlook = {
                 "direction": v.direction.value,
                 "final_score": v.final_score,
                 "summary": v.summary,
@@ -197,7 +197,7 @@ class DebateResult:
         return {
             "format": DETAIL_FORMAT,
             "items": [dict(item) for item in self.items],
-            "verdict": verdict,
+            "outlook": outlook,
             "warnings": list(self.warnings),
         }
 
@@ -276,7 +276,7 @@ def blank_field_refs(dimensions: Sequence[DimensionResult]) -> set:
     them, and the AIs keep grading them anyway — so a grade landing on
     one is DROPPED (it would have been an invisible neutral at best),
     never a reason to fail the whole sheet (owner decision 2026-08-05:
-    a voided verdict over meaningless grades is the worse outcome)."""
+    a voided outlook over meaningless grades is the worse outcome)."""
     refs: set = set()
     for dim in dimensions:
         if dim.dimension not in DIMENSIONS or not dim.payload:
@@ -432,12 +432,12 @@ _LINK_RULES = """Link rules (all checked mechanically by code):
 - Use only the evidence above; never invent facts or numbers."""
 
 _VOTE_RULES = """Vote rules (checked mechanically by code):
-- Every vote: "verdict" is "valid" or "invalid", plus a short plain
+- Every vote: "validity" is "valid" or "invalid", plus a short plain
   "reason" — REQUIRED either way; a vote without a reason is rejected.
 - Every vote also carries "weight": your own importance rating of the
   bullet for the trade decision, 1 to 5 — 1 (very minor), 2 (minor),
   3 (normal evidence), 4 (important), 5 (very important — could change
-  the whole thesis alone). Rate it regardless of your verdict; code
+  the whole thesis alone). Rate it regardless of your validity call; code
   takes the median of all voters' weights.
 - Every vote also carries "weight_reason": ONE short plain sentence
   saying why you rated it that important. Plain words only — report
@@ -570,7 +570,7 @@ _VOTE_FIX_TEMPLATE = """Collected evidence (the ONLY facts you may use — no ou
 Some of your votes failed the code's citation check. Fix each vote
 listed below: cite every number your reason states, copying the value
 exactly as the report above displays it. Keep the same keys; you may
-rewrite the reason and links, and reconsider the verdict with the
+rewrite the reason and links, and reconsider the validity with the
 correct numbers in hand.
 
 {vote_rules}
@@ -599,7 +599,7 @@ Vote on the bullet in front of you, not on the stock.
 {vote_rules}
 
 Reply with JSON only:
-{{"votes": {{"T2": {{"verdict": "invalid", "reason": "why it is flawed", "links": [{{"ref": "technicals.price.close", "value": "100"}}], "weight": 3, "weight_reason": "why it matters this much"}}}}}}
+{{"votes": {{"T2": {{"validity": "invalid", "reason": "why it is flawed", "links": [{{"ref": "technicals.price.close", "value": "100"}}], "weight": 3, "weight_reason": "why it matters this much"}}}}}}
 "votes" must cover exactly these bullet ids: {check_ids}."""
 
 _DECIDER_TEMPLATE = """{context}
@@ -617,7 +617,7 @@ see the claim and the objection; weigh both and rule:
 {vote_rules}
 
 Reply with JSON only:
-{{"votes": {{"T2": {{"verdict": "valid", "reason": "why the bullet stands", "links": [], "weight": 3, "weight_reason": "why it matters this much"}}}}}}
+{{"votes": {{"T2": {{"validity": "valid", "reason": "why the bullet stands", "links": [], "weight": 3, "weight_reason": "why it matters this much"}}}}}}
 "votes" must cover exactly these bullet ids: {tied_ids}."""
 
 # The summary speaks in outlook words (user-facing tier-2 prose) — the
@@ -642,8 +642,8 @@ bullet's weight is the median of its voters' 1-5 ratings):
 - outlook: {outlook} (below 4 bearish, 4-6 neutral, above 6 bullish)
 
 Write the user-facing report as a fixed bullet outline. Reply with JSON
-only. Never use the words "verdict", "buy", "hold" or "sell" — describe
-the outlook as bullish, neutral or bearish:
+only. Never write the words "outlook", "buy", "hold" or "sell" — say
+bullish, neutral or bearish:
 {{"summary": [{{"text": "one short plain sentence", "links": [], "children": []}}],
  "technicals": [{{"text": "The 14-day RSI (56.28) is above 50.",
    "links": [{{"ref": "technicals.daily.rsi_14", "value": "56.28"}}],
@@ -777,7 +777,7 @@ class DebateEngine:
         refs = gradable_field_refs(dimensions)
         if not refs:
             warnings.append(
-                "no gradable report fields collected — tier-2 verdict voided"
+                "no gradable report fields collected — tier-2 outlook voided"
             )
             return DebateResult(items=items, warnings=warnings)
 
@@ -787,7 +787,7 @@ class DebateEngine:
         if first is None and second is None:
             warnings.append(
                 "both analyst grade sheets invalid after retry — tier-2 "
-                "verdict voided"
+                "outlook voided"
             )
             return DebateResult(items=items, warnings=warnings)
         if first is None or second is None:
@@ -908,7 +908,7 @@ class DebateEngine:
             dimensions, warnings,
         )
 
-        verdict = DebateVerdict(
+        outlook = DebateOutlook(
             direction=direction,
             final_score=final,
             summary=summary,
@@ -916,7 +916,7 @@ class DebateEngine:
             pools=pools,
             summary_structure=summary_structure,
         )
-        return DebateResult(items=items, verdict=verdict, warnings=warnings)
+        return DebateResult(items=items, outlook=outlook, warnings=warnings)
 
     # -- step 1: the two lists ---------------------------------------------
 
@@ -1335,7 +1335,7 @@ class DebateEngine:
             by_id[key]["votes"].append(
                 {
                     "role": role,
-                    "verdict": vote.verdict,
+                    "validity": vote.validity,
                     "reason": reason or None,
                     "weight": vote.weight,
                     "weight_reason": vote.weight_reason,
@@ -1354,7 +1354,7 @@ class DebateEngine:
         if item["struck"] or item["authors"] >= 2:
             return False
         checker = self._vote_by_role(item, "checker")
-        return checker is not None and checker["verdict"] == "invalid"
+        return checker is not None and checker["validity"] == "invalid"
 
     def _apply_outcomes(
         self, items: List[Dict[str, Any]], warnings: List[str]
@@ -1367,7 +1367,7 @@ class DebateEngine:
                 item["final_status"] = "counted"  # 2-0 at birth
                 continue
             checker = self._vote_by_role(item, "checker")
-            if checker is None or checker["verdict"] == "valid":
+            if checker is None or checker["validity"] == "valid":
                 # No second vote cast (degraded/discarded) → the author's
                 # vote stands unopposed; a valid check vote → 2-0.
                 item["final_status"] = "counted"
@@ -1379,7 +1379,7 @@ class DebateEngine:
                 warnings.append(
                     f"no deciding vote for {item['id']} — excluded as unresolved"
                 )
-            elif decider["verdict"] == "valid":
+            elif decider["validity"] == "valid":
                 item["final_status"] = "counted"  # 2-1
             else:
                 item["final_status"] = "excluded"  # 1-2
@@ -1452,7 +1452,7 @@ class DebateEngine:
         warnings: List[str],
     ) -> Tuple[str, Optional[Dict[str, Any]]]:
         """(flat text for legacy consumers, fixed-outline dump) — both
-        empty/None when the stage failed; the computed verdict stands."""
+        empty/None when the stage failed; the computed outlook stands."""
         prompt = _SUMMARY_TEMPLATE.format(
             context=context,
             tree=_tree_text(items),
@@ -1481,8 +1481,8 @@ class DebateEngine:
             if model is None:
                 # Keep the long-standing wording (and its friendly gloss)
                 # instead of the stage's voided-sounding warnings — a
-                # summary failure never voids the computed verdict.
-                warnings.append("judge summary unparseable — computed verdict stands")
+                # summary failure never voids the computed outlook.
+                warnings.append("judge summary unparseable — computed outlook stands")
                 return "", None
             warnings.extend(stage_warnings)
 
@@ -1533,7 +1533,7 @@ class DebateEngine:
                     "without links"
                 )
         except Exception as exc:
-            warnings.append(f"summary LLM call failed: {exc} — computed verdict stands")
+            warnings.append(f"summary LLM call failed: {exc} — computed outlook stands")
             return "", None
         return _flatten_summary(model), model.model_dump()
 
@@ -1744,7 +1744,7 @@ def _links_text(links: Sequence[Dict[str, Any]]) -> str:
 
 
 def _vote_text(vote: Dict[str, Any]) -> str:
-    text = vote["verdict"]
+    text = vote["validity"]
     if vote["reason"]:
         text += f" — {vote['reason']}"
     if vote["links"]:

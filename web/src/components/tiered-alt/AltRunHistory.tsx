@@ -34,7 +34,7 @@ const TONE = {
   reward: ALT_COLOR[4],
   hold: ALT_COLOR[5],
   tier: ALT_COLOR[6],
-  verdict: ALT_COLOR[7],
+  outlook: ALT_COLOR[7],
   date: ALT_COLOR[8],
 };
 
@@ -205,9 +205,9 @@ export interface AltRunHistoryProps {
 
 // Section 2: run history. Filters at the top apply the moment something is
 // entered or picked — no search button — and show as removable pills
-// (ticker, tier and verdict take several values at once). Below, one row
+// (ticker, tier and outlook take several values at once). Below, one row
 // per run (10 per page), each fact sitting directly under its filter:
-// ticker, capital, risk, reward, max hold, tier, verdict, date.
+// ticker, capital, risk, reward, max hold, tier, outlook, date.
 // Clicking a row
 // expands the full report inline. A freshly started run appears at the top
 // as Running and turns into a normal row when it finishes.
@@ -256,7 +256,7 @@ export const AltRunHistory = ({
     filters.dateMax !== null;
 
   // Pills in filter order: ticker, capital, risk, reward, max hold, tier,
-  // verdict, date.
+  // outlook, date.
   const pills: { key: string; tone: string; label: string; onRemove: () => void }[] = [];
   filters.tickers.forEach((ticker) => {
     pills.push({
@@ -303,7 +303,7 @@ export const AltRunHistory = ({
   filters.outlooks.forEach((outlook) => {
     pills.push({
       key: `outlook-${outlook}`,
-      tone: TONE.verdict,
+      tone: TONE.outlook,
       label: t('tiered.pill.outlook', {
         value: t(`tiered.outlook.${outlook}` as UiTextKey),
       }),

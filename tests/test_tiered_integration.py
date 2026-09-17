@@ -23,7 +23,7 @@ from src.tiered_analysis.integration import (
     run_tiered_analysis,
 )
 from src.tiered_analysis.providers.technicals import technicals_as_of
-from src.tiered_analysis.quick_judge import QuickResult, QuickVerdict
+from src.tiered_analysis.quick_judge import QuickResult, QuickOutlook
 from src.tiered_analysis.run_gate import expected_bar_date
 from src.tiered_analysis.schema import Action, Outlook, derive_action
 from src.tiered_analysis.providers.base import (
@@ -104,14 +104,14 @@ def _dim(name):
 
 
 class _FakeQuickJudge:
-    """Canned tier-1 verdict; records (symbol, hold_weeks) calls."""
+    """Canned tier-1 outlook; records (symbol, hold_weeks) calls."""
 
     def __init__(self, score=7.5, summary="buy the pullback",
-                 verdict=True, warnings=()):
+                 outlook=True, warnings=()):
         self.calls = []
-        if verdict:
+        if outlook:
             self._result = QuickResult(
-                verdict=QuickVerdict(
+                outlook=QuickOutlook(
                     direction=direction_from_final(score),
                     final_score=score,
                     summary=summary,
@@ -182,7 +182,7 @@ class TestRunTieredAnalysis(unittest.TestCase):
 
     def test_failed_tier1_still_returns_report_with_dimensions(self):
         judge = _FakeQuickJudge(
-            verdict=False,
+            outlook=False,
             warnings=["quick judge LLM call failed: LLM down"],
         )
         outcome, _ = self._run(judge=judge)
@@ -192,8 +192,8 @@ class TestRunTieredAnalysis(unittest.TestCase):
 
 
 class _FakeDebateEngine:
-    def __init__(self, verdict=None, warnings=()):
-        self._verdict = verdict
+    def __init__(self, outlook=None, warnings=()):
+        self._outlook = outlook
         self._warnings = list(warnings)
         self.calls = []
 
@@ -201,7 +201,7 @@ class _FakeDebateEngine:
         from src.tiered_analysis.debate import DebateResult
 
         self.calls.append(symbol)
-        return DebateResult(verdict=self._verdict, warnings=self._warnings)
+        return DebateResult(outlook=self._outlook, warnings=self._warnings)
 
 
 def _env(value):
@@ -235,10 +235,10 @@ def _technicals_dim_with_levels():
     )
 
 
-def _debate_verdict(direction=Direction.BUY, score=7.4):
-    from src.tiered_analysis.debate import DebateVerdict
+def _debate_outlook(direction=Direction.BUY, score=7.4):
+    from src.tiered_analysis.debate import DebateOutlook
 
-    return DebateVerdict(direction=direction, final_score=score,
+    return DebateOutlook(direction=direction, final_score=score,
                          summary="the vote settled it", initial_score=score,
                          pools={})
 
@@ -247,7 +247,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
     """Outlook redesign: depth 1|2 routing, outlook/action, sizing."""
 
     def _run(self, depth=1, sizing_settings=None, sizing_overrides=None,
-             debate_verdict=None, quick_score=7.5, tech_payload=None):
+             debate_outlook=None, quick_score=7.5, tech_payload=None):
         from src.tiered_analysis.settings import SizingSettings
         from src.tiered_analysis.tiers import Tier2Stage
 
@@ -257,7 +257,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
             if tech_payload is not None else _technicals_dim_with_levels()
         )
         judge = _FakeQuickJudge(score=quick_score)
-        debate_engine = _FakeDebateEngine(verdict=debate_verdict)
+        debate_engine = _FakeDebateEngine(outlook=debate_outlook)
         outcome = run_tiered_analysis(
             "AAPL",
             market=Market.US,
@@ -288,7 +288,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
 
     def test_depth_2_skips_the_quick_judge_and_runs_the_vote(self):
         outcome, logged, debate_engine, judge_calls = self._run(
-            depth=2, debate_verdict=_debate_verdict())
+            depth=2, debate_outlook=_debate_outlook())
         # The quick-judge call must NOT run at depth 2.
         self.assertEqual(judge_calls, [])
         self.assertEqual(sorted(outcome.state.reports), [1, 2])
@@ -303,7 +303,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         self.assertTrue(logged[0].dimensions)
 
     def test_depth_2_failure_has_no_tier1_fallback(self):
-        outcome, _, _, _ = self._run(depth=2, debate_verdict=None)
+        outcome, _, _, _ = self._run(depth=2, debate_outlook=None)
         self.assertEqual(outcome.final_report.direction, Direction.UNKNOWN)
         self.assertEqual(outcome.outlook, Outlook.UNKNOWN)
         self.assertEqual(outcome.action, Action.UNKNOWN)
@@ -359,7 +359,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
 
     def test_bearish_is_no_trade_and_sizes_nothing(self):
         outcome, _, _, _ = self._run(
-            depth=2, debate_verdict=_debate_verdict(Direction.SELL, 2.5))
+            depth=2, debate_outlook=_debate_outlook(Direction.SELL, 2.5))
         self.assertEqual(outcome.outlook, Outlook.BEARISH)
         self.assertEqual(outcome.action, Action.NO_TRADE)
         # The ownership input is gone (2026-09-16): no held-shares block.
@@ -395,7 +395,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         self.assertIsNone(outcome.earnings.next_date)
 
     def test_llm_usage_always_present_with_scope_note(self):
-        outcome, _, _, _ = self._run(depth=2, debate_verdict=None)
+        outcome, _, _, _ = self._run(depth=2, debate_outlook=None)
         self.assertEqual(outcome.llm_usage["total"]["calls"], 0)  # all fakes
         self.assertIn("tier-1", outcome.llm_usage["scope"])
 
@@ -830,7 +830,7 @@ class TestStalenessGate(unittest.TestCase):
         self.assertEqual(outcome.outlook, Outlook.STOPPED)
         self.assertEqual(outcome.action, Action.UNKNOWN)
         self.assertEqual(calls, {"judge": 0})
-        # The data cards survive; no verdict, no tier-2 section.
+        # The data cards survive; no outlook, no tier-2 section.
         self.assertTrue(outcome.report.dimensions)
         self.assertEqual(outcome.report.direction, Direction.UNKNOWN)
         self.assertNotIn(2, outcome.state.reports)
