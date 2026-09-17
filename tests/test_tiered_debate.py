@@ -1571,6 +1571,17 @@ class NewsDimensionTest(unittest.TestCase):
         self.assertTrue(result.outlook.summary_structure["company_events"])
         self.assertIn("Company news:", result.outlook.summary)
 
+    def test_summary_schema_requires_every_group(self):
+        # 2026-09-17: with optional groups, Gemini's enforced decoding
+        # (alphabetical key order) let the model skip four groups once
+        # it had started with "summary", so every deep analysis lost its
+        # summary. The schema now names every group as required; a
+        # missing group in a plain-JSON reply still parses as [].
+        from src.tiered_analysis.debate_models import DIMENSIONS, StructuredSummaryModel
+
+        required = StructuredSummaryModel.model_json_schema()["required"]
+        self.assertEqual(sorted(required), sorted(("summary",) + DIMENSIONS))
+
     def test_summary_news_links_need_no_value(self):
         # What the prompt asks for and what real models send: the news
         # bullet cites the event by ref alone (or with a null value).

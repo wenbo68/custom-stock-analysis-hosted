@@ -214,13 +214,22 @@ class StructuredSummaryModel(_StageModel):
     decisive reasons; each dimension group covers what its surviving
     evidence says."""
 
+    # Every group is REQUIRED (2026-09-17). With defaults, the JSON
+    # schema handed to the provider listed only "summary" as required,
+    # and Gemini's enforced decoding then let the model skip optional
+    # keys: it orders properties alphabetically, so a model that starts
+    # with "summary" (as the prompt's example does) had already passed
+    # company_events, fundamentals, macro_econ and positioning and could
+    # never write them — every deep analysis lost its summary. The
+    # summary stage still fills a missing group with [] before
+    # validating, for plain-JSON models that leave empty groups out.
     summary: List[SummaryBulletModel] = Field(min_length=1)
-    technicals: List[SummaryBulletModel] = Field(default_factory=list)
-    fundamentals: List[SummaryBulletModel] = Field(default_factory=list)
-    positioning: List[SummaryBulletModel] = Field(default_factory=list)
-    macro_econ: List[SummaryBulletModel] = Field(default_factory=list)
-    company_events: List[SummaryBulletModel] = Field(default_factory=list)
-    world_events: List[SummaryBulletModel] = Field(default_factory=list)
+    technicals: List[SummaryBulletModel]
+    fundamentals: List[SummaryBulletModel]
+    positioning: List[SummaryBulletModel]
+    macro_econ: List[SummaryBulletModel]
+    company_events: List[SummaryBulletModel]
+    world_events: List[SummaryBulletModel]
 
 
 class VoteFixModel(_StageModel):

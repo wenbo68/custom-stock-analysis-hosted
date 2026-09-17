@@ -1469,7 +1469,10 @@ class DebateEngine:
         )
 
         def parse(parsed: dict) -> StructuredSummaryModel:
-            model = StructuredSummaryModel.model_validate(parsed)
+            # A group the model left out counts as empty; whether it was
+            # allowed to be empty is check_summary_groups' call.
+            filled = {**{group: [] for group in DIMENSIONS}, **parsed}
+            model = StructuredSummaryModel.model_validate(filled)
             check_summary_groups(model, data_dimensions)
             return model
 
