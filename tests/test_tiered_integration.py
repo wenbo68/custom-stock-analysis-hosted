@@ -826,21 +826,16 @@ class TestStalenessGate(unittest.TestCase):
         calls["judge"] = len(judge.calls)
         return outcome, calls
 
-    def test_stale_bars_stop_before_any_llm(self):
-        outcome, calls = self._run("stale bars: 2026-08-04 < 2026-08-05")
-        self.assertEqual(outcome.outlook, Outlook.STOPPED)
-        self.assertEqual(outcome.action, Action.UNKNOWN)
-        self.assertEqual(calls, {"judge": 0})
-        # The data cards survive; no outlook, no tier-2 section.
-        self.assertTrue(outcome.report.dimensions)
-        self.assertEqual(outcome.report.direction, Direction.UNKNOWN)
-        self.assertNotIn(2, outcome.state.reports)
+    def test_stale_bars_fail_the_run_before_any_llm(self):
+        # Owner decision 2026-09-17: a stale-data stop is a failure with
+        # a plain message (it used to finish with a "stopped" outlook).
+        from src.tiered_analysis.run_gate import StaleDataError
 
-    def test_stopped_run_reports_no_stop_text_in_warnings(self):
-        # The outlook says everything (owner decision): the reason lives
-        # in logs only, never in the user-facing report warnings.
-        outcome, _ = self._run("stale bars: vendor lagging")
-        self.assertEqual(outcome.report.warnings, [])
+        with self.assertRaises(StaleDataError) as caught:
+            self._run("stale bars: 2026-08-04 < 2026-08-05")
+        self.assertEqual(caught.exception.reason, "stale bars: 2026-08-04 < 2026-08-05")
+        self.assertIn("not up to date yet", str(caught.exception))
+        self.assertIn("try again later", str(caught.exception))
 
     def test_fresh_bars_run_normally(self):
         outcome, calls = self._run(None)
@@ -901,15 +896,21 @@ class TestStalenessGateReadsTheBarDate(unittest.TestCase):
         self.assertEqual(calls["judge"], 1)
 
     def test_genuinely_stale_bars_still_stop(self):
+        from src.tiered_analysis.run_gate import StaleDataError
+
         stale = expected_bar_date("us") - timedelta(days=30)
-        outcome, calls = self._run(stale.isoformat())
-        self.assertEqual(outcome.outlook, Outlook.STOPPED)
-        self.assertEqual(calls["judge"], 0)
+        with self.assertRaises(StaleDataError) as caught:
+            self._run(stale.isoformat())
+        # The message names both dates so the user can see the lag.
+        self.assertIn(stale.isoformat(), str(caught.exception))
+        self.assertIn(expected_bar_date("us").isoformat(), str(caught.exception))
 
     def test_missing_date_stops(self):
-        outcome, calls = self._run(None)
-        self.assertEqual(outcome.outlook, Outlook.STOPPED)
-        self.assertEqual(calls["judge"], 0)
+        from src.tiered_analysis.run_gate import StaleDataError
+
+        with self.assertRaises(StaleDataError) as caught:
+            self._run(None)
+        self.assertIn("newest daily bar is missing", str(caught.exception))
 
 
 class TestHoldWeeks(unittest.TestCase):

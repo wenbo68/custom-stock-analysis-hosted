@@ -156,10 +156,7 @@ const AltConclusion = ({ result, runDate }: AltConclusionProps) => {
   const outlook = result.outlook ?? 'unknown';
   const action = result.action ?? 'unknown';
   const stale = runDate ? isFromPreviousDay(runDate) : false;
-  // A stopped run (staleness gate) has no analysis behind it: the
-  // outlook word IS the whole story — no action, no note. (The max hold
-  // time moved to the run-history row, 2026-08-09.)
-  const stopped = outlook === 'stopped';
+  // (The max hold time moved to the run-history row, 2026-08-09.)
   // "Buy later" says why, inline: the plan's current reward-to-risk,
   // clickable for its arithmetic (owner request 2026-09-16).
   const rewardValues = action === 'enter_later' ? rewardRatioValues(result) : null;
@@ -171,27 +168,25 @@ const AltConclusion = ({ result, runDate }: AltConclusionProps) => {
             {t(`tiered.outlook.${outlook}` as UiTextKey)}
           </span>
         </AltFact>
-        {!stopped ? (
-          <AltFact label={t('tiered.alt.action')} helpKey="tiered.help.action">
-            {t(`tiered.action.${action}` as UiTextKey)}
-            {rewardValues ? (
-              <span data-testid="alt-action-reason">
-                {' ('}
-                {fillTemplate(t('tiered.alt.actionRatio'), {
-                  ratio: <RewardRatioValue values={rewardValues} onJump={jumpToPlanCell} />,
-                })}
-                {')'}
-              </span>
-            ) : null}
-          </AltFact>
-        ) : null}
+        <AltFact label={t('tiered.alt.action')} helpKey="tiered.help.action">
+          {t(`tiered.action.${action}` as UiTextKey)}
+          {rewardValues ? (
+            <span data-testid="alt-action-reason">
+              {' ('}
+              {fillTemplate(t('tiered.alt.actionRatio'), {
+                ratio: <RewardRatioValue values={rewardValues} onJump={jumpToPlanCell} />,
+              })}
+              {')'}
+            </span>
+          ) : null}
+        </AltFact>
         <span className="ml-auto">
           <AltNotesButton
             notes={(result.warnings ?? []).filter((raw) => !isPlanNote(raw))}
           />
         </span>
       </div>
-      {stale && !stopped ? (
+      {stale ? (
         <p className="mt-2 text-xs text-amber-300" data-testid="alt-stale-note">
           {t('tiered.alt.staleNote')}
         </p>

@@ -47,8 +47,10 @@ from .providers.base import (
 from .providers.registry import detect_market, get_providers
 from .providers.technicals import Bar, read_metric, technicals_as_of
 from .run_gate import (
+    StaleDataError,
     expected_bar_date,
     market_for_symbol,
+    stale_data_message,
     staleness_stop_reason,
     trim_incomplete_bars,
 )
@@ -232,45 +234,6 @@ def _technicals_atr(dimensions: Sequence[DimensionResult]) -> Optional[float]:
     return None
 
 
-def _stopped_outcome(
-    symbol: str,
-    market: Market,
-    dimensions: List[DimensionResult],
-    depth: int,
-    hold_weeks: int,
-    tracker: LlmUsageTracker,
-) -> TieredRunOutcome:
-    """A run halted by the staleness gate: data cards only, no outlook.
-
-    The outlook IS the whole user-facing story (owner decision
-    2026-08-08): no analysis or plan sections exist, no message is shown
-    (direction stays UNKNOWN), and the stop reason lives in the server
-    log only.
-    """
-    report = TierReport(
-        tier=1,
-        symbol=symbol,
-        market=market,
-        direction=Direction.UNKNOWN,
-        dimensions=dimensions,
-        hold_weeks=hold_weeks,
-    )
-    state = TierState(symbol=symbol, market=market, hold_weeks=hold_weeks)
-    state.reports[1] = report
-    state.dimensions = list(dimensions)
-    return TieredRunOutcome(
-        report=report,
-        state=state,
-        depth=depth,
-        final_report=report,
-        sizing=None,
-        llm_usage=tracker.to_detail(),
-        outlook=Outlook.STOPPED,
-        action=Action.UNKNOWN,
-        hold_weeks=hold_weeks,
-    )
-
-
 #: The run-detail earnings block reads the same shared helper the plan
 #: review's earnings gate uses (moved to earnings.py, 2026-07-27).
 _earnings_from_dimensions = earnings_from_dimensions
@@ -398,18 +361,21 @@ def run_tiered_analysis(
         # A clock-gate "run anyway" during the trading day expects the
         # PREVIOUS session's bar and passes here; only a lagging vendor
         # stops a run, and there is deliberately no override for that.
+        # Stale bars FAIL the run (owner decision 2026-09-17; it used to
+        # finish with a "stopped" outlook) — the user asked for an
+        # analysis and gets none, so the row says so, with the dates.
         if staleness_gate:
-            stop_reason = staleness_stop_reason(
-                technicals_as_of(dimensions), market_for_symbol(symbol)
-            )
+            bars_up_to = technicals_as_of(dimensions)
+            stop_reason = staleness_stop_reason(bars_up_to, market_for_symbol(symbol))
             if stop_reason is not None:
                 logger.warning(
                     "tiered run stopped for %s before LLM stages: %s",
                     symbol,
                     stop_reason,
                 )
-                return _stopped_outcome(
-                    symbol, market, dimensions, depth, hold_weeks, tracker
+                raise StaleDataError(
+                    stale_data_message(bars_up_to, market_for_symbol(symbol)),
+                    stop_reason,
                 )
 
         # Formula-only levels: deterministic bases from the technicals

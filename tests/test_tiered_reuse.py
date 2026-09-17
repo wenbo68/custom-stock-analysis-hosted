@@ -109,7 +109,7 @@ class TestReusableResult:
         assert is_reusable_result(_deep_result())
         assert is_reusable_result(_quick_result())
 
-    @pytest.mark.parametrize("outlook", ["unknown", "stopped", None])
+    @pytest.mark.parametrize("outlook", ["unknown", None])
     def test_no_outlook_is_never_reusable(self, outlook):
         assert not is_reusable_result(_deep_result(outlook))
         assert not is_reusable_result(_quick_result(outlook))

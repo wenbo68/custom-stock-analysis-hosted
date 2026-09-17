@@ -12,8 +12,7 @@ const PAGE_SIZE = 10;
 // Status (where the run is: queued, running, done, failed) and outlook
 // (what the finished analysis says) are separate columns (owner request
 // 2026-09-17). Only a real opinion counts as an outlook: a run with none
-// — unfinished, failed, judge failed, or stopped by the stale-data gate
-// before any analysis — shows a dash.
+// (unfinished, failed, or the judge produced nothing) shows a dash.
 const FILTER_STATUSES = ['queued', 'running', 'done', 'failed'] as const;
 const FILTER_OUTLOOKS = ['bullish', 'neutral', 'bearish'] as const;
 const FILTER_TIERS = ['1', '2'] as const;

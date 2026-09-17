@@ -12,10 +12,12 @@ Two gates keep every tiered run anchored on completed daily bars:
 - The STALENESS gate (all runs, enforced inside the pipeline): after the
   bars are fetched and BEFORE any LLM call, the run stops when the
   newest completed bar is older than the most recent completed trading
-  session. Stopped runs show ``Outlook.STOPPED`` and nothing else; the
-  reason lives in logs only. There is deliberately NO override here — a
-  clock-gate "run anyway" during the trading day expects YESTERDAY's bar
-  and passes; only a genuinely lagging vendor stops a run.
+  session. A stopped run FAILS (``StaleDataError``, owner decision
+  2026-09-17 — it used to finish with a "stopped" outlook) with a plain
+  message naming the two dates; the detailed reason also goes to the
+  log. There is deliberately NO override here — a clock-gate "run
+  anyway" during the trading day expects YESTERDAY's bar and passes;
+  only a genuinely lagging vendor stops a run.
 
 Calendar duty is delegated to ``src.core.trading_calendar``
 (exchange-calendars under the hood). Without that library the clock gate
@@ -203,6 +205,34 @@ def trim_incomplete_bars(bars: Sequence, expected: Optional[date]) -> List:
             continue
         kept.append(bar)
     return kept
+
+
+class StaleDataError(RuntimeError):
+    """The run refused to analyze bars older than the newest completed
+    session. ``str(exc)`` is the message the user sees on the failed
+    run; ``reason`` is the log-only detail."""
+
+    def __init__(self, message: str, reason: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
+def stale_data_message(
+    bars_up_to: Optional[str],
+    market: Optional[str],
+    now: Optional[datetime] = None,
+) -> str:
+    """What the user reads when the staleness gate stops a run."""
+    expected = expected_bar_date(market, now=now)
+    newest = bar_date_only(bars_up_to)
+    newest_text = newest.isoformat() if newest else "missing"
+    expected_text = expected.isoformat() if expected else "unknown"
+    return (
+        "The price data is not up to date yet: the newest daily bar is "
+        f"{newest_text} but the last completed trading day is "
+        f"{expected_text}. Data vendors can take a while after the close; "
+        "try again later."
+    )
 
 
 def staleness_stop_reason(

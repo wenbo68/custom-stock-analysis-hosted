@@ -325,19 +325,6 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.queryByTestId('alt-levels-table')).not.toBeInTheDocument();
   });
 
-  it('a stopped run shows only the outlook and the data cards', () => {
-    // Staleness gate (2026-08-08): the outlook word IS the whole story —
-    // no action fact, no analysis card, no plan, no message text.
-    renderResult(makeOutlookResult({ outlook: 'stopped', action: 'unknown' }));
-    const conclusion = screen.getByTestId('alt-conclusion');
-    expect(conclusion).toHaveTextContent(/(已停止|Stopped)/);
-    expect(conclusion).not.toHaveTextContent(/(操作|Action)/);
-    expect(screen.queryByTestId('alt-plan')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('alt-levels-table')).not.toBeInTheDocument();
-    // No preliminary/deep analysis card renders for a stopped run.
-    expect(screen.queryByText(/(初步分析|Preliminary analysis)/)).not.toBeInTheDocument();
-  });
-
   it('keeps the max hold time off the conclusion (it lives on the run row)', () => {
     // Owner request 2026-08-09: the conclusion is outlook + action only;
     // the max hold shows as its own run-history column instead.

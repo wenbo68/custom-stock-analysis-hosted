@@ -34,8 +34,8 @@ from .quick_judge import QuickOutlook, QuickResult
 from .schema import Direction, Outlook, TierReport
 from .tiers import TierState
 
-#: Outlooks worth handing on. Unknown (the judge failed) and stopped
-#: (stale data) runs are never reused — the requester runs afresh.
+#: Outlooks worth handing on. Unknown (the judge failed) runs are never
+#: reused — the requester runs afresh.
 REUSABLE_OUTLOOKS = frozenset({
     Outlook.BULLISH.value, Outlook.NEUTRAL.value, Outlook.BEARISH.value,
 })

@@ -256,7 +256,7 @@ export type TieredDebateDetail = {
   warnings: string[];
 };
 
-export type TieredOutlook = 'bullish' | 'neutral' | 'bearish' | 'unknown' | 'stopped';
+export type TieredOutlook = 'bullish' | 'neutral' | 'bearish' | 'unknown';
 export type TieredAction = 'enter' | 'enter_later' | 'no_trade' | 'unknown';
 export type TieredEarnings = {
   next_date: string | null;

@@ -57,11 +57,8 @@ class Outlook(str, Enum):
     NEUTRAL = "neutral"
     BEARISH = "bearish"
     UNKNOWN = "unknown"
-    #: Staleness gate (2026-08-08): the run stopped BEFORE any LLM stage
-    #: because the newest daily bar predates the most recent completed
-    #: trading session. No analysis or plan exists; the outlook itself is
-    #: the whole user-facing story (the reason lives in logs only).
-    STOPPED = "stopped"
+    # (A "stopped" outlook for stale-data runs existed 2026-08-08 to
+    # 2026-09-17; such runs now fail with StaleDataError instead.)
 
     @classmethod
     def from_direction(cls, direction: Direction) -> "Outlook":
