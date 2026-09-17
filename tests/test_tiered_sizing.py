@@ -5,6 +5,10 @@ Fixed-fractional sizing: shares = (capital * risk_fraction) / loss_per_share,
 where loss_per_share = entry - stop. Every refusal path must carry an
 explicit reason code — never a silent zero. (Fee rate and the position
 cap were removed 2026-07-22; they return as user inputs later.)
+
+Fractional shares (2026-09-17): markets without a board lot keep the
+fraction, floored to a thousandth of a share; CN still rounds down to
+whole lots of 100.
 """
 from __future__ import annotations
 
@@ -13,8 +17,10 @@ import unittest
 from src.tiered_analysis.providers.base import Market
 from src.tiered_analysis.schema import Direction
 from src.tiered_analysis.sizing import (
+    FRACTIONAL_SHARE_STEP,
     RefusalReason,
     SizingInputs,
+    floor_to_tradeable,
     size_position,
     to_sizing_slots,
 )
@@ -36,12 +42,35 @@ def _inputs(**overrides) -> SizingInputs:
 
 class TestFormula(unittest.TestCase):
     def test_fixed_fractional_happy_path(self):
-        # risk budget 500; loss/share 8 -> 62.5 -> floor 62 shares.
+        # risk budget 500; loss/share 8 -> 62.5 shares (fractional shares
+        # are kept where no board lot applies).
         result = size_position(_inputs())
         self.assertIsNone(result.refusal_reason)
-        self.assertEqual(result.shares, 62)
-        self.assertAlmostEqual(result.position_value, 62 * 210.0)
-        self.assertAlmostEqual(result.risk_amount, 62 * 8.0)
+        self.assertEqual(result.shares, 62.5)
+        self.assertAlmostEqual(result.position_value, 62.5 * 210.0)
+        self.assertAlmostEqual(result.risk_amount, 62.5 * 8.0)
+
+    def test_less_than_one_share_is_a_size_not_a_refusal(self):
+        # Budget 2; loss/share 8 -> 0.25 shares: a small account still
+        # gets a count instead of an empty cell.
+        result = size_position(_inputs(capital=400.0))
+        self.assertIsNone(result.refusal_reason)
+        self.assertEqual(result.shares, 0.25)
+        self.assertAlmostEqual(result.risk_amount, 2.0)
+
+    def test_fraction_floors_to_a_thousandth_of_a_share(self):
+        # Budget 1; loss/share 3 -> 0.3333… -> 0.333.
+        result = size_position(
+            _inputs(capital=100.0, risk_fraction=0.01, entry=10.0, stop_loss=7.0)
+        )
+        self.assertEqual(result.shares, 0.333)
+
+    def test_floor_to_tradeable_survives_float_noise(self):
+        # 0.57 * 100 is 56.999… in floating point; the count must not
+        # drop a step because of that.
+        self.assertEqual(floor_to_tradeable(0.57, 1), 0.57)
+        self.assertEqual(floor_to_tradeable(1818.18, 100), 1800.0)
+        self.assertEqual(FRACTIONAL_SHARE_STEP, 0.001)
 
     def test_wider_stop_means_fewer_shares(self):
         tight = size_position(_inputs(stop_loss=206.0))  # loss/share 4
@@ -101,6 +130,16 @@ class TestGuardrails(unittest.TestCase):
         )
         self.assertIsNone(result.shares)
         self.assertEqual(result.reason_code, RefusalReason.TOO_SMALL)
+
+    def test_below_a_thousandth_of_a_share_is_still_too_small(self):
+        # Budget 0.01 / loss 20 = 0.0005 shares -> below the fractional
+        # step -> refuse, and the message names the step.
+        result = size_position(
+            _inputs(capital=1.0, risk_fraction=0.01, entry=100.0, stop_loss=80.0)
+        )
+        self.assertIsNone(result.shares)
+        self.assertEqual(result.reason_code, RefusalReason.TOO_SMALL)
+        self.assertIn("0.001 of a share", result.refusal_reason)
 
     def test_high_risk_fraction_gets_a_note(self):
         result = size_position(_inputs(risk_fraction=0.08))
@@ -175,7 +214,7 @@ class TestSizingSlots(unittest.TestCase):
         self.assertFalse(slots.is_empty)
         self.assertEqual(slots.capital, inputs.capital)
         self.assertEqual(slots.risk_fraction, inputs.risk_fraction)
-        self.assertEqual(slots.shares, 62)
+        self.assertEqual(slots.shares, 62.5)
 
     def test_refused_result_keeps_slots_empty(self):
         inputs = _inputs(stop_loss=None)

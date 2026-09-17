@@ -32,7 +32,6 @@ the computed plan stands and a warning says why.
 from __future__ import annotations
 
 import logging
-import math
 import re
 from dataclasses import dataclass, field
 from typing import (
@@ -86,7 +85,7 @@ from .schema import (
     reward_ratio,
 )
 from .settings import SizingSettings
-from .sizing import SizingInputs, SizingResult, size_position
+from .sizing import SizingInputs, SizingResult, floor_to_tradeable, size_position
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +156,7 @@ def sizing_detail_dict(
     settings: SizingSettings,
     result: SizingResult,
     levels: SniperLevels,
-    shares: Optional[int] = None,
+    shares: Optional[float] = None,
     risk_amount: Optional[float] = None,
     extra_notes: Sequence[str] = (),
 ) -> Dict[str, Any]:
@@ -206,7 +205,7 @@ class _Check:
 def _flagged_checks(
     tech: Dict[str, Any],
     levels: SniperLevels,
-    shares: Optional[int],
+    shares: Optional[float],
 ) -> List[_Check]:
     checks: List[_Check] = []
     stop = levels.stop_loss
@@ -231,7 +230,7 @@ def _flagged_checks(
         if fraction > ADV_FLAG_FRACTION:
             checks.append(_Check(
                 "liquidity",
-                f"the planned {shares} shares are "
+                f"the planned {display_value(shares)} shares are "
                 f"{fraction * 100:.1f}% of the average daily volume "
                 f"({display_value(avg_volume)}), above the "
                 f"{ADV_FLAG_FRACTION:.0%} limit — propose a reduced "
@@ -308,7 +307,7 @@ def macro_event_from_dimensions(
 def build_plan_warnings(
     tech: Dict[str, Any],
     levels: SniperLevels,
-    shares: Optional[int],
+    shares: Optional[float],
     risk_amount: Optional[float],
     reward_goal: float,
     earnings: Optional[EarningsInfo] = None,
@@ -658,8 +657,8 @@ def _request_adjustments(
     symbol: str,
     dimensions: Sequence[DimensionResult],
     bases: BaseLevels,
-    base_shares: Optional[int],
-    trim_baseline: Optional[int],
+    base_shares: Optional[float],
+    trim_baseline: Optional[float],
     checks: Sequence[_Check],
     atr: Optional[float],
     summarizer: Callable[[str], str],
@@ -692,8 +691,8 @@ def _request_adjustments(
         entry=entry_v, entry_formula=entry_f,
         stop_loss=stop_v, stop_formula=stop_f,
         take_profit=target_v, target_formula=target_f,
-        base_shares=base_shares if base_shares is not None else "—",
-        trim_baseline=trim_baseline if trim_baseline is not None else "—",
+        base_shares=display_value(base_shares) if base_shares is not None else "—",
+        trim_baseline=display_value(trim_baseline) if trim_baseline is not None else "—",
         round_note=round_note,
         checks="\n".join(f"- {check.name}: {check.text}" for check in checks),
         atr=display_value(atr) if atr is not None else "—",
@@ -775,7 +774,7 @@ def _shares_detail(
     base_result: SizingResult,
     final_inputs: SizingInputs,
     final_result: SizingResult,
-    ai_shares: Optional[int],
+    ai_shares: Optional[float],
     ai_reasons: Sequence[Dict[str, Any]],
     rejection: Optional[str],
 ) -> Dict[str, Any]:
@@ -833,12 +832,12 @@ class _RoundPlan:
     levels: SniperLevels
     inputs: SizingInputs
     result: SizingResult
-    ai_shares: Optional[int]
+    ai_shares: Optional[float]
     ai_reasons: Tuple[Dict[str, Any], ...]
     shares_rejection: Optional[str]
 
     @property
-    def shares(self) -> Optional[int]:
+    def shares(self) -> Optional[float]:
         return self.ai_shares if self.ai_shares is not None else self.result.shares
 
 
@@ -916,14 +915,15 @@ def review_plan(
         inputs, result = _size(levels, direction, market, settings)
 
         # The AI's share trim: reductions only (vs this round's mechanical
-        # recompute), floored to the lot size.
-        ai_shares: Optional[int] = None
+        # recompute), floored to what can be ordered (board lot or
+        # fractional step).
+        ai_shares: Optional[float] = None
         ai_reasons: Tuple[Dict[str, Any], ...] = ()
         rejection: Optional[str] = None
         proposal = merged.get("shares")
         if proposal is not None:
             lot = result.lot_size
-            proposed = int(math.floor(proposal["value"] / lot)) * lot
+            proposed = floor_to_tradeable(proposal["value"], lot)
             mechanical = result.shares
             if mechanical is None:
                 rejection = "no computed share count exists to adjust"
@@ -934,8 +934,9 @@ def review_plan(
                 )
             elif proposed >= mechanical:
                 rejection = (
-                    f"proposed count {proposed} is not below the computed "
-                    f"{mechanical} — shares may only be trimmed"
+                    f"proposed count {display_value(proposed)} is not below "
+                    f"the computed {display_value(mechanical)} — shares may "
+                    "only be trimmed"
                 )
             else:
                 ai_shares = proposed

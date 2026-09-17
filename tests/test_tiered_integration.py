@@ -318,12 +318,13 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
     def test_missing_sizing_falls_back_to_the_form_defaults(self):
         # Owner decision 2026-07-24: every run sizes. With no settings and
         # no overrides, the web form's defaults fill in (100k capital, 1%
-        # risk) — entry 96, stop 90 → loss/share 6 → floor(1000/6) = 166.
+        # risk) — entry 96, stop 90 → loss/share 6 → 1000/6 = 166.666
+        # (fractional shares, floored to a thousandth).
         outcome, _, _, _ = self._run()
         self.assertTrue(outcome.sizing["enabled"])
         self.assertEqual(outcome.sizing["inputs"]["capital"], 100000.0)
         self.assertEqual(outcome.sizing["inputs"]["risk_fraction"], 0.01)
-        self.assertEqual(outcome.sizing["shares"], 166)
+        self.assertEqual(outcome.sizing["shares"], 166.666)
 
     def test_enabled_sizing_computes_shares_from_final_levels(self):
         from src.tiered_analysis.settings import SizingSettings
@@ -331,11 +332,11 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         outcome, logged, _, _ = self._run(
             sizing_settings=SizingSettings(capital=100000.0,
                                            risk_fraction=0.01))
-        # entry 96, stop 90 → loss/share 6 → floor(1000/6) = 166 shares
-        self.assertEqual(outcome.sizing["shares"], 166)
+        # entry 96, stop 90 → loss/share 6 → 1000/6 = 166.666 shares
+        self.assertEqual(outcome.sizing["shares"], 166.666)
         self.assertTrue(outcome.sizing["enabled"])
-        self.assertEqual(outcome.final_report.sizing.shares, 166.0)
-        self.assertEqual(logged[0].sizing.shares, 166.0)
+        self.assertEqual(outcome.final_report.sizing.shares, 166.666)
+        self.assertEqual(logged[0].sizing.shares, 166.666)
 
     def test_hold_direction_refuses_sizing_and_maps_to_no_trade(self):
         outcome, _, _, _ = self._run(quick_score=5.0)
@@ -346,7 +347,7 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
     def test_per_run_overrides_enable_sizing(self):
         outcome, _, _, _ = self._run(
             sizing_overrides={"capital": 100000.0, "risk_fraction": 0.01})
-        self.assertEqual(outcome.sizing["shares"], 166)
+        self.assertEqual(outcome.sizing["shares"], 166.666)
 
     def test_reward_capped_plan_maps_bullish_to_buy_later(self):
         # Resistance at 104 caps the target (geometric would be 108):
@@ -374,13 +375,13 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
         self.assertEqual(sorted(pw), ["entry", "shares", "stop_loss", "take_profit"])
         gap = pw["stop_loss"][0]
         self.assertEqual(gap["id"], "gap_atr")
-        # open = stop 90 − 1×ATR 3 = 87; loss = 166 × (96 − 87) = 1494
+        # open = stop 90 − 1×ATR 3 = 87; loss = 166.666 × (96 − 87) = 1499.994
         self.assertAlmostEqual(gap["values"]["atr_open"], 87.0)
-        self.assertAlmostEqual(gap["values"]["atr_loss"], 1494.0)
+        self.assertAlmostEqual(gap["values"]["atr_loss"], 1499.994)
         self.assertEqual(pw["take_profit"], [])  # R:R exactly the 2× goal
         shares_detail = outcome.report.levels_detail["levels"]["shares"]
-        self.assertEqual(shares_detail["base"], 166)
-        self.assertEqual(shares_detail["final"], 166)
+        self.assertEqual(shares_detail["base"], 166.666)
+        self.assertEqual(shares_detail["final"], 166.666)
         self.assertIsNone(shares_detail["adjusted"])
 
     def test_plan_review_absent_on_non_buy(self):
@@ -454,7 +455,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
         return outcome, prompts
 
     def test_ai_share_trim_with_cited_reason(self):
-        # 166 shares are 16.6% of the 1000-share ADV → liquidity flags →
+        # 166.666 shares are 16.7% of the 1000-share ADV → liquidity flags →
         # the fake AI trims to 50 with a verified link.
         reply = json.dumps({"adjustments": [{
             "target": "shares", "value": 50,
@@ -470,7 +471,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
         self.assertIn("liquidity", prompts[0])
         self.assertEqual(outcome.sizing["shares"], 50)
         detail = outcome.report.levels_detail["levels"]["shares"]
-        self.assertEqual(detail["base"], 166)
+        self.assertEqual(detail["base"], 166.666)
         self.assertEqual(detail["adjusted"], 50)
         self.assertEqual(detail["reasons"][0]["check"], "liquidity")
         self.assertIn("liquidity limit", detail["reasons"][0]["text"])
@@ -478,7 +479,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
                          "technicals.volume.avg_vol_60d")
         # Receipt data always rides with an adjusted count (2026-07-22):
         # the mechanical recompute and the inputs it used.
-        self.assertEqual(detail["mechanical"], 166)
+        self.assertEqual(detail["mechanical"], 166.666)
         self.assertEqual(detail["adjusted_inputs"]["entry"], 96.0)
         # gap warning recomputes off the trimmed count: 50 × (96−87) = 450
         gap = outcome.plan_warnings["stop_loss"][0]
@@ -501,7 +502,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
         }]})
         outcome, prompts = self._run_with_reply(reply)
         self.assertEqual(len(prompts), 2)  # one call + one fix round
-        self.assertEqual(outcome.sizing["shares"], 166)
+        self.assertEqual(outcome.sizing["shares"], 166.666)
         self.assertTrue(any("has no citation" in w
                             for w in outcome.report.warnings))
 
@@ -534,7 +535,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
         }]})
         outcome, prompts = self._run_with_reply(reply)
         self.assertEqual(len(prompts), 3)  # one call per round, no fix rounds
-        self.assertEqual(outcome.sizing["shares"], 166)
+        self.assertEqual(outcome.sizing["shares"], 166.666)
         detail = outcome.report.levels_detail["levels"]["shares"]
         self.assertIsNone(detail["adjusted"])
         failures = outcome.report.levels_detail["review_failures"]
@@ -574,7 +575,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
     def test_unparseable_reply_keeps_computed_plan(self):
         outcome, prompts = self._run_with_reply("not json at all")
         self.assertEqual(len(prompts), 2)  # one call + one fix round
-        self.assertEqual(outcome.sizing["shares"], 166)
+        self.assertEqual(outcome.sizing["shares"], 166.666)
         self.assertTrue(any("plan-review reply problem" in w
                             for w in outcome.report.warnings))
         # An empty answer while liquidity fires is a round-1 failure: the

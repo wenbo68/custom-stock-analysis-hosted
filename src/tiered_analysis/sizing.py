@@ -26,14 +26,32 @@ HIGH_RISK_FRACTION_NOTE_THRESHOLD = 0.05
 
 #: Minimum tradeable increment per market family. CN cash equities trade in
 #: board lots of 100; HK board lots vary per stock (we size in single shares
-#: and attach a note); everywhere else single shares are assumed.
+#: and attach a note); everywhere else fractional shares are assumed.
 _LOT_SIZES = {Market.CN: 100}
 _DEFAULT_LOT_SIZE = 1
+
+#: Fractional shares (2026-09-17): where no board lot applies, the count
+#: is floored to this many decimal places instead of to a whole share —
+#: most US brokers fill fractional orders down to a thousandth of a
+#: share. A placeholder minimum until a per-broker rule exists.
+SHARE_DECIMALS = 3
+FRACTIONAL_SHARE_STEP = 10 ** -SHARE_DECIMALS
 
 
 def lot_size_for(market: Market) -> int:
     """The market's minimum tradeable increment (CN board lots of 100)."""
     return _LOT_SIZES.get(market, _DEFAULT_LOT_SIZE)
+
+
+def floor_to_tradeable(raw_shares: float, lot_size: int) -> float:
+    """Round a share count DOWN to what can actually be ordered: whole
+    board lots where the market has them, else thousandths of a share."""
+    if lot_size > 1:
+        return float(math.floor(raw_shares / lot_size) * lot_size)
+    scale = 10 ** SHARE_DECIMALS
+    # The tiny nudge keeps float noise (0.57 * 100 = 56.999…) from
+    # flooring an exact count one step too low.
+    return math.floor(raw_shares * scale + 1e-6) / scale
 
 
 class RefusalReason(str, Enum):
@@ -62,7 +80,9 @@ class SizingInputs:
 
 @dataclass(frozen=True)
 class SizingResult:
-    shares: Optional[int] = None
+    #: Whole shares in board-lot markets; elsewhere a fraction is allowed
+    #: (floored to ``SHARE_DECIMALS`` places).
+    shares: Optional[float] = None
     position_value: Optional[float] = None
     #: Planned maximum loss if the stop is hit.
     risk_amount: Optional[float] = None
@@ -169,13 +189,13 @@ def size_position(inputs: SizingInputs) -> SizingResult:
     risk_budget = inputs.capital * inputs.risk_fraction
     raw_shares = risk_budget / loss_per_share
 
-    shares = int(math.floor(raw_shares / lot_size)) * lot_size
+    shares = floor_to_tradeable(raw_shares, lot_size)
     if shares <= 0:
         return _refuse(
             RefusalReason.TOO_SMALL,
             "The computed size rounds down to zero — the risk budget is too "
             "small for even one "
-            + ("board lot" if lot_size > 1 else "share")
+            + ("board lot" if lot_size > 1 else f"{FRACTIONAL_SHARE_STEP:g} of a share")
             + " at this price.",
             lot_size=lot_size,
             notes=notes,
