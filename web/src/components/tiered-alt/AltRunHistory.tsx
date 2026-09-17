@@ -3,7 +3,7 @@ import type { TieredResult, TieredRunSummary } from '../../api/tiered';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey } from '../../i18n/uiText';
 import { cn } from '../../utils/cn';
-import { plainNumber, riskPctText } from './altFormat';
+import { plainNumber, queuePosition, riskPctText } from './altFormat';
 import { ALT_COLOR, OUTLOOK_TEXT, STATUS_DOT } from './altStyles';
 import { AltPageSelector, AltPairField, AltPill, AltPillRow, AltSelect } from './AltFields';
 import { AltResult } from './AltResult';
@@ -235,7 +235,7 @@ export const AltRunHistory = ({
   expandedError,
   onToggle,
 }: AltRunHistoryProps) => {
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
   const [filters, setFilters] = useState<HistoryFilters>(NO_FILTERS);
   const [page, setPage] = useState(1);
 
@@ -541,7 +541,9 @@ export const AltRunHistory = ({
                     <span className="text-xs text-amber-300">
                       {run.queue_ahead == null
                         ? t('tiered.status.queued')
-                        : t('tiered.status.queuedAhead', { ahead: run.queue_ahead })}
+                        : t('tiered.status.queuedAt', {
+                            position: queuePosition(run.queue_ahead, language),
+                          })}
                     </span>
                   ) : run.status === 'running' ? (
                     <span className="text-xs text-sky-300">{t('tiered.status.running')}</span>

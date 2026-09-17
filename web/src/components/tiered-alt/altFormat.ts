@@ -1,5 +1,6 @@
 // Number-to-text helpers shared across the alt page.
 import type { TieredDebateLink } from '../../api/tiered';
+import type { UiLanguage } from '../../i18n/uiText';
 import { formatValue } from '../tiered/termHelpers';
 
 // Display units per payload key (owner request 2026-07-28): numbers
@@ -133,6 +134,22 @@ export const formatMetricValue = (key: string, value: unknown): string => {
 // user typed, without float noise (0.01 * 100 === 1.0000000000000002).
 export const riskPctText = (fraction: number): string =>
   String(Number((fraction * 100).toPrecision(12)));
+
+// A queued run's place in line as words: 2 runs ahead → '3rd' / '第 3 位'
+// (owner request 2026-09-17: the position, not the count ahead).
+export const queuePosition = (ahead: number, language: UiLanguage): string => {
+  const position = ahead + 1;
+  if (language === 'zh') {
+    return `第 ${position} 位`;
+  }
+  // 11th, 12th and 13th are the exceptions to the 1st/2nd/3rd endings.
+  const lastTwo = position % 100;
+  const suffix =
+    lastTwo >= 11 && lastTwo <= 13
+      ? 'th'
+      : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[position % 10] ?? 'th';
+  return `${position}${suffix}`;
+};
 
 // 100000.0 -> '100000' — a capital amount as the plain number it was entered as.
 export const plainNumber = (value: number): string => String(Number(value));

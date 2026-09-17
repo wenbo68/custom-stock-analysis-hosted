@@ -51,7 +51,8 @@ describe('AltRunHistory', () => {
       expandedTaskId: 'q1',
     });
 
-    expect(screen.getByText(/排队中（前面 2 个）|Queued \(2 ahead\)/)).toBeInTheDocument();
+    // two runs ahead → this one is 3rd in line
+    expect(screen.getByText(/排队中（第 3 位）|Queued \(3rd\)/)).toBeInTheDocument();
     expect(screen.getByText(/轮到时会自动开始|starts by itself/)).toBeInTheDocument();
   });
 
