@@ -235,6 +235,13 @@ describe('AltRunForm', () => {
     expect(props.onDuplicateClose).toHaveBeenCalled();
   });
 
+  it('words a duplicate that waits on a matching run', () => {
+    renderForm({ ticker: 'NVDA', duplicate: { taskId: 't1', status: 'waiting' } });
+    expect(
+      screen.getByText(/正在等待一个匹配的运行|already waiting on a matching run/),
+    ).toBeInTheDocument();
+  });
+
   it('words a queued duplicate as waiting in the queue', () => {
     renderForm({ ticker: 'NVDA', duplicate: { taskId: 't1', status: 'queued' } });
 

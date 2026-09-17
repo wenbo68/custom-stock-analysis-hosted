@@ -61,6 +61,11 @@ def startup_housekeeping() -> None:
         orphaned = history.fail_stale_running_runs()
         if orphaned:
             logger.warning("marked %d orphaned run(s) failed at startup", orphaned)
+        # A run waiting on a source the old process was running (now
+        # failed) or already settled goes back in the line as its own run.
+        requeued = history.requeue_orphaned_waiters()
+        if requeued:
+            logger.warning("requeued %d run(s) whose source run is gone", requeued)
     except Exception as exc:
         logger.warning("startup run cleanup skipped: %s", exc)
     try:

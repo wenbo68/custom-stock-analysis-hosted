@@ -25,6 +25,10 @@ const zh = {
   'tiered.queued':
     '排队等待空闲名额。服务器同时只运行少量分析，轮到时会自动开始，无需再点开始。',
   'tiered.running': '分析中（约 2-5 分钟：抓取数据、检索新闻、AI 综合）…',
+  'tiered.waiting':
+    '已有人在用相同的最长持有时间和同等或更强的模型分析今天的这只股票。本次运行会在其完成后直接采用该展望，只计算你自己的交易计划，无需再点开始。',
+  'tiered.reused':
+    '展望来自今天这只股票的共享运行（层级 {tier}，{model}）；只有交易计划是按你的资金、风险和盈亏比设置计算的。',
   'tiered.error.title': '分析失败',
   'tiered.score': '评分',
   'tiered.levels.entry': '买入',
@@ -170,6 +174,7 @@ const zh = {
   'tiered.status.queued': '排队中',
   'tiered.status.queuedAhead': '排队中（前面 {ahead} 个）',
   'tiered.status.running': '分析中',
+  'tiered.status.waiting': '等待匹配的运行',
   'tiered.status.failed': '失败',
   'tiered.help.depth':
     '层级 1（初步分析）：四份数据报告加一次 AI 展望。\n层级 2（深度分析）：跳过单次 AI 展望，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
@@ -298,6 +303,8 @@ const zh = {
     '完全相同的 {ticker} 分析正在运行（本金、单笔风险、盈亏比、最长持有、层级都一样），已在下方运行历史中展开。请等它完成，或改动其中一项后再开始。',
   'tiered.altForm.duplicateQueued':
     '完全相同的 {ticker} 分析已在排队（本金、单笔风险、盈亏比、最长持有、层级都一样），已在下方运行历史中展开。它会自动开始；请等它完成，或改动其中一项后再开始。',
+  'tiered.altForm.duplicateWaiting':
+    '完全相同的 {ticker} 分析正在等待一个匹配的运行（本金、单笔风险、盈亏比、最长持有、层级都一样），已在下方运行历史中展开。它会自动完成；请等它完成，或改动其中一项后再开始。',
   'tiered.altForm.req.ticker': '代码',
   'tiered.altForm.req.tier': '层级',
   'tiered.altForm.req.capital': '本金',
@@ -507,6 +514,10 @@ const en: Record<UiTextKey, string> = {
   'tiered.queued':
     'Waiting for a free slot. The server runs only a few analyses at a time; this one starts by itself when its turn comes — no need to press Start again.',
   'tiered.running': 'Running (2-5 min: fetching data, searching news, AI synthesis)…',
+  'tiered.waiting':
+    'Someone is already analysing this ticker for today with the same max hold time and an equal or stronger model. This run will take that outlook as soon as it is ready and only compute your own trade plan — no need to press Start again.',
+  'tiered.reused':
+    'The outlook comes from a shared run of this ticker today (tier {tier}, {model}); only the trade plan was computed with your capital, risk and reward settings.',
   'tiered.error.title': 'Analysis failed',
   'tiered.score': 'Score',
   'tiered.levels.entry': 'Entry',
@@ -720,6 +731,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.status.queued': 'Queued',
   'tiered.status.queuedAhead': 'Queued ({ahead} ahead)',
   'tiered.status.running': 'Running',
+  'tiered.status.waiting': 'Waiting on a matching run',
   'tiered.status.failed': 'Failed',
   'tiered.help.depth':
     'Tier 1 (preliminary analysis): the four data reports plus one AI outlook.\nTier 2 (deep analysis): skips the single AI outlook — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
@@ -868,6 +880,8 @@ const en: Record<UiTextKey, string> = {
     'An identical {ticker} run is already running (same capital, risk, reward ratio, max hold and tier). It is expanded in the run history below. Wait for it to finish, or change one of the inputs.',
   'tiered.altForm.duplicateQueued':
     'An identical {ticker} run is already waiting in the queue (same capital, risk, reward ratio, max hold and tier). It is expanded in the run history below and starts by itself. Wait for it, or change one of the inputs.',
+  'tiered.altForm.duplicateWaiting':
+    'An identical {ticker} run is already waiting on a matching run (same capital, risk, reward ratio, max hold and tier). It is expanded in the run history below and finishes by itself. Wait for it, or change one of the inputs.',
   'tiered.altForm.req.ticker': 'Ticker',
   'tiered.altForm.req.tier': 'Tier',
   'tiered.altForm.req.capital': 'Capital',

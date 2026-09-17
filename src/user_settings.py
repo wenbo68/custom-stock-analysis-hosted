@@ -72,6 +72,36 @@ def catalog() -> List[Dict[str, str]]:
     return [choice.__dict__.copy() for choice in MODEL_CATALOG]
 
 
+def model_rank(model_id: Optional[str]) -> Optional[int]:
+    """Position on the curated list (0 = strongest of its provider), or
+    None for a retired or unknown id."""
+    for rank, choice in enumerate(MODEL_CATALOG):
+        if choice.id == model_id:
+            return rank
+    return None
+
+
+def covers_model(source_model: Optional[str], requested_model: Optional[str]) -> bool:
+    """Whether an outlook produced by ``source_model`` may stand in for
+    one the user asked ``requested_model`` for: same provider, and the
+    source is the same model or a stronger one on the curated list
+    (which is ordered strongest-first within each provider). A retired
+    or unknown model on either side never qualifies."""
+    source_rank = model_rank(source_model)
+    requested_rank = model_rank(requested_model)
+    if source_rank is None or requested_rank is None:
+        return False
+    if MODEL_CATALOG[source_rank].provider != MODEL_CATALOG[requested_rank].provider:
+        return False
+    return source_rank <= requested_rank
+
+
+def model_label(model_id: Optional[str]) -> Optional[str]:
+    """The display name of a catalog model; None when retired/unknown."""
+    rank = model_rank(model_id)
+    return MODEL_CATALOG[rank].label if rank is not None else None
+
+
 def model_choice(model_id: str) -> ModelChoice:
     for choice in MODEL_CATALOG:
         if choice.id == model_id:

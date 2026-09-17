@@ -153,7 +153,9 @@ export const AltRunForm = ({
               {t(
                 duplicate.status === 'running'
                   ? 'tiered.altForm.duplicateRunning'
-                  : 'tiered.altForm.duplicateQueued',
+                  : duplicate.status === 'waiting'
+                    ? 'tiered.altForm.duplicateWaiting'
+                    : 'tiered.altForm.duplicateQueued',
                 { ticker: ticker ?? '' },
               )}
             </p>

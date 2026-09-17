@@ -9,6 +9,12 @@ error), and stays in the list as history across page navigation and
 server restarts. Queued rows outlive the process: the queue resumes them
 at startup, whereas running rows die with their thread and are failed.
 
+Run reuse (2026-09-17): a run may borrow another run's outlook instead
+of paying for its own (src/tiered_analysis/reuse.py). ``find_reusable_run``
+picks the source; a requester whose source is still in flight sits as
+``waiting`` (with ``source_task_id`` set) until the source settles, and
+is then finished from it or put back in the queue.
+
 Storage is the product's existing sqlite database via DatabaseManager —
 one small table, no separate infrastructure.
 """
@@ -30,13 +36,18 @@ DEFAULT_LIST_LIMIT = 50
 #: run can never finish. Worded for the history list.
 STALE_RUN_ERROR = "server restarted while this run was in progress"
 
-#: Run statuses. A run is "active" (queued or running) until it settles
-#: as done or failed — the duplicate check only looks at active runs.
+#: Run statuses. A run is "active" (queued, running or waiting on
+#: another run) until it settles as done or failed — the duplicate check
+#: only looks at active runs.
 STATUS_QUEUED = "queued"
 STATUS_RUNNING = "running"
+STATUS_WAITING = "waiting"
 STATUS_DONE = "done"
 STATUS_FAILED = "failed"
-ACTIVE_STATUSES = (STATUS_QUEUED, STATUS_RUNNING)
+ACTIVE_STATUSES = (STATUS_QUEUED, STATUS_RUNNING, STATUS_WAITING)
+#: Statuses a run may be reused from, in preference order: a finished
+#: run is instant; a running one finishes soonest; a queued one last.
+REUSABLE_STATUSES = (STATUS_DONE, STATUS_RUNNING, STATUS_QUEUED)
 
 #: The creation-time inputs that make two runs "the same run" (and that
 #: the history row shows while a run is in flight).
@@ -55,6 +66,9 @@ def create_run(
     inputs: Optional[Dict[str, Any]] = None,
     owner_id: Optional[int] = None,
     status: str = STATUS_RUNNING,
+    bar_date: Optional[str] = None,
+    model: Optional[str] = None,
+    source_task_id: Optional[str] = None,
 ) -> None:
     """``inputs`` are the run's effective settings (tier, capital,
     risk_fraction, reward_risk, hold_weeks) — recorded at creation so the
@@ -63,7 +77,10 @@ def create_run(
     the queue hands to the engine when the run starts. ``owner_id`` is
     the signed-in user the run belongs to. The web endpoint creates runs
     ``queued``; the default keeps direct callers (tests, scripts) that
-    start their own thread on ``running``."""
+    start their own thread on ``running``. ``bar_date`` (ISO) is the
+    trading day the run analyses and ``model`` the owner's main model —
+    the run-reuse matching keys; ``source_task_id`` names the run this
+    one borrows its outlook from."""
     from src.storage import TieredRunRecord
 
     with _session() as session:
@@ -73,6 +90,9 @@ def create_run(
             status=status,
             inputs_json=json.dumps(inputs) if inputs else None,
             owner_user_id=owner_id,
+            bar_date=bar_date,
+            model=model,
+            source_task_id=source_task_id,
         ))
         session.commit()
 
@@ -96,6 +116,176 @@ def _update_run(task_id: str, **fields: Any) -> None:
 
 def mark_done(task_id: str, result: Dict[str, Any]) -> None:
     _update_run(task_id, status="done", result_json=json.dumps(result))
+
+
+def set_model(task_id: str, model: Optional[str]) -> None:
+    """Record the main model a run actually uses (a queued run reads its
+    owner's settings only when it starts; a reused run ends up with the
+    source's model — the one that produced the outlook it shows)."""
+    _update_run(task_id, model=model)
+
+
+def attach_to_source(task_id: str, source_task_id: str) -> None:
+    """Park a run as ``waiting``: it will be finished from
+    ``source_task_id`` once that run settles."""
+    _update_run(task_id, status=STATUS_WAITING, source_task_id=source_task_id)
+
+
+def requeue(task_id: str) -> None:
+    """A waiting run whose source cannot serve it goes back in the line
+    as an ordinary queued run."""
+    _update_run(task_id, status=STATUS_QUEUED, source_task_id=None)
+
+
+def list_waiters(source_task_id: str) -> List[Dict[str, Any]]:
+    """The runs waiting on ``source_task_id``, oldest first, each as
+    {task_id, stock_code, owner_id, inputs, model}."""
+    from src.storage import TieredRunRecord
+
+    with _session() as session:
+        rows = (
+            session.query(TieredRunRecord)
+            .filter_by(status=STATUS_WAITING, source_task_id=source_task_id)
+            .order_by(TieredRunRecord.created_at.asc(), TieredRunRecord.id.asc())
+            .all()
+        )
+        return [_run_for_reuse(row) for row in rows]
+
+
+def run_for_reuse(task_id: str) -> Optional[Dict[str, Any]]:
+    """A run as the reuse machinery sees it — status, model, inputs, the
+    parsed result (None unless done and readable) — regardless of
+    owner. Internal: never served to a client."""
+    from src.storage import TieredRunRecord
+
+    with _session() as session:
+        row = (
+            session.query(TieredRunRecord)
+            .filter_by(task_id=task_id)
+            .one_or_none()
+        )
+        return _run_for_reuse(row) if row is not None else None
+
+
+def _run_for_reuse(row: Any) -> Dict[str, Any]:
+    return {
+        "task_id": row.task_id,
+        "stock_code": row.stock_code,
+        "status": row.status,
+        "owner_id": row.owner_user_id,
+        "model": row.model,
+        "bar_date": row.bar_date,
+        "source_task_id": row.source_task_id,
+        "inputs": _inputs_of(row),
+        "result": _parsed_result(row),
+    }
+
+
+def _parsed_result(row: Any) -> Optional[Dict[str, Any]]:
+    if row.status != STATUS_DONE or not row.result_json:
+        return None
+    try:
+        result = json.loads(row.result_json)
+    except ValueError:
+        return None
+    return result if isinstance(result, dict) else None
+
+
+def find_reusable_run(
+    stock_code: str,
+    bar_date: Optional[str],
+    hold_weeks: int,
+    tier: int,
+    model: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """The best run (anyone's) whose outlook may stand in for a new run
+    of ``stock_code`` on trading day ``bar_date`` with max hold
+    ``hold_weeks``, tier ``tier`` and main model ``model``. Same ticker
+    (case-insensitive), day and hold weeks; the same or a deeper tier;
+    the same or a stronger model of the same provider
+    (src.user_settings.covers_model). Finished runs come first (deeper
+    tier, then stronger model, then newest), then running ones and
+    queued ones, oldest first. Runs that are themselves waiting on
+    another run are skipped — attach to the original instead. A finished
+    run counts only when its stored result is fit to reuse. Returns
+    {task_id, status, model, tier} or None."""
+    from sqlalchemy import func
+
+    from src.storage import TieredRunRecord
+    from src.user_settings import covers_model, model_rank
+
+    from .reuse import is_reusable_result
+
+    if not bar_date:
+        return None
+    with _session() as session:
+        rows = (
+            session.query(TieredRunRecord)
+            .filter(func.upper(TieredRunRecord.stock_code) == stock_code.strip().upper())
+            .filter(TieredRunRecord.bar_date == bar_date)
+            .filter(TieredRunRecord.status.in_(REUSABLE_STATUSES))
+            .filter(TieredRunRecord.source_task_id.is_(None))
+            .order_by(TieredRunRecord.created_at.asc(), TieredRunRecord.id.asc())
+            .all()
+        )
+        candidates = []
+        for row in rows:
+            inputs = _inputs_of(row)
+            if inputs.get("hold_weeks") != hold_weeks:
+                continue
+            row_tier = inputs.get("tier")
+            if not isinstance(row_tier, int) or row_tier < tier:
+                continue
+            if not covers_model(row.model, model):
+                continue
+            if row.status == STATUS_DONE and not is_reusable_result(_parsed_result(row)):
+                continue
+            candidates.append({
+                "task_id": row.task_id,
+                "status": row.status,
+                "model": row.model,
+                "tier": row_tier,
+                "_order": (
+                    REUSABLE_STATUSES.index(row.status),
+                    -row_tier if row.status == STATUS_DONE else 0,
+                    model_rank(row.model) if row.status == STATUS_DONE else 0,
+                    -(row.id or 0) if row.status == STATUS_DONE else (row.id or 0),
+                ),
+            })
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda c: c["_order"])
+    return {key: value for key, value in best.items() if key != "_order"}
+
+
+def requeue_orphaned_waiters() -> int:
+    """Startup housekeeping: a waiting run whose source is no longer in
+    flight (it finished or failed while nobody was there to settle the
+    waiters, or vanished) goes back in the queue. Returns the count."""
+    from src.storage import TieredRunRecord
+
+    with _session() as session:
+        waiting = (
+            session.query(TieredRunRecord)
+            .filter_by(status=STATUS_WAITING)
+            .all()
+        )
+        changed = 0
+        for row in waiting:
+            source = (
+                session.query(TieredRunRecord)
+                .filter_by(task_id=row.source_task_id)
+                .one_or_none()
+                if row.source_task_id
+                else None
+            )
+            if source is not None and source.status in (STATUS_QUEUED, STATUS_RUNNING):
+                continue
+            row.status = STATUS_QUEUED
+            row.source_task_id = None
+            changed += 1
+        session.commit()
+        return changed
 
 
 def mark_failed(task_id: str, error: str) -> None:
@@ -226,11 +416,18 @@ def prune_transcripts(max_age_days: int = TRANSCRIPT_MAX_AGE_DAYS) -> int:
 
 
 def _row_summary(row: Any) -> Dict[str, Any]:
+    from src.user_settings import model_label
+
     return {
         "task_id": row.task_id,
         "stock_code": row.stock_code,
         "status": row.status,
         "error": row.error,
+        # The main model behind the outlook (the source's, on a reused
+        # run) and whether the outlook was borrowed from another run.
+        "model": row.model,
+        "model_label": model_label(row.model),
+        "reused": row.source_task_id is not None,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }

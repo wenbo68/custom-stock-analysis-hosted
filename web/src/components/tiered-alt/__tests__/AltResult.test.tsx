@@ -369,6 +369,21 @@ describe('AltResult', () => {
     expect(within(dialog).queryByText(/^(输入项|Inputs)$/)).not.toBeInTheDocument();
   });
 
+  it('says when the outlook came from a shared run, and by which model and tier', () => {
+    renderResult({
+      ...makeResult(),
+      reused: { tier: 2, model: 'gemini/gemini-3.8-flash', model_label: 'Gemini 3.8 Flash' },
+    });
+    expect(screen.getByTestId('alt-reused-note')).toHaveTextContent(
+      /（层级 2，Gemini 3\.8 Flash）|\(tier 2, Gemini 3\.8 Flash\)/,
+    );
+  });
+
+  it('shows no shared-run note on a run that did its own analysis', () => {
+    renderResult(makeResult());
+    expect(screen.queryByTestId('alt-reused-note')).not.toBeInTheDocument();
+  });
+
   it('renders no shares-computation card (retired 2026-07-22)', () => {
     renderResult(makeResult());
     expect(screen.queryByTestId('alt-shares-computation')).not.toBeInTheDocument();

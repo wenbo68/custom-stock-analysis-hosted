@@ -95,6 +95,13 @@ class TieredRunRecord(Base):
     #: The signed-in user who started the run (public server); NULL on
     #: rows from before accounts existed, which no one can see.
     owner_user_id = Column(Integer, index=True)
+    #: Run reuse (2026-09-17): the trading day the run analyses — the
+    #: most recent completed session at creation, ISO "YYYY-MM-DD" — the
+    #: main model that produced (or will produce) its outlook, and, on a
+    #: run that borrowed another run's outlook, that run's task id.
+    bar_date = Column(String(10), index=True)
+    model = Column(String(128))
+    source_task_id = Column(String(64), index=True)
     error = Column(Text)
     created_at = Column(DateTime, default=utc_naive_now, index=True)
     updated_at = Column(DateTime, default=utc_naive_now, onupdate=utc_naive_now, index=True)
@@ -257,6 +264,9 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             Base.metadata.create_all(self._engine)
             self._ensure_column(TieredRunRecord.__tablename__, "inputs_json", "TEXT")
             self._ensure_column(TieredRunRecord.__tablename__, "owner_user_id", "INTEGER")
+            self._ensure_column(TieredRunRecord.__tablename__, "bar_date", "VARCHAR(10)")
+            self._ensure_column(TieredRunRecord.__tablename__, "model", "VARCHAR(128)")
+            self._ensure_column(TieredRunRecord.__tablename__, "source_task_id", "VARCHAR(64)")
             self._ensure_column(UserSettingsRecord.__tablename__, "llm_sub_model", "VARCHAR(128)")
             self._ensure_schema_migration_record()
 

@@ -506,6 +506,8 @@ export const AltRunHistory = ({
                     </span>
                   ) : run.status === 'running' ? (
                     <span className="text-xs text-sky-300">{t('tiered.status.running')}</span>
+                  ) : run.status === 'waiting' ? (
+                    <span className="text-xs text-amber-300">{t('tiered.status.waiting')}</span>
                   ) : run.status === 'failed' ? (
                     <span className="text-xs text-red-300">{t('tiered.status.failed')}</span>
                   ) : (
@@ -527,6 +529,8 @@ export const AltRunHistory = ({
                       <p className="text-sm text-gray-500">{t('tiered.queued')}</p>
                     ) : run.status === 'running' ? (
                       <p className="text-sm text-gray-500">{t('tiered.running')}</p>
+                    ) : run.status === 'waiting' ? (
+                      <p className="text-sm text-gray-500">{t('tiered.waiting')}</p>
                     ) : expandedResult ? (
                       <AltResult
                         result={expandedResult}
