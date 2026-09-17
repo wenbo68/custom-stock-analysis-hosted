@@ -172,6 +172,7 @@ const zh = {
   'tiered.status.queued': '排队中',
   'tiered.status.queuedAhead': '排队中（前面 {ahead} 个）',
   'tiered.status.running': '分析中',
+  'tiered.status.done': '已完成',
   'tiered.status.failed': '失败',
   'tiered.help.depth':
     '层级 1（初步分析）：四份数据报告加一次 AI 展望。\n层级 2（深度分析）：跳过单次 AI 展望，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
@@ -368,6 +369,7 @@ const zh = {
   'tiered.altHistory.h.reward': '盈亏比',
   'tiered.altHistory.h.hold': '最长持有',
   'tiered.altHistory.h.tier': '层级',
+  'tiered.altHistory.h.status': '状态',
   'tiered.altHistory.h.outlook': '展望',
   'tiered.altHistory.h.date': '日期',
   'tiered.altHistory.first': '第一页',
@@ -461,6 +463,9 @@ const zh = {
   'tiered.alt.planTitle': '交易计划',
   'tiered.help.plan':
     '由固定公式从价格数据算出的计划价位（不经 AI）。\n显示内容随「操作」变化：买入→完整价位表；继续持有→仅结构性止损位；不交易 / 清仓→无价位。',
+  'tiered.altFilter.status': '状态',
+  'tiered.altFilter.statusPh': '筛选状态…',
+  'tiered.pill.status': '状态: {value}',
   'tiered.altFilter.outlook': '展望',
   'tiered.altFilter.outlookPh': '筛选展望…',
   'tiered.pill.outlook': '展望：{value}',
@@ -724,6 +729,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.status.queued': 'Queued',
   'tiered.status.queuedAhead': 'Queued ({ahead} ahead)',
   'tiered.status.running': 'Running',
+  'tiered.status.done': 'Done',
   'tiered.status.failed': 'Failed',
   'tiered.help.depth':
     'Tier 1 (preliminary analysis): the four data reports plus one AI outlook.\nTier 2 (deep analysis): skips the single AI outlook — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
@@ -940,6 +946,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.altHistory.h.reward': 'Reward',
   'tiered.altHistory.h.hold': 'Max hold',
   'tiered.altHistory.h.tier': 'Tier',
+  'tiered.altHistory.h.status': 'Status',
   'tiered.altHistory.h.outlook': 'Outlook',
   'tiered.altHistory.h.date': 'Date',
   'tiered.altHistory.first': 'First page',
@@ -1038,6 +1045,9 @@ const en: Record<UiTextKey, string> = {
   'tiered.alt.planTitle': 'Trade plan',
   'tiered.help.plan':
     'The plan levels a fixed formula computed from the price data (no AI).\nWhat shows depends on the Action: buy → the full levels table; keep holding → the structural stop only; no trade / sell → no levels.',
+  'tiered.altFilter.status': 'Status',
+  'tiered.altFilter.statusPh': 'Filter status...',
+  'tiered.pill.status': 'Status: {value}',
   'tiered.altFilter.outlook': 'Outlook',
   'tiered.altFilter.outlookPh': 'Filter outlook...',
   'tiered.pill.outlook': 'Outlook: {value}',

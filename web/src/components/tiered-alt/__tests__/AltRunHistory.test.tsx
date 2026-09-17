@@ -61,7 +61,7 @@ describe('AltRunHistory', () => {
     expect(screen.getByText(/^排队中$|^Queued$/)).toBeInTheDocument();
   });
 
-  it('shows ticker, capital, risk, tier, outlook and date per row', () => {
+  it('shows ticker, capital, risk, tier, status, outlook and date per row', () => {
     renderHistory({
       runs: [
         makeRun('t1', { stock_code: 'MSFT', tier: 2 }),
@@ -83,15 +83,17 @@ describe('AltRunHistory', () => {
     expect(screen.getByText('1%')).toBeInTheDocument();
     expect(screen.getAllByText(/^\d{4}\/\d{2}\/\d{2}, \d{2}:\d{2}$/)).toHaveLength(2);
     expect(screen.getByText(/层级 2|Tier 2/)).toBeInTheDocument();
+    // status and outlook are separate columns (owner request 2026-09-17)
+    expect(screen.getByText(/^(已完成|Done)$/)).toBeInTheDocument();
     expect(screen.getByText(/看多|Bullish/)).toBeInTheDocument();
     // the shares column was dropped (owner request 2026-08-16)
     expect(screen.queryByText(/41/)).toBeNull();
     expect(screen.getByText('NVDA')).toBeInTheDocument();
     expect(screen.getByText(/分析中|Running/)).toBeInTheDocument();
-    // the running row has no capital/risk/reward/hold/tier yet — five
-    // dashes, plus the done row's reward and hold dashes (stored
+    // the running row has no capital/risk/reward/hold/tier/outlook yet —
+    // six dashes, plus the done row's reward and hold dashes (stored
     // before those inputs were recorded).
-    expect(screen.getAllByText('—')).toHaveLength(7);
+    expect(screen.getAllByText('—')).toHaveLength(8);
     // the pager is always there, even when everything fits on one page
     expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
   });
@@ -159,6 +161,30 @@ describe('AltRunHistory', () => {
 
     // the dropdown stays open for multi-pick filters — same option clears
     fireEvent.click(screen.getAllByText(/中性|Neutral/)[0]);
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+  });
+
+  it('filters by status from the dropdown and shows a dash outlook for a failed run', () => {
+    renderHistory({
+      runs: [
+        makeRun('t1', { stock_code: 'MSFT' }),
+        makeRun('t2', { stock_code: 'NVDA', status: 'failed', direction: null, outlook: null }),
+      ],
+    });
+
+    fireEvent.focus(screen.getByPlaceholderText(/筛选状态|Filter status/));
+    fireEvent.click(screen.getByRole('button', { name: /^(失败|Failed)$/ }));
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
+    expect(screen.getByText('NVDA')).toBeInTheDocument();
+    // the failed row's outlook cell is a dash (plus its reward and hold
+    // dashes); its status cell says Failed
+    expect(screen.getAllByText('—')).toHaveLength(3);
+    expect(screen.getByText(/^(失败|Failed)$/)).toBeInTheDocument();
+    expect(screen.queryByText(/看多|Bullish/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /(Status|状态): (Failed|失败)/ }));
     expect(screen.getByText('MSFT')).toBeInTheDocument();
   });
 
