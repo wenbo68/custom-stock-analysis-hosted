@@ -76,8 +76,7 @@ function duplicateRejection(error: unknown): TieredDuplicateRun | null {
   }
   return {
     taskId: detail.task_id,
-    status:
-      detail.status === 'running' ? 'running' : detail.status === 'waiting' ? 'waiting' : 'queued',
+    status: detail.status === 'running' ? 'running' : 'queued',
   };
 }
 
@@ -154,13 +153,10 @@ const TieredAltPage = () => {
   const [pendingTiers, setPendingTiers] = useState<Record<string, TieredDepth>>({});
   const loadingDetailRef = useRef<string | null>(null);
 
-  // Poll while anything is still in flight — queued and waiting runs
-  // start by themselves, so they need the same polling as a running one.
+  // Poll while anything is still in flight — queued runs start by
+  // themselves, so a queued row needs the same polling as a running one.
   const anyRunning = useMemo(
-    () =>
-      runs.some(
-        (run) => run.status === 'running' || run.status === 'queued' || run.status === 'waiting',
-      ),
+    () => runs.some((run) => run.status === 'running' || run.status === 'queued'),
     [runs],
   );
 

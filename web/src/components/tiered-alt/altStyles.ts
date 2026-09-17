@@ -29,8 +29,6 @@ export const OUTLOOK_TEXT: Record<string, string> = {
 // hsl(var(...)) tokens, which silently voids Tailwind's bg-*-400 utilities.
 export const STATUS_DOT: Record<TieredRunStatus, string> = {
   queued: 'bg-amber-300',
-  // Waiting on a matching run: the same "not started yet" amber as queued.
-  waiting: 'bg-amber-300',
   running: 'bg-sky-300',
   done: 'bg-emerald-300',
   failed: 'bg-red-300',

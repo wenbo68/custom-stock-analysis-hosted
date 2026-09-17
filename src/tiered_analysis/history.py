@@ -13,7 +13,10 @@ Run reuse (2026-09-17): a run may borrow another run's outlook instead
 of paying for its own (src/tiered_analysis/reuse.py). ``find_reusable_run``
 picks the source; a requester whose source is still in flight sits as
 ``waiting`` (with ``source_task_id`` set) until the source settles, and
-is then finished from it or put back in the queue.
+is then finished from it or put back in the queue. ``waiting`` is a
+storage status only: to its owner such a run reads exactly as the
+source reads to the source's owner — ``running``, or ``queued`` with
+the source's place in line (owner decision 2026-09-17).
 
 Storage is the product's existing sqlite database via DatabaseManager —
 one small table, no separate infrastructure.
@@ -23,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import timedelta
-from typing import Any, Collection, Dict, List, Optional
+from typing import Any, Collection, Dict, List, Optional, Sequence, Tuple
 
 from .llm_support import TRANSCRIPT_MAX_AGE_DAYS
 
@@ -327,10 +330,11 @@ def next_queued_run(exclude: Collection[str] = ()) -> Optional[Dict[str, Any]]:
 def find_active_duplicate(
     owner_id: int, stock_code: str, inputs: Optional[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:
-    """The owner's queued or running run for the same ticker with the
-    same effective inputs (``INPUT_KEYS``), as {task_id, status}, or
-    None. Ticker comparison ignores case. A finished or failed run is
-    never a duplicate — re-running yesterday's analysis is legitimate."""
+    """The owner's queued, running or waiting run for the same ticker
+    with the same effective inputs (``INPUT_KEYS``), as {task_id,
+    status} (the status as shown to the owner), or None. Ticker
+    comparison ignores case. A finished or failed run is never a
+    duplicate — re-running yesterday's analysis is legitimate."""
     from sqlalchemy import func
 
     from src.storage import TieredRunRecord
@@ -347,7 +351,8 @@ def find_active_duplicate(
         )
         for row in rows:
             if _inputs_digest(row) == wanted:
-                return {"task_id": row.task_id, "status": row.status}
+                status, _ = _shown_status(row, _source_statuses(session, [row]), {})
+                return {"task_id": row.task_id, "status": status}
     return None
 
 
@@ -511,6 +516,40 @@ def _inputs_digest(row: Any) -> Dict[str, Any]:
     return _digest_inputs(_inputs_of(row))
 
 
+def _source_statuses(session: Any, rows: Sequence[Any]) -> Dict[str, str]:
+    """source task_id -> status, for the waiting rows among ``rows``."""
+    from src.storage import TieredRunRecord
+
+    ids = {
+        row.source_task_id for row in rows
+        if row.status == STATUS_WAITING and row.source_task_id
+    }
+    if not ids:
+        return {}
+    pairs = (
+        session.query(TieredRunRecord.task_id, TieredRunRecord.status)
+        .filter(TieredRunRecord.task_id.in_(list(ids)))
+        .all()
+    )
+    return {task_id: status for task_id, status in pairs}
+
+
+def _shown_status(
+    row: Any, sources: Dict[str, str], ahead: Dict[str, int]
+) -> Tuple[str, Optional[int]]:
+    """(status, queue_ahead) as the row's owner sees it. A waiting run
+    shows as its source shows to the source's owner: ``queued`` with
+    the source's place in line, else ``running`` (the source is running,
+    or has just settled and this run is being finished from it)."""
+    if row.status == STATUS_QUEUED:
+        return STATUS_QUEUED, ahead.get(row.task_id)
+    if row.status != STATUS_WAITING:
+        return row.status, None
+    if sources.get(row.source_task_id) == STATUS_QUEUED:
+        return STATUS_QUEUED, ahead.get(row.source_task_id)
+    return STATUS_RUNNING, None
+
+
 def _queue_ahead(session: Any) -> Dict[str, int]:
     """task_id -> how many queued runs (anyone's) are ahead of it in the
     line, for the "Queued (2 ahead)" wording."""
@@ -545,17 +584,20 @@ def list_runs(
         )
         ahead = (
             _queue_ahead(session)
-            if any(row.status == STATUS_QUEUED for row in rows)
+            if any(row.status in (STATUS_QUEUED, STATUS_WAITING) for row in rows)
             else {}
         )
-        return [
-            {
+        sources = _source_statuses(session, rows)
+        summaries = []
+        for row in rows:
+            status, queue_ahead = _shown_status(row, sources, ahead)
+            summaries.append({
                 **_row_summary(row),
                 **_result_digest(row),
-                "queue_ahead": ahead.get(row.task_id),
-            }
-            for row in rows
-        ]
+                "status": status,
+                "queue_ahead": queue_ahead,
+            })
+        return summaries
 
 
 def get_run(task_id: str, owner_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -574,10 +616,13 @@ def get_run(task_id: str, owner_id: Optional[int] = None) -> Optional[Dict[str, 
         if owner_id is not None and row.owner_user_id != int(owner_id):
             return None
         summary = _row_summary(row)
-        summary["queue_ahead"] = (
-            _queue_ahead(session).get(row.task_id)
-            if row.status == STATUS_QUEUED
-            else None
+        ahead = (
+            _queue_ahead(session)
+            if row.status in (STATUS_QUEUED, STATUS_WAITING)
+            else {}
+        )
+        summary["status"], summary["queue_ahead"] = _shown_status(
+            row, _source_statuses(session, [row]), ahead
         )
         summary["result"] = None
         if row.result_json:

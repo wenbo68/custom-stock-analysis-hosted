@@ -730,16 +730,35 @@ class TestRunReuseEndpoint:
             first = client.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
             other = self._other_user()
             second = other.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
-            assert second["status"] == "waiting"
+            # to its owner the new run reads as the source reads to its owner
+            assert second["status"] == "running"
             listed = other.get("/tiered/runs").json()["items"][0]
-            assert listed["status"] == "waiting"
+            assert listed["status"] == "running"
+            assert listed["queue_ahead"] is None
             assert listed["reused"] is True
+            # a third user behind a queued source sees the source's place in line
+            third_owner = upsert_from_identity(Identity(provider="google", subject="u3"))
+            save_user_settings(third_owner["id"], llm_model="gemini/gemini-3.8-flash",
+                               llm_api_key="k3")
+            third = _signed_in_client(third_owner)
+            queued_src = client.post("/tiered/analyze", json={"stock_code": "MSFT"}).json()
+            assert queued_src["status"] == "queued"
+            behind = third.post("/tiered/analyze", json={"stock_code": "MSFT"}).json()
+            assert behind["status"] == "queued"
+            behind_row = third.get("/tiered/runs").json()["items"][0]
+            assert behind_row["status"] == "queued"
+            assert behind_row["queue_ahead"] == 0
+            assert third.get(f"/tiered/runs/{behind['task_id']}").json()["status"] == "queued"
             release.set()
+            _poll_until_done(client, queued_src["task_id"])
+            _poll_until_done(third, behind["task_id"])
             _poll_until_done(client, first["task_id"])
             body = _poll_until_done(other, second["task_id"])
         assert body["status"] == "done"
         assert body["result"]["reused"]["tier"] == 2
-        assert len(calls) == 2 and "providers" in calls[-1]
+        # two fresh runs (AAPL, MSFT), two finished from them
+        assert sum("providers" in call for call in calls) == 2
+        assert sum("providers" not in call for call in calls) == 2
 
     def test_a_failed_source_sends_the_waiting_run_back_to_the_queue(
         self, client, monkeypatch
@@ -759,7 +778,7 @@ class TestRunReuseEndpoint:
             first = client.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
             other = self._other_user()
             second = other.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
-            assert second["status"] == "waiting"
+            assert second["status"] == "running"
             release.set()
             assert _poll_until_done(client, first["task_id"])["status"] == "failed"
             body = _poll_until_done(other, second["task_id"])
@@ -832,10 +851,10 @@ class TestRunReuseEndpoint:
             client.post("/tiered/analyze", json={"stock_code": "AAPL"})
             other = self._other_user()
             waiting = other.post("/tiered/analyze", json={"stock_code": "AAPL"})
-            assert waiting.json()["status"] == "waiting"
+            assert waiting.json()["status"] == "running"
             again = other.post("/tiered/analyze", json={"stock_code": "AAPL"})
             assert again.status_code == 409
-            assert again.json()["detail"]["status"] == "waiting"
+            assert again.json()["detail"]["status"] == "running"
             release.set()
             _poll_until_done(other, waiting.json()["task_id"])
 

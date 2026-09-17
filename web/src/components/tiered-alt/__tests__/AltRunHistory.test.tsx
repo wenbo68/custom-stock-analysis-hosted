@@ -55,17 +55,6 @@ describe('AltRunHistory', () => {
     expect(screen.getByText(/轮到时会自动开始|starts by itself/)).toBeInTheDocument();
   });
 
-  it('shows a waiting row and explains it when expanded', () => {
-    renderHistory({
-      runs: [makeRun('w1', { status: 'waiting', reused: true, direction: null, shares: null })],
-      expandedTaskId: 'w1',
-    });
-    expect(screen.getByText(/等待匹配的运行|Waiting on a matching run/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/只计算你自己的交易计划|only compute your own trade plan/),
-    ).toBeInTheDocument();
-  });
-
   it('shows a queued row without a count when the backend sends none', () => {
     renderHistory({ runs: [makeRun('q1', { status: 'queued', direction: null })] });
 

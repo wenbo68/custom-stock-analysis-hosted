@@ -367,10 +367,10 @@ export type TieredResult = {
 };
 
 // queued (2026-09-15): waiting for a free slot in the server's global run
-// queue; it becomes running by itself. waiting (2026-09-17): the run will
-// borrow its outlook from a matching run that is still in flight, and is
-// finished from it (or queued as its own run) once that run settles.
-export type TieredRunStatus = 'queued' | 'running' | 'waiting' | 'done' | 'failed';
+// queue; it becomes running by itself. A run that will borrow its outlook
+// from a matching run still in flight (2026-09-17) reports that run's
+// status and place in line, so it reads exactly as the source does.
+export type TieredRunStatus = 'queued' | 'running' | 'done' | 'failed';
 
 // Run reuse (2026-09-17): the outlook came from a shared run at this tier
 // by this model; only the trade plan was computed with the user's own
@@ -455,7 +455,7 @@ export type TieredMarketOpenGate = {
 // it and the history expands it.
 export type TieredDuplicateRun = {
   taskId: string;
-  status: 'queued' | 'running' | 'waiting';
+  status: 'queued' | 'running';
 };
 
 export const tieredApi = {

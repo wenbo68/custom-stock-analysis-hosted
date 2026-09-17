@@ -266,7 +266,8 @@ class TestWaitingRuns:
         assert [w["task_id"] for w in waiters] == ["w1"]
         assert waiters[0]["model"] == FLASH
         assert waiters[0]["inputs"]["hold_weeks"] == 2
-        assert history.get_run("w1")["status"] == "waiting"
+        assert history.get_run("w1")["status"] == "running"  # as the source reads
+        assert history.list_waiters("src")[0]["status"] == "waiting"  # stored
         history.requeue("w1")
         assert history.get_run("w1")["status"] == "queued"
         assert history.list_waiters("src") == []
@@ -278,8 +279,22 @@ class TestWaitingRuns:
         assert history.next_queued_run() is None
 
     def test_waiting_counts_as_active_for_the_duplicate_check(self, isolated_db):
+        _create("src", status="queued")
         _create("w1", status="waiting", source_task_id="src")
-        assert history.find_active_duplicate(1, "AAPL", _inputs())["status"] == "waiting"
+        assert history.find_active_duplicate(1, "AAPL", _inputs())["status"] == "queued"
+
+    def test_a_waiting_run_reads_as_its_source_reads(self, isolated_db):
+        _create("ahead", status="queued", stock_code="MSFT")
+        _create("src-queued", status="queued")
+        _create("src-running", status="running")
+        _create("w-queued", status="waiting", source_task_id="src-queued")
+        _create("w-running", status="waiting", source_task_id="src-running")
+        rows = {r["task_id"]: r for r in history.list_runs()}
+        assert (rows["w-queued"]["status"], rows["w-queued"]["queue_ahead"]) == ("queued", 1)
+        assert (rows["src-queued"]["status"], rows["src-queued"]["queue_ahead"]) == ("queued", 1)
+        assert (rows["w-running"]["status"], rows["w-running"]["queue_ahead"]) == ("running", None)
+        one = history.get_run("w-queued")
+        assert (one["status"], one["queue_ahead"]) == ("queued", 1)
 
     def test_startup_requeues_waiters_whose_source_is_gone(self, isolated_db):
         _create("alive", status="queued")
@@ -288,7 +303,7 @@ class TestWaitingRuns:
         _create("w-dead", status="waiting", source_task_id="dead")
         _create("w-missing", status="waiting", source_task_id="nope")
         assert history.requeue_orphaned_waiters() == 2
-        assert history.get_run("w-alive")["status"] == "waiting"
+        assert history.run_for_reuse("w-alive")["status"] == "waiting"
         assert history.get_run("w-dead")["status"] == "queued"
         assert history.get_run("w-missing")["status"] == "queued"
 

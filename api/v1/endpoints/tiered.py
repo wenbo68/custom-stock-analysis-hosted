@@ -26,6 +26,8 @@ within seconds (only the personal trade-plan stages run); a source
 still in flight parks the new run as ``waiting`` until the source
 settles, then finishes it the same way — or, if the source failed or
 changed in a way that disqualifies it, puts the run back in the queue.
+To its owner a waiting run reads as the source reads to the source's
+owner (running, or queued with the source's place in line).
 """
 from __future__ import annotations
 
@@ -426,9 +428,10 @@ def start_tiered_analysis(
     that run's task_id and status).
 
     The response ``status`` is ``running`` when a slot was free (or the
-    run is being finished from an already-finished matching run),
-    ``queued`` when it waits for a slot, or ``waiting`` when it will be
-    finished from a matching run that is itself still in flight.
+    run is being finished from an already-finished matching run), else
+    ``queued``. A run that will be finished from a matching run still
+    in flight reports that run's status — to its owner it looks exactly
+    as the source looks to the source's owner.
     """
     from src.tiered_analysis.run_gate import clock_gate
 
@@ -503,7 +506,7 @@ def start_tiered_analysis(
     else:
         logger.info("tiered run %s waits on %s run %s for %s",
                     task_id, source["status"], source["task_id"], request.stock_code)
-        status = history.STATUS_WAITING
+        status = source["status"]
     return {"task_id": task_id, "stock_code": request.stock_code,
             "depth": request.depth, "status": status}
 
