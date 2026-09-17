@@ -168,9 +168,9 @@ class DebateVerdict:
     #: Per-pool audit: {initial|final: {dimensions, bullish, bearish,
     #: total, score}}.
     pools: Dict[str, Any] = field(default_factory=dict)
-    #: The report as the fixed five-group outline (StructuredSummaryModel
-    #: dump); ``summary`` above is its flat-text rendering for legacy
-    #: consumers. None when the summary stage failed.
+    #: The report as the fixed outline (StructuredSummaryModel dump);
+    #: ``summary`` above is its flat-text rendering (the tier-2 report's
+    #: narrative). None when the summary stage failed.
     summary_structure: Optional[Dict[str, Any]] = None
 
 
@@ -189,27 +189,13 @@ class DebateResult:
             verdict = {
                 "direction": v.direction.value,
                 "final_score": v.final_score,
-                # Legacy header field: the nearest whole number.
-                "final_score_rounded": int(v.final_score + 0.5),
                 "summary": v.summary,
                 "summary_structure": v.summary_structure,
                 "initial_score": v.initial_score,
                 "pools": v.pools,
-                # Legacy keys kept so pre-v8 readers never crash.
-                "adjusted_score": None,
-                "confidence": None,
-                "reasons_for": [],
-                "reasons_against": [],
-                "would_change_mind": None,
-                "bull_summary": None,
-                "bear_summary": None,
-                "scoring": None,
-                "weight": None,
             }
         return {
             "format": DETAIL_FORMAT,
-            # Legacy key: pre-v5 readers iterate turns; v5+ has none.
-            "turns": [],
             "items": [dict(item) for item in self.items],
             "verdict": verdict,
             "warnings": list(self.warnings),
@@ -504,15 +490,6 @@ _GRADE_RULES = """Grade-sheet rules (all checked mechanically by code):
   rows (code attaches the event citation itself); any NUMBER your claim
   quotes from the news text still appears exactly as the report shows
   it.
-- opinion fields are MEASURES OF OPINION, not facts about the
-  business (they follow the normal numeric value-copy rules):
-  opinion.analyst fields are professional sentiment — rising buy
-  share, targets above the price, fresh upgrades lean bullish; drift
-  down or downgrades lean bearish. opinion.crowd fields measure
-  retail-forum chatter volume and mood — the least reliable evidence
-  in the report: weigh them lightly (1-2 unless the reading is
-  extreme), read mention spikes as attention and crowding rather than
-  direction, and never treat forum mood as a verified fact.
 - The direction tags ARE the score — code counts them; nobody writes
   a score."""
 
@@ -671,7 +648,7 @@ the outlook as bullish, neutral or bearish:
  "technicals": [{{"text": "The 14-day RSI (56.28) is above 50.",
    "links": [{{"ref": "technicals.daily.rsi_14", "value": "56.28"}}],
    "children": [{{"text": "optional supporting detail", "links": []}}]}}],
- "fundamentals": [], "positioning": [], "macro_econ": [], "opinion": [],
+ "fundamentals": [], "positioning": [], "macro_econ": [],
  "company_events": [], "world_events": []}}
 
 Rules:
@@ -692,9 +669,6 @@ Rules:
   ("company_events.news_coverage.items.3.text",
   "world_events.news_coverage.items.1.text") — for these refs there
   is no value to copy into the sentence.
-- "opinion" bullets follow the normal number rules, and must present
-  analyst consensus and crowd chatter as opinions and attention
-  measures, never as facts about the company.
 - Support the computed outlook; if little evidence survived, say plainly
   that the case is weak.
 - Use only the evidence above; do not invent facts."""
@@ -706,7 +680,6 @@ _SUMMARY_GROUP_TITLES = {
     "fundamentals": "Fundamentals",
     "positioning": "Positioning",
     "macro_econ": "Macro economy",
-    "opinion": "Opinion",
     "company_events": "Company news",
     "world_events": "World news",
 }

@@ -34,7 +34,7 @@ def _print_outcome(symbol: str, outcome) -> None:
     print(f"direction:  {report.direction.value}")
     print(f"score:      {report.score}")
     levels = report.levels
-    print(f"entry:      {levels.entry} / secondary {levels.secondary_entry}")
+    print(f"entry:      {levels.entry}")
     print(f"stop loss:  {levels.stop_loss}   target: {levels.take_profit}")
     print("dimensions:")
     for dim in report.dimensions:

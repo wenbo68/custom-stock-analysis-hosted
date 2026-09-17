@@ -27,8 +27,6 @@ const METRIC_UNIT: Record<string, string> = {
   reaction_avg_abs_pct: '%',
   reaction_worst_pct: '%',
   eps_rev_30d_pct: '%',
-  // Old stored runs only (30d swap 2026-08-23).
-  eps_rev_90d_pct: '%',
   revenue_yoy_q: '%',
   eps_yoy_q: '%',
   gross_margin_pct: '%',
@@ -37,15 +35,6 @@ const METRIC_UNIT: Record<string, string> = {
   fcf: 'USD',
   fcf_to_earnings_pct: '%',
   market_cap: 'USD',
-  // Dividend fields: old stored runs only (group dropped 2026-07-31).
-  days_until_dividend: 'days',
-  dividend_amount_est: 'USD',
-  // Legacy fundamentals keys old stored runs still render.
-  revenue_yoy_pct: '%',
-  net_income_yoy_pct: '%',
-  eps_yoy_pct: '%',
-  net_margin_pct: '%',
-  cash: 'USD',
   // Technicals market-vs-sector-vs-stock + distance diffs (2026-08-04).
   rs_sector_1m: '%',
   rs_sector_3m: '%',
@@ -148,8 +137,8 @@ export const riskPctText = (fraction: number): string =>
 // 100000.0 -> '100000' — a capital amount as the plain number it was entered as.
 export const plainNumber = (value: number): string => String(Number(value));
 
-// Anchor ids of the levels table's cells ('entry', 'secondary_entry',
-// 'stop_loss', 'take_profit'), so formulas elsewhere in the report can
+// Anchor ids of the levels table's cells ('entry', 'stop_loss',
+// 'take_profit', 'shares'), so formulas elsewhere in the report can
 // scroll-flash the cell a number came from.
 export const computedCellId = (key: string): string => `alt-level-computed-${key}`;
 export const adjustedCellId = (key: string): string => `alt-level-adjusted-${key}`;

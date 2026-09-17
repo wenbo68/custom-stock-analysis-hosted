@@ -63,14 +63,6 @@ class TestProviderRouting(unittest.TestCase):
             ],
         )
 
-    def test_opinion_is_retired_from_every_market(self):
-        # Owner decision 2026-08-23: the opinion card no longer runs
-        # (its analyst half moved into fundamentals' estimate-revision
-        # fields); the provider code stays for old stored runs.
-        for market in (Market.US, Market.CN, Market.HK, Market.JP, Market.KR, Market.TW):
-            dimensions = [p.dimension for p in get_providers(market)]
-            self.assertNotIn("opinion", dimensions)
-
     def test_positioning_and_company_events_are_us_only(self):
         for market in (Market.CN, Market.HK, Market.JP, Market.KR, Market.TW):
             dimensions = [p.dimension for p in get_providers(market)]

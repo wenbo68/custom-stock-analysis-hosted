@@ -23,9 +23,6 @@ const DIMENSION_LABEL_KEYS: Record<string, UiTextKey> = {
   positioning: 'tiered.dimension.positioning',
   company_events: 'tiered.dimension.company_events',
   world_events: 'tiered.dimension.world_events',
-  opinion: 'tiered.dimension.opinion',
-  // Old stored runs still carry the retired news-sentiment dimension.
-  sentiment: 'tiered.dimension.sentiment',
 };
 
 // Named sections for payloads the backend sends (partly) flat, so every
@@ -43,13 +40,7 @@ const DIMENSION_SECTIONS: Record<string, { titleKey: UiTextKey; keys: string[] }
     { titleKey: 'tiered.group.momentum', keys: ['rsi_14', 'macd'] },
     {
       titleKey: 'tiered.group.volatility',
-      // worst_day_5pct and worst_day_1y: retired statistics old stored
-      // runs still carry (worst_day_1y was a raw fraction; new runs
-      // publish worst_day_pct_1y as a plain percent).
-      keys: [
-        'atr_14', 'volatility_pct', 'worst_day_pct_1y',
-        'worst_day_1y', 'worst_day_5pct',
-      ],
+      keys: ['atr_14', 'volatility_pct', 'worst_day_pct_1y'],
     },
     {
       titleKey: 'tiered.group.structure',
@@ -59,10 +50,7 @@ const DIMENSION_SECTIONS: Record<string, { titleKey: UiTextKey; keys: string[] }
       ],
     },
     { titleKey: 'tiered.group.volume', keys: ['avg_volume_20'] },
-    // 'score' is retired from new runs (a code-computed verdict in the
-    // payload pre-answered the judgment the AI stages exist to make) —
-    // kept here so stored runs still render theirs.
-    { titleKey: 'tiered.group.meta', keys: ['bars_count', 'score'] },
+    { titleKey: 'tiered.group.meta', keys: ['bars_count'] },
   ],
   macro_econ: [{ titleKey: 'tiered.group.reportInfo', keys: ['region', 'as_of'] }],
   // The next earnings date rides in the fundamentals payload (plan-review

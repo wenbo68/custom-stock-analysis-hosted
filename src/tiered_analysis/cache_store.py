@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Key-value store for the fetched-data caches (macro series, the world
-news pool, crowd-opinion lists, per-article news judgments).
+news pool, per-article news judgments).
 
 These caches used to be JSON files under ``data/``. On a public host the
 server's disk is wiped on every restart, and losing the world-news cache

@@ -111,18 +111,6 @@ const en: Record<string, MetricEntry> = {
     interp: 'Shows how far one overnight surprise (bad earnings, bad news) can jump the price straight past a stop-loss.',
     blank: 'Less than about a month of price history was loaded — too few days to report a meaningful worst drop.',
   },
-  worst_day_1y: {
-    short: 'Worst day 1y',
-    full: 'Retired field old runs still carry: the same statistic written as a fraction (-0.17 meaning -17%), and scanned over all loaded history rather than one year. New runs publish worst_day_pct_1y instead.',
-  },
-  worst_day_5pct: {
-    short: 'Worst 5% day',
-    full: 'Retired statistic old runs still carry: the daily drop only the worst 5% of days exceeded.',
-  },
-  score: {
-    short: 'Tech score',
-    full: 'Retired field old runs still carry: a code-computed 0-100 technical score. New runs omit it — handing the AI a finished verdict made it anchor on the number instead of reading the fields.',
-  },
 
   // ---- technicals v2 groups + fields (2026-07-27; regrouped 2026-07-28) ----
   market: {
@@ -362,7 +350,7 @@ const en: Record<string, MetricEntry> = {
     blank: 'Fewer than 2 completed dips were found in the last ~6 months, so there is no typical depth to report.',
   },
 
-  // ---- fundamentals (regrouped 2026-07-31; labels follow TODO.md; legacy keys kept for old stored runs) ----
+  // ---- fundamentals (regrouped 2026-07-31; labels follow TODO.md) ----
   sector: {
     short: 'Sector',
     full: "The broad group of companies this one belongs to (e.g. Technology, Energy).\nFetched from Yahoo Finance, which picks it from a fixed standard list — it is not made up per company.",
@@ -421,45 +409,8 @@ const en: Record<string, MetricEntry> = {
     interp: 'Read beside the up count: high in both directions means genuine disagreement the estimate-change percent alone hides; 0 and 0 means no analyst touched the forecast in a month, so treat the estimate-based fields with extra caution.',
     blank: 'Yahoo Finance published no revision counts for this stock.',
   },
-  // Old stored runs only (swapped to the 30d field on 2026-08-23).
-  eps_rev_90d_pct: {
-    short: '90d EPS estimate change',
-    full: "Old runs only: whether analysts have been raising or cutting their earnings-per-share forecast for the current quarter — the change in the average forecast versus 90 days ago.\nUnit: percent.",
-    interp: 'Rising forecasts tend to pull the price up over weeks; cuts are a headwind even when the chart looks good.',
-    blank: 'No analyst estimates were available, or the 90-days-ago estimate was so close to zero that a percent change would be meaningless.',
-  },
   // Dividend fields: old runs only (the group was dropped from the
   // TODO.md final field list on 2026-07-31).
-  dividend: {
-    short: 'Dividend',
-    full: 'Old runs only: the scheduled cash payout to shareholders — a small, known event that nudges the price on a set date.',
-  },
-  days_until_dividend: {
-    short: 'Days until next dividend payment',
-    full: 'Old runs only: how many days from today until the company next pays its dividend.',
-    interp: 'The cash arrives on this date, but the price dips earlier: on the ex-dividend date the stock starts trading without the payout and opens lower by roughly the dividend amount.',
-    blank: 'The company pays no dividend, or no payment date is scheduled yet.',
-  },
-  dividend_amount_est: {
-    short: 'Estimated dividend amount',
-    full: 'Old runs only: the most recent dividend payment per share — the best available guess for the next one.\nUnit: USD.',
-    interp: 'Small versus the stock price = a minor scheduled dip around the ex-dividend date; a large payout can clip a tight stop on its own.',
-    blank: 'The company pays no dividend, or Yahoo Finance had no record of the last payment.',
-  },
-  // Legacy group keys (old stored runs only; regrouped away 2026-07-31).
-  profile: {
-    short: 'Profile',
-    full: 'Old runs only: this group merged into Meta info. What kind of company this is.',
-  },
-  earnings: {
-    short: 'Earnings events',
-    full: "Old runs only: this group was renamed Quarterly report. The company's report calendar and how the stock behaved around past reports.",
-  },
-  ex_dividend_date: {
-    short: 'Ex-dividend date',
-    full: 'Old runs only (replaced by the Dividend group): the date the stock starts trading without its next dividend payment. That morning the price mechanically opens lower by roughly the dividend amount.',
-    interp: 'A small, scheduled gap down that can clip a tight stop on a long position.',
-  },
   growth: {
     short: 'Growth',
     full: 'Quarterly growth from the latest official SEC filings — the freshest read on whether the business is expanding.',
@@ -588,40 +539,6 @@ const en: Record<string, MetricEntry> = {
     interp: 'Well below the trailing number = analysts expect earnings to grow; above it = they expect them to shrink.',
     blank: "Analysts forecast a loss, no analysts cover the stock, or Yahoo Finance's market data was unavailable.",
   },
-  // Legacy fundamentals keys (old stored runs only).
-  balance_sheet: {
-    short: 'Balance sheet',
-    full: 'Old runs only: this group was renamed Balance. What the company owns versus what it owes.',
-  },
-  basis: {
-    short: 'Basis',
-    full: 'Old runs only (retired 2026-07-31): the report types behind the numbers — 10-K = the audited yearly filing, 10-Q = the quarterly filing, both filed with the SEC (the US markets regulator).',
-  },
-  // Legacy fundamentals keys (old stored runs only; retired 2026-07-29).
-  revenue_yoy_pct: {
-    short: 'Revenue YoY %',
-    full: 'Retired field old runs still carry: annual revenue growth vs. the prior fiscal year. New runs publish quarterly growth instead.',
-  },
-  net_income_yoy_pct: {
-    short: 'Net income YoY %',
-    full: 'Retired field old runs still carry: annual bottom-line profit growth vs. the prior fiscal year.',
-  },
-  eps_yoy_pct: {
-    short: 'EPS YoY %',
-    full: 'Retired field old runs still carry: annual earnings-per-share growth vs. the prior fiscal year.',
-  },
-  net_margin_pct: {
-    short: 'Net margin %',
-    full: 'Retired field old runs still carry: % of revenue left as final profit after everything. Mostly duplicated the operating margin plus one-off noise.',
-  },
-  cash: {
-    short: 'Cash',
-    full: 'Retired field old runs still carry: cash and cash-like holdings on hand, in USD. A raw dollar figure with no scale context.',
-  },
-  pb: {
-    short: 'P/B',
-    full: 'Retired field old runs still carry: share price ÷ accounting net worth per share. Only informative for banks and asset-heavy names.',
-  },
 
   // ---- report-event fields shared with the plan warnings ----
   next_earnings_date: {
@@ -629,11 +546,6 @@ const en: Record<string, MetricEntry> = {
     full: 'The date the company next reports its quarterly results.',
     interp: "A report while you hold the stock means the price can jump straight past your stop overnight — exit before it, or size the position for it. The plan's report warning fires within a week of this date.",
     blank: 'No upcoming report is scheduled yet, or the calendar lookup failed.',
-  },
-  days_until_earnings: {
-    short: 'Days until report',
-    full: 'Old runs only: how many days from today until that report. New runs compute this from the date instead of storing it.',
-    interp: 'A small number = the event risk is live now; a big number = a free window to trade in.',
   },
 
   // ---- macro economy ----
@@ -817,21 +729,12 @@ const en: Record<string, MetricEntry> = {
     interp: 'Can be four to six weeks old — it describes that month, not today.',
     blank: 'The unemployment series failed to load.',
   },
-  // Retired macro keys (old stored runs only).
-  labor: {
-    short: 'Labor',
-    full: 'Job-market health.',
-  },
-  dollar_index_broad: {
-    short: 'Dollar index',
-    full: 'Strength of the US dollar against a basket of other currencies.',
-  },
   observation_dates: {
     short: 'Data dates',
     full: 'The date of each underlying data point (some series update monthly, others daily).',
   },
 
-  // ---- positioning (v2 truth 2026-08-01; retired keys kept for stored runs) ----
+  // ---- positioning (v2 truth 2026-08-01) ----
   short_interest: {
     short: 'Short interest',
     full: 'Shares sold short — borrowed and sold by investors betting the price will fall (shorts). To exit, a short must buy the shares back. FINRA publishes this twice a month, about two weeks late; the report date is "short interest up to" in the meta group.',
@@ -863,12 +766,6 @@ const en: Record<string, MetricEntry> = {
     full: 'Percent of the company held by professional funds (mutual funds, pensions, ETFs), from their quarterly 13F filings.',
     interp: "Roughly 30–90% is healthy sponsorship. Very low = funds can't or won't own it — a quality/liquidity red flag; very high = fully discovered, who's left to buy?",
     blank: 'Yahoo did not publish this figure for the stock.',
-  },
-  institutional_diff_q_pp: {
-    short: 'Institutional ownership diff (current vs prev quarter)',
-    full: 'Old stored runs only (retired field): how much the fund-ownership percentage rose or fell versus the previous quarterly filing, in percentage points.',
-    interp: 'Funds adding supports rallies; funds trimming caps them — but filings lag up to 45 days, so background context, not current flow.',
-    blank: "Retired field — no reliable free source publishes the prior-quarter aggregate (Yahoo's per-holder change figures proved unreliable). New runs no longer carry it.",
   },
   top10_institutions_pct: {
     short: 'Top-10 institutional ownership',
@@ -906,14 +803,6 @@ const en: Record<string, MetricEntry> = {
     interp: 'Direction beats level: rising = bears pressing the bet; falling = shorts already giving up and buying back, which itself supports the price.',
     blank: 'Yahoo did not publish the current or the prior-report shares-short count.',
   },
-  shares_short: {
-    short: 'Shares short',
-    full: 'Old stored runs only (retired field): the raw number of shares sold short. Only meaningful relative to the float — the percentage row is the interpretable one.',
-  },
-  shares_outstanding: {
-    short: 'Shares outstanding',
-    full: 'Old stored runs only (retired field): total shares the company has issued. The float is the tradable reality.',
-  },
   insider_activity_6m: {
     short: 'Insider trades (6m)',
     full: "Open-market buys and sells by the company's insiders over the last six months, from SEC Form 4 filings. Stock awards, option exercises and gifts are excluded — only trades made with insiders' own money reveal conviction.",
@@ -929,10 +818,6 @@ const en: Record<string, MetricEntry> = {
     full: 'How many times insiders sold on the open market in the same window (awards, option exercises and gifts excluded).',
     interp: 'Scattered selling is routine (taxes, diversification); many different insiders selling in a tight cluster is the warning shape.',
     blank: 'Yahoo returned no insider transaction rows — an empty table could be a source outage, so it is never shown as "0 trades".',
-  },
-  net_shares: {
-    short: 'Net shares',
-    full: 'Old stored runs only (retired field): shares bought minus sold. Not comparable across stocks with different prices — the money diff is.',
   },
   net_value_usd: {
     short: '6m money diff (insider buys vs sells)',
@@ -962,21 +847,11 @@ const en: Record<string, MetricEntry> = {
     interp: 'A trust meter for the two ratios above: big = a liquid, well-watched options market whose ratios mean something; tiny = the ratios are noise — ignore the group.',
     blank: 'The source published missing or zero open interest, so no total is shown.',
   },
-  expirations_covered: {
-    short: 'Expirations',
-    full: 'Old stored runs only (retired field): how many expiration dates the sums covered. New runs publish the "options betting up to" date instead.',
-  },
   implied_vol_pct: {
     short: 'Implied stock volatility',
     full: "The size of yearly move the options market is pricing in, in %, read from option prices near the current stock price (at-the-money) — CBOE's 30-day figure. Options far from the current price are not counted: their prices carry distortions.",
     interp: "The market's fear gauge for this one stock: high = insurance is expensive, turbulence expected — wider stops, smaller size. The raw level means little alone; every stock has its own normal.",
     blank: 'CBOE published no 30-day implied volatility for this stock.',
-  },
-  implied_vol_rank_1y: {
-    short: 'Implied stock volatility ranking (1y range)',
-    full: "Old stored runs only (retired field): where today's implied volatility sits inside its own one-year range: 0 = the calmest the options market has been on this stock all year, 100 = the most braced-for-impact.",
-    interp: 'Near the top = an event or storm is priced in, gaps likely — shrink size or wait; near the bottom = calm expected, orderly moves.',
-    blank: 'Retired field — it needs a year of implied-volatility history, which no free source publishes. New runs no longer carry it.',
   },
   implied_report_move_pct: {
     short: 'Implied quarterly report day price change magnitude',
@@ -984,145 +859,7 @@ const en: Record<string, MetricEntry> = {
     interp: 'Compare it to the stop distance: an implied ±9% move against a 5% stop means the gap jumps the stop — exit before the report or size so the full move is survivable.',
     blank: 'Shown only when the next quarterly report is within ~3 weeks (further out, option prices mostly reflect ordinary drift, not the report jump) — and it needs the report date plus usable at-the-money quotes on the first expiration after it.',
   },
-  report_move_ratio_implied_4q: {
-    short: 'Quarterly report day price change magnitude ratio (implied vs 4q avg)',
-    full: "The options-implied move for the next report day divided by the realized average move of the last 4 report days (from the fundamentals report). 1.0 = options price exactly the usual jump.\nUnit: a multiple (×).",
-    interp: 'Well above 1 = the market is braced for a bigger-than-usual report reaction; well below 1 = unusually calm expectations.',
-    blank: 'Old stored runs only: needs both "Implied quarterly report day price change magnitude" (shown only when the quarterly report is within ~3 weeks) and "4q avg report day price change magnitude" from fundamentals — at least one was blank. Newer runs name the missing one here.',
-  },
 
-  // ---- opinion (numeric card 2026-08-18: analyst + crowd sentiment measures) ----
-  analyst: {
-    short: 'Analyst opinion',
-    full: "What professional Wall Street research firms currently think — their buy/hold/sell ratings, 12-month price targets, and this week's rating changes. From Yahoo Finance.",
-    interp: 'Informed opinion, not fact: analysts skew bullish as a group, and their targets chase the price as often as they lead it.',
-  },
-  crowd: {
-    short: 'Crowd chatter',
-    full: 'How much — and how positively — retail traders on Reddit are talking about this stock, measured by two public trackers: ApeWisdom (mention counts and a buzz rank) and Tradestie (WallStreetBets comment tone).',
-    interp: 'The least reliable group in the report: read it as attention and crowding, never as direction on its own.',
-  },
-  firms_total: {
-    short: 'Firms rating the stock',
-    full: 'How many research firms currently publish a buy/hold/sell rating on this stock.',
-    interp: 'More firms = a better-watched stock and a steadier consensus; below ~5 the counts are a few voices, not a chorus.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  strong_buy_firms: {
-    short: 'Strong-buy ratings',
-    full: 'How many of those firms rate the stock strong buy this month.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  buy_firms: {
-    short: 'Buy ratings',
-    full: 'How many firms rate the stock buy this month.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  hold_firms: {
-    short: 'Hold ratings',
-    full: 'How many firms rate the stock hold this month.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  sell_firms: {
-    short: 'Sell ratings',
-    full: 'How many firms rate the stock sell this month.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  strong_sell_firms: {
-    short: 'Strong-sell ratings',
-    full: 'How many firms rate the stock strong sell this month.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  buy_rating_pct: {
-    short: 'Buy share of ratings',
-    full: 'The percent of rating firms on buy or strong buy this month.\nUnit: %.',
-    interp: 'Professional opinion, not a fact about the business — analysts skew bullish as a group, so read the level against the drift field below it.',
-    blank: 'The consensus feed failed, or too few firms cover this stock to publish counts.',
-  },
-  buy_rating_change_1m_pp: {
-    short: 'Buy share drift, 1 month',
-    full: 'How many percentage points the buy share moved versus a month ago (positive = analysts warming up).\nUnit: percentage points.',
-    interp: 'The direction of drift often matters more than the level — a falling buy share on a rising stock is a quiet warning.',
-    blank: 'Needs both this month and last month in the consensus feed.',
-  },
-  price_target_mean: {
-    short: 'Average price target',
-    full: "The average of the firms' 12-month price targets.\nUnit: USD.",
-    interp: 'A slow-moving opinion: targets chase the price as often as they lead it.',
-    blank: 'Yahoo published no targets, or the analyst source fell back to Finnhub (which has none on the free tier).',
-  },
-  price_target_high: {
-    short: 'Highest price target',
-    full: "The most bullish firm's 12-month price target.\nUnit: USD.",
-    blank: 'Yahoo published no targets, or the analyst source fell back to Finnhub (which has none on the free tier).',
-  },
-  price_target_low: {
-    short: 'Lowest price target',
-    full: "The most bearish firm's 12-month price target.\nUnit: USD.",
-    blank: 'Yahoo published no targets, or the analyst source fell back to Finnhub (which has none on the free tier).',
-  },
-  target_vs_price_pct: {
-    short: 'Average target vs price',
-    full: 'How far the average price target sits from the current price (positive = target above the price).\nUnit: %.',
-    interp: 'A big positive gap reads bullish only if the targets are fresh — after a crash the gap is huge simply because targets have not caught down yet.',
-    blank: 'Needs both "Average price target" and a current price from the same feed.',
-  },
-  upgrades_count: {
-    short: 'Rating upgrades',
-    full: 'How many firms raised their rating in the last 7 trading days.',
-    interp: 'Fresh upgrades lean bullish; clusters usually follow earnings.',
-    blank: 'The rating-actions feed failed, or the Finnhub backup was used (it has no action history).',
-  },
-  downgrades_count: {
-    short: 'Rating downgrades',
-    full: 'How many firms cut their rating in the last 7 trading days.',
-    interp: 'Fresh downgrades lean bearish — and often land with a price-target cut attached.',
-    blank: 'The rating-actions feed failed, or the Finnhub backup was used (it has no action history).',
-  },
-  initiations_count: {
-    short: 'New coverage started',
-    full: 'How many firms started covering the stock in the last 7 trading days (first-time ratings).',
-    interp: 'New coverage means new professional attention — mildly bullish regardless of the opening grade.',
-    blank: 'The rating-actions feed failed, or the Finnhub backup was used (it has no action history).',
-  },
-  reddit_mentions: {
-    short: 'Reddit mentions, 24h',
-    full: "How many times the last 24 hours of posts and comments on Reddit's big investing boards named this stock (ApeWisdom's count).",
-    interp: 'Attention, not direction: a spike means retail traders are suddenly watching — crowded in both directions, expect noisier moves.',
-    blank: "The stock is not on ApeWisdom's most-discussed list (too little chatter to register), or the fetch failed.",
-  },
-  reddit_mentions_24h_ago: {
-    short: 'Reddit mentions, prior 24h',
-    full: 'The same mention count for the 24 hours before that — the baseline the current count is judged against.',
-    blank: "The stock is not on ApeWisdom's most-discussed list (too little chatter to register), or the fetch failed.",
-  },
-  reddit_upvotes: {
-    short: 'Reddit upvotes, 24h',
-    full: 'Total upvotes on the posts behind those mentions — how much the chatter resonated.',
-    blank: "The stock is not on ApeWisdom's most-discussed list (too little chatter to register), or the fetch failed.",
-  },
-  reddit_rank: {
-    short: 'Reddit buzz rank',
-    full: "This stock's place on ApeWisdom's most-mentioned list right now (1 = the most talked-about ticker).",
-    interp: 'Single digits = a main-character stock today; a fast rank climb is the clearest crowd-attention signal in this group.',
-    blank: "The stock is not on ApeWisdom's most-discussed list (too little chatter to register), or the fetch failed.",
-  },
-  reddit_rank_24h_ago: {
-    short: 'Reddit buzz rank, prior 24h',
-    full: 'The same rank a day earlier — compare to see the climb or fade.',
-    blank: "The stock is not on ApeWisdom's most-discussed list (too little chatter to register), or the fetch failed.",
-  },
-  wsb_sentiment_score: {
-    short: 'WallStreetBets comment tone',
-    full: "Tradestie's word-scoring of today's WallStreetBets comments about this stock: above 0 = bullish wording dominates, below 0 = bearish (roughly -1 to +1).",
-    interp: "The least reliable number in this report — one forum's mood, scored by word choice. Direction color at most; never a reason on its own.",
-    blank: 'The stock is not among the ~50 most-discussed WallStreetBets tickers today, or the fetch failed.',
-  },
-  wsb_comments: {
-    short: 'WallStreetBets comments',
-    full: "How many WallStreetBets comments mentioned the stock in today's scan (only the ~50 most-discussed tickers make the list).",
-    blank: 'The stock is not among the ~50 most-discussed WallStreetBets tickers today, or the fetch failed.',
-  },
 };
 
 const zh: Record<string, MetricEntry> = {
@@ -1192,18 +929,6 @@ const zh: Record<string, MetricEntry> = {
     full: '过去一年最糟糕的单日跌幅，按前一天收盘价到当天收盘价计算。\n单位：百分比，负数——如 -14.5 表示那天跌了 14.5%。',
     interp: '说明一次隔夜坏消息（差财报、坏新闻）实际能把价格越过止损打到多远。',
     blank: '载入的价格历史不足约一个月——天数太少，最差单日没有意义。',
-  },
-  worst_day_1y: {
-    short: '年内最差单日',
-    full: '旧运行保留的已退役字段：同一统计量，但以小数表示（-0.17 表示 -17%），且扫描了全部已加载历史而非仅一年。新运行改用 worst_day_pct_1y。',
-  },
-  worst_day_5pct: {
-    short: '最差5%单日',
-    full: '旧运行保留的已退役统计：仅最差 5% 的交易日才会超过的单日跌幅。',
-  },
-  score: {
-    short: '技术评分',
-    full: '旧运行保留的已退役字段：由代码算出的 0-100 技术面总分。新运行不再输出——把现成结论交给 AI 会让它锚定这个数字，而不是自己读取各项指标。',
   },
 
   // ---- technicals v2 分组与字段（2026-07-27；2026-07-28 重新分组）----
@@ -1417,7 +1142,7 @@ const zh: Record<string, MetricEntry> = {
     blank: '最近约6个月里找到的完整回调不足2次，没有"典型深度"可报。',
   },
 
-  // ---- fundamentals（2026-07-31 重新分组；标签对齐 TODO.md；旧运行的字段保留在末尾）----
+  // ---- fundamentals（2026-07-31 重新分组；标签对齐 TODO.md）----
   sector: {
     short: '行业板块',
     full: '公司所属的大类（如科技、能源）。\n取自 Yahoo Finance，从固定的标准清单里选出——不是随意编写的。',
@@ -1475,41 +1200,6 @@ const zh: Record<string, MetricEntry> = {
     full: '过去30天内，有多少位分析师下调了本季度的每股利润预测。',
     interp: '和上调人数一起看：两边人数都多说明分析师之间存在真实分歧，仅看预期变化百分比会掩盖这一点；两边都是0说明一个月没人动过预测，所有基于预期的字段都要多加小心。',
     blank: 'Yahoo Finance 没有发布这只股票的预期调整人数。',
-  },
-  // 仅旧运行（2026-08-23 换成30天字段）。
-  eps_rev_90d_pct: {
-    short: '90天EPS预期变化',
-    full: '仅旧运行：分析师最近在上调还是下调本季度的每股利润预测——平均预测值相比90天前的变化。\n单位：百分比。',
-    interp: '预测上调往往在数周内推高股价；下调是逆风，图形再好也一样。',
-    blank: '没有可用的分析师预期，或90天前的预测值太接近零，百分比变化没有意义。',
-  },
-  // 股息字段：仅旧运行（2026-07-31 从 TODO.md 最终清单移除）。
-  dividend: {
-    short: '股息',
-    full: '仅旧运行：公司定期发给股东的现金——一个日期已知的小事件，会在固定日子影响股价。',
-  },
-  days_until_dividend: {
-    short: '距下次股息发放天数',
-    full: '仅旧运行：从今天到公司下次发放股息还有多少天。',
-    interp: '现金在这一天到账，但价格更早就会下调：在除息日（股票开始不带这期股息交易的日子），股价会低开大约股息的金额。',
-    blank: '公司不派股息，或尚未排定下次发放日期。',
-  },
-  dividend_amount_est: {
-    short: '预计股息金额',
-    full: '仅旧运行：最近一次每股派发的股息——对下一次的最佳估计。\n单位：美元。',
-    interp: '相对股价很小 = 除息日附近的一次小幅下调；金额大的派息本身就可能击中紧止损。',
-    blank: '公司不派股息，或 Yahoo Finance 没有上次派息的记录。',
-  },
-  // 旧运行保留的分组（2026-07-31 重新分组后不再使用）。
-  profile: { short: '公司概况', full: '仅旧运行：该分组已并入基本信息。这是家什么样的公司。' },
-  earnings: {
-    short: '财报事件',
-    full: '仅旧运行：该分组已改名为季度财报。公司的财报日程与股价在过去财报前后的表现。',
-  },
-  ex_dividend_date: {
-    short: '除息日',
-    full: '仅旧运行（已由股息分组替代）：股票开始不带下一期股息交易的日期。那天早上，价格会机械性地低开大约股息的金额。',
-    interp: '一个已排好日期的小幅跳空低开，可能击中做多的紧止损。',
   },
   growth: { short: '成长性', full: '取自最新 SEC 官方季报的季度增长——业务是否在扩张的最新读数。' },
   revenue_yoy_q: {
@@ -1624,29 +1314,12 @@ const zh: Record<string, MetricEntry> = {
     interp: '明显低于"过去12月"那个数字 = 分析师预期利润增长；高于它 = 预期萎缩。',
     blank: '分析师预测亏损、没有分析师覆盖这只股票，或 Yahoo Finance 的市场数据不可用。',
   },
-  // 旧运行保留的已退役字段。
-  balance_sheet: { short: '资产负债表', full: '仅旧运行：该分组已改名为资产负债。公司拥有什么、欠什么。' },
-  basis: {
-    short: '报表类型',
-    full: '仅旧运行（2026-07-31 退役）：数字背后的报表类型——10-K = 经审计的年报，10-Q = 季报，都是向 SEC（美国证券监管机构）提交的官方文件。',
-  },
-  revenue_yoy_pct: { short: '营收同比 %', full: '旧运行保留的已退役字段：年报营收同比增速。新运行改用季度增长。' },
-  net_income_yoy_pct: { short: '净利同比 %', full: '旧运行保留的已退役字段：年报净利润同比增速。' },
-  eps_yoy_pct: { short: 'EPS 同比 %', full: '旧运行保留的已退役字段：年报每股收益同比增速。' },
-  net_margin_pct: { short: '净利率 %', full: '旧运行保留的已退役字段：最终利润占收入的比例。与营业利润率高度重复，另含一次性损益噪音。' },
-  cash: { short: '现金', full: '旧运行保留的已退役字段：持有的现金及等价物（美元）。缺乏规模参照的原始数字。' },
-  pb: { short: '市净率', full: '旧运行保留的已退役字段：股价÷每股账面净资产。只对银行等重资产行业有参考意义。' },
 
   next_earnings_date: {
     short: '下次季度财报日期',
     full: '公司下一次公布季度业绩的日期。',
     interp: '持仓期间有财报，意味着价格可能一夜之间跳空越过你的止损——要么提前离场，要么按它调整仓位。距这个日期一周以内会触发交易计划的财报警告。',
     blank: '尚未排定下次财报，或财报日历查询失败。',
-  },
-  days_until_earnings: {
-    short: '距财报天数',
-    full: '仅旧运行：从今天到那次财报还有多少天。新运行改为直接由日期计算，不再存储。',
-    interp: '数字小 = 事件风险已经临近；数字大 = 一段可以放心交易的窗口。',
   },
   region: { short: '地区', full: '这些数据描述的是哪个经济体。' },
   as_of: {
@@ -1798,7 +1471,6 @@ const zh: Record<string, MetricEntry> = {
     interp: '可能是四到六周前的情况——它描述那个月，不是今天。',
     blank: '失业率序列加载失败。',
   },
-  // 已退役的宏观键（仅旧运行）。
   labor: { short: '就业', full: '就业市场的健康状况。' },
   dollar_index_broad: { short: '美元指数', full: '美元相对一篮子其他货币的强弱。' },
   observation_dates: {
@@ -1806,7 +1478,7 @@ const zh: Record<string, MetricEntry> = {
     full: '每个数据点各自的日期（有的按月更新，有的按日更新）。',
   },
 
-  // ---- positioning（v2 真源 2026-08-01；已退役键为旧运行保留）----
+  // ---- positioning（v2 真源 2026-08-01）----
   short_interest: {
     short: '空头持仓',
     full: '被卖空的股份——投资者借入并卖出、押注股价下跌（空头）。空头要离场必须把股份买回来。FINRA 每月发布两次，约滞后两周；报告日期见基本信息组的「空头数据截至」。',
@@ -1881,14 +1553,6 @@ const zh: Record<string, MetricEntry> = {
     interp: '方向比水平重要：上升 = 空头加注；下降 = 空头已在认输回补，而回补本身就支撑股价。',
     blank: 'Yahoo 未公布本期或上期的空头股数。',
   },
-  shares_short: {
-    short: '空头股数',
-    full: '仅旧运行（已退役字段）：被卖空的原始股数。只有对比流通盘才有意义——比例那一行才是可解读的。',
-  },
-  shares_outstanding: {
-    short: '总股本',
-    full: '仅旧运行（已退役字段）：公司已发行的股份总数。流通盘才是可交易的现实。',
-  },
   insider_activity_6m: {
     short: '内部人交易（6个月）',
     full: '过去六个月公司内部人在公开市场的买卖，来自 SEC Form 4 申报。不含股权授予、期权行权和赠与——只有用自己的钱做的交易才体现信念。',
@@ -1904,10 +1568,6 @@ const zh: Record<string, MetricEntry> = {
     full: '同一窗口内内部人在公开市场卖出的次数（不含授予、行权和赠与）。',
     interp: '零散卖出是常态（缴税、分散资产）；多名内部人短期内集中卖出才是警报形态。',
     blank: 'Yahoo 未返回任何内部人交易记录——空表可能是数据源故障，因此绝不显示为「0 笔」。',
-  },
-  net_shares: {
-    short: '净买入股数',
-    full: '仅旧运行（已退役字段）：买入股数减卖出股数。不同价位的股票之间不可比——金额差才可比。',
   },
   net_value_usd: {
     short: '6个月买卖金额差（买 − 卖）',
@@ -1937,10 +1597,6 @@ const zh: Record<string, MetricEntry> = {
     interp: '上面两个比率的可信度计量：大 = 期权市场活跃、比率有意义；很小 = 比率只是噪音——整组忽略。',
     blank: '数据源的未平仓量缺失或为零，因此不显示总数。',
   },
-  expirations_covered: {
-    short: '覆盖到期日数',
-    full: '仅旧运行（已退役字段）：合计覆盖了多少个到期日。新运行改为发布「期权押注至」日期。',
-  },
   implied_vol_pct: {
     short: '隐含波动率',
     full: '期权市场定价中隐含的年化波动幅度（%），取自行权价贴近现价（平值）的期权——CBOE 的 30 天数值。远离现价的期权不计入：其价格含有失真。',
@@ -1966,138 +1622,6 @@ const zh: Record<string, MetricEntry> = {
     blank: '仅旧的存档运行：需要同时具备“财报日隐含波动幅度”（仅季度财报距今约3周内显示）和基本面报告中的“近4季财报日平均波动幅度”——本次运行至少其一为空。较新的运行会在此直接指出缺失的一项。',
   },
 
-  // ---- opinion（2026-08-18 数字化观点卡：分析师 + 散户情绪度量）----
-  analyst: {
-    short: '分析师观点',
-    full: '华尔街专业研究机构当前的看法——买入/持有/卖出评级、12 个月目标价、以及最近一周的评级变动。数据来自 Yahoo Finance。',
-    interp: '这是有依据的观点，不是事实：分析师整体偏乐观，目标价经常是跟着股价走而不是领先股价。',
-  },
-  crowd: {
-    short: '散户热度',
-    full: 'Reddit 上散户讨论这只股票的热度和语气，由两个公开统计源度量：ApeWisdom（提及次数与热度排名）和 Tradestie（WallStreetBets 评论情绪）。',
-    interp: '本报告中最不可靠的一组：只能当作关注度和拥挤度来读，绝不能单独当作方向依据。',
-  },
-  firms_total: {
-    short: '评级机构数',
-    full: '当前有多少家研究机构对这只股票发布买入/持有/卖出评级。',
-    interp: '机构越多，股票关注度越高、共识越稳；少于约 5 家时这些数字只是几个声音，不算共识。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  strong_buy_firms: {
-    short: '强烈买入评级数',
-    full: '本月给出强烈买入评级的机构数。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  buy_firms: {
-    short: '买入评级数',
-    full: '本月给出买入评级的机构数。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  hold_firms: {
-    short: '持有评级数',
-    full: '本月给出持有评级的机构数。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  sell_firms: {
-    short: '卖出评级数',
-    full: '本月给出卖出评级的机构数。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  strong_sell_firms: {
-    short: '强烈卖出评级数',
-    full: '本月给出强烈卖出评级的机构数。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  buy_rating_pct: {
-    short: '买入评级占比',
-    full: '本月给出买入或强烈买入评级的机构占比。\n单位：%。',
-    interp: '这是专业观点，不是公司事实——分析师整体偏乐观，要结合下方的月度漂移一起读。',
-    blank: '共识数据抓取失败，或覆盖该股票的机构太少。',
-  },
-  buy_rating_change_1m_pp: {
-    short: '买入占比月度漂移',
-    full: '买入评级占比相对一个月前变动了多少个百分点（正 = 分析师转暖）。\n单位：百分点。',
-    interp: '漂移方向往往比水平更重要——股价上涨时买入占比却在下降，是一个安静的警告。',
-    blank: '需要共识数据同时包含本月和上月两行。',
-  },
-  price_target_mean: {
-    short: '平均目标价',
-    full: '各机构 12 个月目标价的平均值。\n单位：美元。',
-    interp: '一个变化缓慢的观点：目标价经常是跟着股价走而不是领先股价。',
-    blank: 'Yahoo 未发布目标价，或分析师数据回退到了 Finnhub（免费档没有目标价）。',
-  },
-  price_target_high: {
-    short: '最高目标价',
-    full: '最乐观机构给出的 12 个月目标价。\n单位：美元。',
-    blank: 'Yahoo 未发布目标价，或分析师数据回退到了 Finnhub（免费档没有目标价）。',
-  },
-  price_target_low: {
-    short: '最低目标价',
-    full: '最悲观机构给出的 12 个月目标价。\n单位：美元。',
-    blank: 'Yahoo 未发布目标价，或分析师数据回退到了 Finnhub（免费档没有目标价）。',
-  },
-  target_vs_price_pct: {
-    short: '平均目标价 vs 现价',
-    full: '平均目标价距当前股价的百分比（正 = 目标价高于现价）。\n单位：%。',
-    interp: '正向差距大只有在目标价是新鲜的时候才算利好——暴跌后差距大只是因为目标价还没来得及下调。',
-    blank: '需要同一数据源同时给出平均目标价和当前价格。',
-  },
-  upgrades_count: {
-    short: '评级上调数',
-    full: '最近 7 个交易日内上调评级的机构数。',
-    interp: '新鲜的上调偏利好；扎堆出现通常跟在财报之后。',
-    blank: '评级变动数据抓取失败，或使用了 Finnhub 兜底（它没有评级变动历史）。',
-  },
-  downgrades_count: {
-    short: '评级下调数',
-    full: '最近 7 个交易日内下调评级的机构数。',
-    interp: '新鲜的下调偏利空——而且往往伴随目标价下调。',
-    blank: '评级变动数据抓取失败，或使用了 Finnhub 兜底（它没有评级变动历史）。',
-  },
-  initiations_count: {
-    short: '新覆盖数',
-    full: '最近 7 个交易日内首次覆盖这只股票的机构数（首次评级）。',
-    interp: '新覆盖意味着新的专业关注——无论首评级别如何都略偏利好。',
-    blank: '评级变动数据抓取失败，或使用了 Finnhub 兜底（它没有评级变动历史）。',
-  },
-  reddit_mentions: {
-    short: 'Reddit 提及数（24h）',
-    full: '过去 24 小时里 Reddit 主要投资板块的帖子和评论提到这只股票的次数（ApeWisdom 统计）。',
-    interp: '这是关注度不是方向：激增说明散户突然在盯它——两个方向都拥挤，波动会更吵。',
-    blank: '该股票不在 ApeWisdom 的热议榜上（讨论太少不足以上榜），或抓取失败。',
-  },
-  reddit_mentions_24h_ago: {
-    short: 'Reddit 提及数（前 24h）',
-    full: '再往前 24 小时的同一统计——当前提及数的对比基准。',
-    blank: '该股票不在 ApeWisdom 的热议榜上（讨论太少不足以上榜），或抓取失败。',
-  },
-  reddit_upvotes: {
-    short: 'Reddit 点赞数（24h）',
-    full: '这些提及背后帖子获得的总点赞数——讨论引起了多大共鸣。',
-    blank: '该股票不在 ApeWisdom 的热议榜上（讨论太少不足以上榜），或抓取失败。',
-  },
-  reddit_rank: {
-    short: 'Reddit 热度排名',
-    full: '这只股票当前在 ApeWisdom 最多提及榜上的名次（1 = 讨论最多）。',
-    interp: '个位数 = 今天的话题主角；排名快速攀升是这一组里最清晰的散户关注信号。',
-    blank: '该股票不在 ApeWisdom 的热议榜上（讨论太少不足以上榜），或抓取失败。',
-  },
-  reddit_rank_24h_ago: {
-    short: 'Reddit 热度排名（前 24h）',
-    full: '一天前的同一排名——对比可见攀升或退潮。',
-    blank: '该股票不在 ApeWisdom 的热议榜上（讨论太少不足以上榜），或抓取失败。',
-  },
-  wsb_sentiment_score: {
-    short: 'WallStreetBets 评论情绪',
-    full: 'Tradestie 对今天 WallStreetBets 上关于这只股票的评论做的用词打分：大于 0 = 看多措辞占多，小于 0 = 看空（大致 -1 到 +1）。',
-    interp: '本报告最不可靠的数字——一个论坛的情绪、按用词打分。最多算方向氛围，绝不能单独作为理由。',
-    blank: '该股票不在今天 WallStreetBets 讨论最多的约 50 只股票之列，或抓取失败。',
-  },
-  wsb_comments: {
-    short: 'WallStreetBets 评论数',
-    full: '今天的扫描里提到该股票的 WallStreetBets 评论数（只有讨论最多的约 50 只股票上榜）。',
-    blank: '该股票不在今天 WallStreetBets 讨论最多的约 50 只股票之列，或抓取失败。',
-  },
 };
 
 export function metricEntry(key: string, language: UiLanguage): MetricEntry | null {

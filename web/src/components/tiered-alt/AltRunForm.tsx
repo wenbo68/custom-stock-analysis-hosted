@@ -173,7 +173,7 @@ export const AltRunForm = ({
   // names the decision-signals page uses; the raw code is the fallback
   // for a market with no translation.
   const gateMarketName = gate?.market
-    ? t(`decisionSignals.market.${gate.market}` as UiTextKey)
+    ? t(`tiered.altForm.market.${gate.market}` as UiTextKey)
     : '';
   const gateHasHours = Boolean(gate?.sessionOpen && gate?.sessionClose);
 

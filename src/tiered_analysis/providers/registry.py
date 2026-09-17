@@ -18,14 +18,6 @@ from .positioning import PositioningUSProvider
 from .technicals import TechnicalsProvider
 from .world_events import WorldEventsProvider
 
-# The opinion card is RETIRED from new runs (owner decision 2026-08-23):
-# its analyst half was superseded by the fundamentals 30d EPS
-# estimate-revision fields, and the crowd half was judged not worth two
-# hobbyist third-party dependencies. The provider code, its tests, and
-# every frontend rendering path stay — old stored runs keep rendering
-# their opinion card, and re-registering is one import plus one list
-# entry below.
-# from .opinion import OpinionProvider
 
 
 def detect_market(symbol: str) -> Market:
@@ -70,8 +62,9 @@ def get_providers(
     positioning (US: short interest / ownership / insiders / options),
     company_events (US: recent news coverage, textual), world_events
     (all markets: macro/world news backdrop, textual, shared per-day
-    cache). The opinion dimension is retired from new runs (2026-08-23,
-    see the commented import above); old stored runs still render it.
+    cache). (The opinion card was retired 2026-08-23 and removed
+    2026-09-16: its analyst half lives on in the fundamentals
+    estimate-revision fields.)
 
     ``bars_loader`` feeds the technicals provider (production passes the
     data_provider-backed loader; omitting it leaves the unwired default

@@ -13,6 +13,7 @@ function makeRun(id: string, overrides: Partial<TieredRunSummary> = {}): TieredR
     created_at: '2026-07-10T04:00:00',
     updated_at: null,
     direction: 'buy',
+    outlook: 'bullish',
     shares: 41,
     tier: 1,
     capital: 100000,
@@ -63,11 +64,12 @@ describe('AltRunHistory', () => {
   it('shows ticker, capital, risk, tier, outlook and date per row', () => {
     renderHistory({
       runs: [
-        makeRun('t1', { stock_code: 'MSFT', tier: 3 }),
+        makeRun('t1', { stock_code: 'MSFT', tier: 2 }),
         makeRun('t2', {
           stock_code: 'NVDA',
           status: 'running',
           direction: null,
+          outlook: null,
           shares: null,
           tier: null,
           capital: null,
@@ -80,8 +82,7 @@ describe('AltRunHistory', () => {
     expect(screen.getByText('100000')).toBeInTheDocument();
     expect(screen.getByText('1%')).toBeInTheDocument();
     expect(screen.getAllByText(/^\d{4}\/\d{2}\/\d{2}, \d{2}:\d{2}$/)).toHaveLength(2);
-    expect(screen.getByText(/层级 3|Tier 3/)).toBeInTheDocument();
-    // an old row without a stored outlook maps its buy verdict to bullish
+    expect(screen.getByText(/层级 2|Tier 2/)).toBeInTheDocument();
     expect(screen.getByText(/看多|Bullish/)).toBeInTheDocument();
     // the shares column was dropped (owner request 2026-08-16)
     expect(screen.queryByText(/41/)).toBeNull();
@@ -147,7 +148,7 @@ describe('AltRunHistory', () => {
       runs: [
         // a new run stores its outlook; an old run maps hold → neutral
         makeRun('t1', { stock_code: 'MSFT', direction: 'buy', outlook: 'bullish' }),
-        makeRun('t2', { stock_code: 'NVDA', direction: 'hold' }),
+        makeRun('t2', { stock_code: 'NVDA', direction: 'hold', outlook: 'neutral' }),
       ],
     });
 
@@ -165,16 +166,16 @@ describe('AltRunHistory', () => {
     renderHistory({
       runs: [
         makeRun('t1', { stock_code: 'MSFT', tier: 1 }),
-        makeRun('t2', { stock_code: 'NVDA', tier: 3 }),
+        makeRun('t2', { stock_code: 'NVDA', tier: 2 }),
       ],
     });
 
     fireEvent.focus(screen.getByPlaceholderText(/筛选层级|Filter tier/));
-    fireEvent.click(screen.getByRole('button', { name: '3' }));
+    fireEvent.click(screen.getByRole('button', { name: /^2[:：]/ }));
 
     expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
     expect(screen.getByText('NVDA')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /(Tier|层级): 3/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /(Tier|层级): 2/ })).toBeInTheDocument();
   });
 
   it('shows the max hold column and filters by it from the dropdown', () => {

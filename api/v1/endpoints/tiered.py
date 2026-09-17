@@ -87,14 +87,13 @@ class TieredAnalyzeRequest(BaseModel):
 def _serialize_levels(levels: Any) -> Dict[str, Any]:
     return {
         "entry": levels.entry,
-        "secondary_entry": levels.secondary_entry,
         "stop_loss": levels.stop_loss,
         "take_profit": levels.take_profit,
     }
 
 
 def _serialize_tier_section(report: Any) -> Optional[Dict[str, Any]]:
-    """Tier 2/3 section: verdict + audit trail, no dimension duplication."""
+    """Tier 2 section: verdict + audit trail, no dimension duplication."""
     if report is None:
         return None
     section: Dict[str, Any] = {
@@ -108,8 +107,6 @@ def _serialize_tier_section(report: Any) -> Optional[Dict[str, Any]]:
     }
     if report.debate_detail is not None:
         section["debate_detail"] = report.debate_detail
-    if report.risk_detail is not None:
-        section["risk_detail"] = report.risk_detail
     return section
 
 
@@ -174,9 +171,6 @@ def _serialize_outcome(outcome: Any) -> Dict[str, Any]:
         "outlook": outcome.outlook.value,
         "action": outcome.action.value,
         "earnings": outcome.earnings.to_detail() if outcome.earnings else None,
-        # Retired 2026-07-22 — always None on new runs; old stored runs
-        # still carry their card.
-        "risk_card": outcome.risk_card,
         # Plan review (additive): structured per-column trade-plan
         # warnings — numbers only, the frontend words them.
         "plan_warnings": outcome.plan_warnings,

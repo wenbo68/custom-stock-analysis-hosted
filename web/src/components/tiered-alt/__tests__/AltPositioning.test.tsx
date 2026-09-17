@@ -162,28 +162,6 @@ describe('AltDimensions — positioning v2', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('explains the two retired unsourced fields behind their field marks (old stored runs)', () => {
-    renderPositioning();
-    // "n/a" itself is plain text now — the reason lives behind the
-    // exclamation mark beside it (owner request 2026-08-05).
-    const diff = screen.getByTestId('alt-metric-blank-institutional_diff_q_pp');
-    expect(diff.textContent).toBe('n/a');
-    expect(diff.tagName).toBe('SPAN');
-    fireEvent.click(
-      screen.getByTestId('alt-field-notes-institutional_diff_q_pp'),
-    );
-    expect(screen.getByTestId('alt-metric-blank-modal').textContent).toMatch(
-      /no reliable free source publishes the prior-quarter aggregate/i,
-    );
-    // No ✕ button by design — Escape closes the modal.
-    fireEvent.keyDown(window, { key: 'Escape' });
-
-    fireEvent.click(screen.getByTestId('alt-field-notes-implied_vol_rank_1y'));
-    expect(screen.getByTestId('alt-metric-blank-modal').textContent).toMatch(
-      /a year of implied-volatility history/,
-    );
-  });
-
   it('shows run notes beside their own field and drops the card button', () => {
     const dimension = makePositioning();
     const farReport =

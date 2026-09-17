@@ -23,14 +23,14 @@ class TestLlmUsageTracker(unittest.TestCase):
             with tracker.stage("tier2_debate"):
                 record_llm_usage(100, 20)
                 record_llm_usage(50, 10)
-            with tracker.stage("tier3_risk"):
+            with tracker.stage("plan_adjust"):
                 record_llm_usage(200, 40)
 
         detail = tracker.to_detail()
         self.assertEqual(detail["stages"]["tier2_debate"],
                          {"calls": 2, "prompt_tokens": 150,
                           "completion_tokens": 30})
-        self.assertEqual(detail["stages"]["tier3_risk"]["calls"], 1)
+        self.assertEqual(detail["stages"]["plan_adjust"]["calls"], 1)
         self.assertEqual(detail["total"],
                          {"calls": 3, "prompt_tokens": 350,
                           "completion_tokens": 70})

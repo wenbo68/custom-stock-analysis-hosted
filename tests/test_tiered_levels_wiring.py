@@ -102,7 +102,6 @@ class TestLevelsWiring(unittest.TestCase):
         outcome = _run()
         levels = outcome.report.levels
         self.assertAlmostEqual(levels.entry, 96.0)  # not 210.0
-        self.assertIsNone(levels.secondary_entry)  # backup entry retired
         self.assertAlmostEqual(levels.stop_loss, 90.0)
         self.assertAlmostEqual(levels.take_profit, 108.0)
 

@@ -370,7 +370,6 @@ class TestDepthRoutingAndSizing(unittest.TestCase):
     def test_plan_review_emits_structured_warnings_and_shares_detail(self):
         outcome, _, _, _ = self._run(
             sizing_overrides={"capital": 100000.0, "risk_fraction": 0.01})
-        self.assertIsNone(outcome.risk_card)  # retired 2026-07-22
         pw = outcome.plan_warnings
         self.assertEqual(sorted(pw), ["entry", "shares", "stop_loss", "take_profit"])
         gap = pw["stop_loss"][0]

@@ -38,14 +38,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 #: one ref per news bullet and relaxes the value-copy rule for them
 #: (a 40-word summary is anchored by its ref, not by verbatim copying).
 #: world_events joined the same day: the macro/world news card, graded
-#: through the same news-row contract. opinion joined 2026-08-18: the
-#: analyst + crowd sentiment card — numeric metric envelopes (analyst
-#: consensus/targets/action counts, Reddit-chatter measures), graded
-#: like any other numeric field; moved between macro_econ and the news
-#: cards 2026-08-19 (owner display order).
+#: through the same news-row contract. (The opinion card — analyst
+#: consensus + crowd chatter — was retired 2026-08-23 and removed
+#: 2026-09-16.)
 DIMENSIONS: Tuple[str, ...] = (
     "technicals", "fundamentals", "positioning", "macro_econ",
-    "opinion", "company_events", "world_events",
+    "company_events", "world_events",
 )
 DIMENSION_PREFIX: Dict[str, str] = {
     "technicals": "T",
@@ -54,12 +52,11 @@ DIMENSION_PREFIX: Dict[str, str] = {
     "macro_econ": "E",
     "company_events": "N",
     "world_events": "W",
-    "opinion": "O",
 }
 
 Dimension = Literal[
     "technicals", "fundamentals", "macro_econ", "positioning",
-    "opinion", "company_events", "world_events",
+    "company_events", "world_events",
 ]
 ItemDirection = Literal["bullish", "bearish"]
 #: A grade adds "neutral": the field carries no lean (metadata, dates,
@@ -222,7 +219,6 @@ class StructuredSummaryModel(_StageModel):
     fundamentals: List[SummaryBulletModel] = Field(default_factory=list)
     positioning: List[SummaryBulletModel] = Field(default_factory=list)
     macro_econ: List[SummaryBulletModel] = Field(default_factory=list)
-    opinion: List[SummaryBulletModel] = Field(default_factory=list)
     company_events: List[SummaryBulletModel] = Field(default_factory=list)
     world_events: List[SummaryBulletModel] = Field(default_factory=list)
 

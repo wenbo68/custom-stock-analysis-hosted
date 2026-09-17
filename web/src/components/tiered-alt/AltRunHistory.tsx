@@ -3,17 +3,14 @@ import type { TieredResult, TieredRunSummary } from '../../api/tiered';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey } from '../../i18n/uiText';
 import { cn } from '../../utils/cn';
-import { directionOutlook, plainNumber, riskPctText } from './altFormat';
+import { plainNumber, riskPctText } from './altFormat';
 import { ALT_COLOR, OUTLOOK_TEXT, STATUS_DOT } from './altStyles';
 import { AltPageSelector, AltPairField, AltPill, AltPillRow, AltSelect } from './AltFields';
 import { AltResult } from './AltResult';
 
 const PAGE_SIZE = 10;
-// Outlook redesign: the verdict filter became the outlook filter. Old
-// stored runs are mapped by the backend digest (buy→bullish, …).
 const FILTER_OUTLOOKS = ['bullish', 'neutral', 'bearish', 'stopped'] as const;
-// Old stored runs went to tier 3, so the history filter keeps offering it.
-const FILTER_TIERS = ['1', '2', '3'] as const;
+const FILTER_TIERS = ['1', '2'] as const;
 // Max hold choices in weeks — same values the run form offers.
 const FILTER_HOLDS = ['1', '2', '3', '4'] as const;
 
@@ -109,10 +106,9 @@ function rewardCell(run: TieredRunSummary): string {
   return run.reward_risk == null ? '—' : `${plainNumber(run.reward_risk)}×`;
 }
 
-// The row's outlook: stored on new runs; rows fetched before the backend
-// digest existed map their legacy verdict as a fallback.
+// The row's outlook (null until the run is done).
 function runOutlook(run: TieredRunSummary): string {
-  return run.outlook ?? directionOutlook(run.direction);
+  return run.outlook ?? 'unknown';
 }
 
 interface HistoryFilters {
@@ -397,10 +393,7 @@ export const AltRunHistory = ({
           label={t('tiered.altFilter.tier')}
           options={FILTER_TIERS.map((value) => ({
             value,
-            // Tiers 1 and 2 carry their analysis names; 3 is legacy-only
-            // (old stored runs) and stays a bare number.
-            label:
-              value === '3' ? value : t(`tiered.altForm.tierOption${value}` as UiTextKey),
+            label: t(`tiered.altForm.tierOption${value}` as UiTextKey),
           }))}
           selected={filters.tiers}
           placeholder={t('tiered.altFilter.tierPh')}

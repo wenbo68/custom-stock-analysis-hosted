@@ -1,4 +1,4 @@
-import type { TieredCitation, TieredDimension, TieredResult } from '../../api/tiered';
+import type { TieredCitation, TieredResult } from '../../api/tiered';
 
 export const DIRECTION_BADGE: Record<
   TieredResult['direction'],
@@ -46,11 +46,6 @@ export function dedupeCitations(citations: TieredCitation[]): TieredCitation[] {
         (other) => (other.url || other.source_name) === (citation.url || citation.source_name),
       ) === index,
   );
-}
-
-export function sentimentCitations(dimensions: TieredDimension[]): TieredCitation[] {
-  const sentiment = dimensions.find((dimension) => dimension.dimension === 'sentiment');
-  return sentiment ? dedupeCitations(sentiment.citations) : [];
 }
 
 // Payload rows carry ids of this shape so evidence references

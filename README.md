@@ -95,7 +95,7 @@ days are pruned at server startup.
 
 ## Fetched-data caches
 
-The macro, world-news, and crowd-opinion fetches and the per-article news
+The macro and world-news fetches and the per-article news
 judgments are cached in the database (the `tiered_cache` table), not on
 disk, so a host that wipes its disk on restart does not burn the vendors'
 daily call budgets. Every row can be refetched; rows untouched for 60

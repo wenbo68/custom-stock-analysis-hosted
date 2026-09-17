@@ -213,55 +213,27 @@ export const AltNarrative = ({ text, citations }: AltNarrativeProps) => (
   </p>
 );
 
-const CITATION_REF_RE = /^citation:(\d+)$/;
-
 interface AltEvidenceRefsProps {
   refs: string[];
-  citations: TieredCitation[];
   onNavigate?: () => void;
 }
 
-// Evidence references as links: "citation:N" opens the news source (shown
-// as "sentiment.citation:N" — the same dimension.path grammar as every
-// other reference), a payload path scrolls to that metric row.
-// Unresolvable refs stay text.
-export const AltEvidenceRefs = ({ refs, citations, onNavigate }: AltEvidenceRefsProps) => (
+// Evidence references as links: each payload path scrolls to that metric row.
+export const AltEvidenceRefs = ({ refs, onNavigate }: AltEvidenceRefsProps) => (
   <span className="inline-flex flex-wrap gap-x-2 text-[11px]">
-    {refs.map((refPath, index) => {
-      const citationMatch = CITATION_REF_RE.exec(refPath);
-      if (citationMatch) {
-        const citation = citations[Number(citationMatch[1]) - 1];
-        const shown = `sentiment.${refPath}`;
-        if (citation?.url) {
-          return (
-            <a
-              key={index}
-              href={citation.url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={citation.title ?? citation.url}
-              className={ALT_LINK}
-            >
-              {shown}
-            </a>
-          );
-        }
-        return <span key={index}>{shown}</span>;
-      }
-      return (
-        <button
-          key={index}
-          type="button"
-          className={cn('cursor-pointer', ALT_LINK)}
-          onClick={() => {
-            onNavigate?.();
-            // Let any open modal unmount before scrolling to the row behind it.
-            window.setTimeout(() => jumpToMetric(refPath), 50);
-          }}
-        >
-          {refPath}
-        </button>
-      );
-    })}
+    {refs.map((refPath, index) => (
+      <button
+        key={index}
+        type="button"
+        className={cn('cursor-pointer', ALT_LINK)}
+        onClick={() => {
+          onNavigate?.();
+          // Let any open modal unmount before scrolling to the row behind it.
+          window.setTimeout(() => jumpToMetric(refPath), 50);
+        }}
+      >
+        {refPath}
+      </button>
+    ))}
   </span>
 );

@@ -168,10 +168,9 @@ class SizingSlots:
 
 @dataclass(frozen=True)
 class SniperLevels:
-    """Normalized price levels from DSA's sniper points."""
+    """The plan's price levels (formula-computed, see levels.py)."""
 
     entry: Optional[float] = None
-    secondary_entry: Optional[float] = None
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
 
@@ -215,9 +214,6 @@ class TierReport:
     #: v2 slice 4 audit trail (tier-2 reports only): debate turns + judge
     #: verdict with anchored reasons. JSON-ready dict; None elsewhere.
     debate_detail: Optional[Dict[str, Any]] = None
-    #: v2 slice 5 audit trail (tier-3 reports only): persona takes + risk
-    #: judge verdict (size multiplier, stop advice). JSON-ready dict.
-    risk_detail: Optional[Dict[str, Any]] = None
     #: Max hold time in weeks the run was judged against (2026-08-08);
     #: None on reports stored before the hold-time picker existed.
     hold_weeks: Optional[int] = None

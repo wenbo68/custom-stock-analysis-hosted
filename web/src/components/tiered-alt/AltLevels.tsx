@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type {
-  TieredCitation,
   TieredLevelDetail,
   TieredLevelReason,
   TieredLevels,
@@ -71,23 +70,18 @@ const CHECK_KEYWORD_KEYS: Record<string, UiTextKey> = {
   stop_vs_support: 'tiered.alt.checkKey.stop_vs_support',
 };
 
-// One bullet per reason, each opening with its check keyword; old stored
-// runs (a single paragraph, no check) get one keyword-less bullet.
+// One bullet per reason, each opening with its check keyword.
 // `leading` renders as the first bullet regardless of reasons — the
 // shares modal always opens with its arithmetic receipt (2026-07-22).
 const AdjustReasonList = ({
   reasons,
-  legacyReason,
-  legacyLinks,
   leading,
 }: {
   reasons: TieredLevelReason[];
-  legacyReason?: string | null;
-  legacyLinks?: TieredLevelDetail['links'];
   leading?: ReactNode;
 }) => {
   const { t } = useUiLanguage();
-  if (!leading && reasons.length === 0 && !legacyReason) {
+  if (!leading && reasons.length === 0) {
     return null;
   }
   return (
@@ -102,40 +96,20 @@ const AdjustReasonList = ({
           </li>
         );
       })}
-      {reasons.length === 0 && legacyReason ? (
-        <li>
-          {legacyLinks && legacyLinks.length > 0 ? (
-            <LinkedTextV8 text={legacyReason} links={legacyLinks} />
-          ) : (
-            legacyReason
-          )}
-        </li>
-      ) : null}
     </ul>
   );
 };
 
 // Formula inputs with a source row on the technicals card, and the
-// payload path(s) that row anchors at. The technicals payload moved
-// metrics into groups (v2, 2026-07-27); stored runs still anchor at the
-// old flat paths, so jumps try the new path first and fall back.
+// payload path that row anchors at.
 const TECHNICALS_INPUT_REFS: Record<string, string[]> = {
-  close: ['technicals.price.close', 'technicals.close'],
-  atr_14: ['technicals.volatility.atr_14', 'technicals.atr_14'],
-  // v2 level anchors (2026-07-27)
+  close: ['technicals.price.close'],
+  atr_14: ['technicals.volatility.atr_14'],
   sma_50: ['technicals.daily.sma_50'],
   sma_200: ['technicals.daily.sma_200'],
   support_1: ['technicals.levels.support_1'],
   resistance_1: ['technicals.levels.resistance_1'],
   high_1y: ['technicals.price.high_1y'],
-  // v1 anchors old stored runs still carry
-  sma_20: ['technicals.sma_20'],
-  sma_60: ['technicals.sma_60'],
-  swing_low_20: ['technicals.swing_low_20'],
-  swing_low_60: ['technicals.swing_low_60'],
-  swing_high_20: ['technicals.swing_high_20'],
-  swing_high_60: ['technicals.swing_high_60'],
-  high_52w: ['technicals.high_52w'],
 };
 
 // Formula inputs that ARE another computed level of this same table (the
@@ -151,7 +125,7 @@ const COMPUTED_CELL_INPUTS: Record<string, LevelKey> = {
 // label their technicals row shows (metricLabels shorts, owner decision
 // 2026-07-28) — never raw underscore tokens. Variables that are the
 // plan's own numbers reuse the card's uiText names (the backend key
-// stays ideal_entry for old stored runs; it displays as the entry).
+// is ideal_entry; it displays as the entry).
 const useVarLabel = (): ((key: string) => string) => {
   const { language, t } = useUiLanguage();
   return (key: string): string => {
@@ -165,17 +139,8 @@ const useVarLabel = (): ((key: string) => string) => {
 // The stored formulas name two input GROUPS in prose. Expanding the
 // phrases into the run's actual input keys lets the split-and-link
 // machinery below turn every one of them into a real, clickable number.
-// Each list carries both generations: v2 keys (2026-07-27) and the v1
-// keys old stored runs still hold — a run only ever has one set.
-const SUPPORT_KEYS = [
-  'sma_50', 'sma_200', 'support_1',
-  'sma_20', 'sma_60', 'swing_low_20', 'swing_low_60',
-  'round_level',
-];
-const RESISTANCE_KEYS = [
-  'resistance_1', 'high_1y',
-  'swing_high_20', 'swing_high_60', 'high_52w',
-];
+const SUPPORT_KEYS = ['sma_50', 'sma_200', 'support_1', 'round_level'];
+const RESISTANCE_KEYS = ['resistance_1', 'high_1y'];
 
 const expandProse = (formula: string, inputs: Record<string, number>): string => {
   let expanded = formula;
@@ -315,13 +280,12 @@ interface AltLevelCellProps {
   levelKey: LevelKey;
   detail: TieredLevelDetail | null;
   label: string;
-  citations: TieredCitation[];
 }
 
 // The computed (formula-base) number. Clicking it opens the receipts, in
 // the shares-computation shape: the formula, the formula with this run's
 // numbers plugged in (each number a link to its source), and the result.
-const AltComputedCell = ({ levelKey, detail, label }: Omit<AltLevelCellProps, 'citations'>) => {
+const AltComputedCell = ({ levelKey, detail, label }: AltLevelCellProps) => {
   const { t } = useUiLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const close = () => setIsOpen(false);
@@ -369,7 +333,7 @@ const AltComputedCell = ({ levelKey, detail, label }: Omit<AltLevelCellProps, 'c
 
 // The AI's adjusted number — or "keep" when the computed value stands.
 // Clicking the number opens why the AI moved it, with its references.
-const AltAdjustedCell = ({ levelKey, detail, label, citations }: AltLevelCellProps) => {
+const AltAdjustedCell = ({ levelKey, detail, label }: AltLevelCellProps) => {
   const { t } = useUiLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const close = () => setIsOpen(false);
@@ -404,11 +368,7 @@ const AltAdjustedCell = ({ levelKey, detail, label, citations }: AltLevelCellPro
         <div className={MODAL_BODY}>
           {/* No header lines (owner decision 2026-07-22): straight to the
               bulleted reasons, keyword first, cited values linked. */}
-          <AdjustReasonList
-            reasons={detail.reasons ?? []}
-            legacyReason={detail.reason}
-            legacyLinks={detail.links}
-          />
+          <AdjustReasonList reasons={detail.reasons ?? []} />
           {detail.evidence.length > 0 ? (
             <div>
               <AltSectionLabel>{t('tiered.levelModal.references')}</AltSectionLabel>
@@ -416,7 +376,7 @@ const AltAdjustedCell = ({ levelKey, detail, label, citations }: AltLevelCellPro
                 {detail.evidence.map((refPath, index) => (
                   <li key={index} className="flex gap-2 text-xs">
                     <span className="shrink-0 text-gray-500">[{index + 1}]</span>
-                    <AltEvidenceRefs refs={[refPath]} citations={citations} onNavigate={close} />
+                    <AltEvidenceRefs refs={[refPath]} onNavigate={close} />
                   </li>
                 ))}
               </ul>
@@ -649,8 +609,6 @@ const AltSharesAdjustedCell = ({ detail, taskId, levelAdjusted }: SharesCellProp
               levels — the AI trim's reasons follow (owner, 2026-07-22). */}
           <AdjustReasonList
             reasons={detail.reasons ?? []}
-            legacyReason={detail.reason}
-            legacyLinks={detail.links}
             leading={
               detail.adjusted_inputs ? (
                 <SharesReceipt
@@ -676,8 +634,7 @@ const AltSharesAdjustedCell = ({ detail, taskId, levelAdjusted }: SharesCellProp
 interface AltLevelsProps {
   levels: TieredLevels;
   levelsDetail: TieredLevelsDetail | null | undefined;
-  citations: TieredCitation[];
-  /** Plan-review warnings per column; absent on old stored runs. */
+  /** Plan-review warnings per column. */
   planWarnings?: TieredPlanWarnings | null;
   /** The run's task id — lets the shares receipt link the run-row inputs. */
   taskId?: string;
@@ -688,12 +645,11 @@ const ROW_LABEL = 'py-1.5 pr-4 text-xs text-gray-500';
 
 // The trade plan as a computed/adjusted table — the three price levels
 // plus the share count, with the AI's validated adjustments beneath the
-// formula bases and (on plan-review runs) a warnings row underneath.
-// Old runs without the audit trail fall back to a single row of values.
+// formula bases and a warnings row underneath. A run whose levels could
+// not be computed carries no audit trail and falls back to a single row.
 export const AltLevels = ({
   levels,
   levelsDetail,
-  citations,
   planWarnings,
   taskId,
 }: AltLevelsProps) => {
@@ -764,7 +720,6 @@ export const AltLevels = ({
                           levelKey={key}
                           detail={details[key] ?? null}
                           label={t(LEVEL_LABEL_KEYS[key])}
-                          citations={citations}
                         />
                       </td>
                     ))}

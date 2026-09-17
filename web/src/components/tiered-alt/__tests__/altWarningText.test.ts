@@ -60,14 +60,6 @@ describe('friendlyWarning — v12 voided-run notes are translated', () => {
     );
   });
 
-  it('the old v8 "lists" wording still translates', () => {
-    const note = friendlyWarning(
-      'both analyst lists invalid after retry — tier-2 verdict voided',
-      t,
-    );
-    expect(note?.text).toContain('deep analysis was voided');
-  });
-
   it('the no-outlook note translates with the re-run advice', () => {
     const note = friendlyWarning(
       'debate produced no verdict — no outlook (re-run)',
@@ -181,10 +173,6 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
     ],
     ['next report date unknown — implied report-day move omitted', 'Missing data'],
     ['next report date unparseable — implied report-day move omitted', 'Missing data'],
-    [
-      'next report is more than 21 days away — option prices there mostly reflect ordinary drift, not the report jump; implied report-day move omitted',
-      'Missing data',
-    ],
     ['CBOE published no stock price — implied report-day move omitted', 'Missing data'],
     [
       'no usable at-the-money quotes on the post-report expiration — implied report-day move omitted',
@@ -238,7 +226,6 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
     ['sector ETF XLK bars unavailable: HTTPError(); sector comparison fields absent', 'Fetch failed'],
     ['sector ETF XLK history too short (30 bars); sector comparison fields absent', 'Missing data'],
     // src/tiered_analysis/tiers.py + debate.py + plan_review.py
-    ['tier-1 analysis failed for AAPL: RuntimeError()', 'Verdict'],
     ['no collected evidence to vote on — no outlook (re-run)', 'Verdict'],
     ['debate LLM call failed: RuntimeError()', 'AI reply'],
     ['no gradable report fields collected — tier-2 verdict voided', 'Verdict'],

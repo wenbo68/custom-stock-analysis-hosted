@@ -148,15 +148,14 @@ class TestTieredRunHistory:
         assert row["reward_risk"] == 3.0
         assert row["hold_weeks"] == 2
 
-    def test_list_digest_degrades_on_old_or_refused_runs(self, isolated_db):
-        # v1 result: no final/sizing/depth -> top-level direction, dash
-        # shares, and the top-level tier (v1 runs were tier 1 only)
+    def test_list_digest_degrades_on_refused_runs(self, isolated_db):
+        # no sizing block at all -> dash shares
         create_run("task-1", "AAPL")
-        mark_done("task-1", {**RESULT, "tier": 1})
+        mark_done("task-1", {**RESULT, "depth": 1})
         # sizing ran but refused to buy (shares None) -> 0, like the report
-        # card; no depth stored -> tier falls back to final.tier
+        # card
         create_run("task-2", "MSFT")
-        mark_done("task-2", {**RESULT,
+        mark_done("task-2", {**RESULT, "depth": 2,
                              "final": {"direction": "hold", "tier": 2},
                              "sizing": {"shares": None}})
         runs = {r["task_id"]: r for r in list_runs()}

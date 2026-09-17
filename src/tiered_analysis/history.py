@@ -241,9 +241,8 @@ def _result_digest(row: Any) -> Dict[str, Any]:
     computed share count, and the tier the run went to — without shipping
     the full report. ``shares`` mirrors the report card: 0 when sizing ran
     but bought nothing, None (shown as a dash) when the run has no sizing
-    block at all. ``tier`` is the requested depth; old runs stored before
-    depth existed fall back to the deepest tier that reported (v1 runs were
-    tier 1 only). ``capital``/``risk_fraction`` are the sizing inputs the
+    block at all. ``tier`` is the requested depth.
+    ``capital``/``risk_fraction`` are the sizing inputs the
     run used, for the row's capital and risk columns. Anything unreadable
     degrades to None rather than breaking the list."""
     digest: Dict[str, Any] = {
@@ -271,23 +270,13 @@ def _result_digest(row: Any) -> Dict[str, Any]:
     final = result.get("final")
     direction = final.get("direction") if isinstance(final, dict) else None
     digest["direction"] = direction or result.get("direction")
-    # Outlook redesign: new runs store it; old runs map buy/hold/sell.
-    legacy_outlook = {"buy": "bullish", "hold": "neutral", "sell": "bearish"}
-    digest["outlook"] = result.get("outlook") or legacy_outlook.get(
-        digest["direction"]
-    )
+    digest["outlook"] = result.get("outlook")
     sizing = result.get("sizing")
     if isinstance(sizing, dict):
         shares = sizing.get("shares")
         digest["shares"] = shares if shares is not None else 0
-    for tier_source in (
-        result.get("depth"),
-        final.get("tier") if isinstance(final, dict) else None,
-        result.get("tier"),
-    ):
-        if isinstance(tier_source, int):
-            digest["tier"] = tier_source
-            break
+    if isinstance(result.get("depth"), int):
+        digest["tier"] = result["depth"]
     if isinstance(sizing, dict) and isinstance(sizing.get("inputs"), dict):
         inputs = sizing["inputs"]
         for key in ("capital", "risk_fraction", "reward_risk"):

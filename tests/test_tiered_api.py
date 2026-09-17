@@ -117,7 +117,7 @@ def _outcome(symbol="AAPL"):
         market=Market.US,
         direction=Direction.HOLD,
         score=56,
-        levels=SniperLevels(entry=303.8, secondary_entry=294.7,
+        levels=SniperLevels(entry=303.8,
                             stop_loss=290.0, take_profit=325.0),
         narrative="Wait for a pullback.",
         dimensions=[
@@ -166,7 +166,6 @@ def _deep_outcome(symbol="AAPL"):
         depth=2, final_report=tier2, sizing=sizing, llm_usage=llm_usage,
         outlook=Outlook.BULLISH, action=Action.ENTER,
         earnings=EarningsInfo(next_date="2026-07-24", days_until=4),
-        risk_card=[{"id": "volatility", "status": "ok", "values": {}}],
     )
 
 
@@ -345,7 +344,7 @@ class TestTieredDepthAndSizingApi:
         assert result["action"] == "enter"
         assert result["earnings"]["next_date"] == "2026-07-24"
         assert result["earnings"]["is_near"] is True
-        assert result["risk_card"][0]["id"] == "volatility"
+        assert "risk_card" not in result
 
     def test_v1_shaped_outcome_serializes_with_defaults(self, client):
         # An outcome without the new fields (depth-1 run) must still
@@ -365,7 +364,6 @@ class TestTieredDepthAndSizingApi:
         assert result["outlook"] == "unknown"
         assert result["action"] == "unknown"
         assert result["earnings"] is None
-        assert result["risk_card"] is None
 
 
 class TestClockGateEndpoint:

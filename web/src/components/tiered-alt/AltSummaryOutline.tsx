@@ -15,7 +15,6 @@ const GROUPS: { key: keyof TieredSummaryStructure; labelKey: UiTextKey }[] = [
   { key: 'fundamentals', labelKey: 'tiered.dimension.fundamentals' },
   { key: 'positioning', labelKey: 'tiered.dimension.positioning' },
   { key: 'macro_econ', labelKey: 'tiered.dimension.macro_econ' },
-  { key: 'opinion', labelKey: 'tiered.dimension.opinion' },
   { key: 'company_events', labelKey: 'tiered.dimension.company_events' },
   { key: 'world_events', labelKey: 'tiered.dimension.world_events' },
 ];

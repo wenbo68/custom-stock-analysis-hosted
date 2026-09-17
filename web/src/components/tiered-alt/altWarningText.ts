@@ -34,19 +34,10 @@ const KEY = {
   downtrend: 'tiered.alt.warnKey.downtrend',
 } as const satisfies Record<string, UiTextKey>;
 
-// Backend sniper-level source names → the level labels users already know.
-const SNIPER_SOURCE_LABEL_KEYS: Record<string, UiTextKey> = {
-  ideal_buy: 'tiered.levels.entry',
-  secondary_buy: 'tiered.levels.secondaryEntry',
-  stop_loss: 'tiered.levels.stopLoss',
-  take_profit: 'tiered.levels.takeProfit',
-};
-
 // Level keys as they appear in adjustment warnings ("adjustment for entry …").
 const LEVEL_LABEL_KEYS: Record<string, UiTextKey> = {
   entry: 'tiered.levels.entry',
   shares: 'tiered.levels.shares',
-  secondary_entry: 'tiered.levels.secondaryEntry',
   stop_loss: 'tiered.levels.stopLoss',
   take_profit: 'tiered.levels.takeProfit',
 };
@@ -61,7 +52,7 @@ function hostOf(url: string): string {
 
 // Backend stage names → the role labels the debate tree already uses
 // (owner request 2026-08-05: retry/invalid notes lead with the AI's
-// role). Unknown stages (old stored formats) fall back to the raw stage
+// role). Unknown stages fall back to the raw stage
 // text — never invent a label.
 const STAGE_ROLES: Record<string, (t: Translate) => string> = {
   'first analyst grade sheet': (t) => t('tiered.tree.lister', { n: 1 }),
@@ -110,26 +101,7 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.trendCheckSkipped'),
   },
   {
-    pattern: /^unparseable sniper level (\w+)='?(.*?)'?$/,
-    keywordKey: KEY.levels,
-    toText: (m, t) =>
-      t('tiered.note.textLevel', {
-        level: SNIPER_SOURCE_LABEL_KEYS[m[1]] ? t(SNIPER_SOURCE_LABEL_KEYS[m[1]]) : m[1],
-        text: m[2],
-      }),
-  },
-  {
-    pattern: /^sniper points missing from tier-1 result$/,
-    keywordKey: KEY.levels,
-    toText: (_m, t) => t('tiered.note.levelsMissing'),
-  },
-  {
-    pattern: /^page fetch blocked for (\S+); using shorter search extract instead$/,
-    keywordKey: KEY.fetchFailed,
-    toText: (m, t) => t('tiered.note.pageBlocked', { domain: hostOf(m[1]) }),
-  },
-  {
-    pattern: /^fetch (?:failed for|returned no content for) (\S+?):?(?:\s|$)/,
+    pattern: /^fetch failed for (\S+?):?(?:\s|$)/,
     keywordKey: KEY.fetchFailed,
     toText: (m, t) => t('tiered.note.fetchFailed', { domain: hostOf(m[1]) }),
   },
@@ -139,7 +111,7 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.fundamentalsUnavailable'),
   },
   {
-    pattern: /^Yahoo (?:valuation failed|returned no valuation ratios)/,
+    pattern: /^Yahoo returned no valuation ratios/,
     keywordKey: KEY.missingData,
     toText: (_m, t) => t('tiered.note.valuationUnavailable'),
   },
@@ -159,13 +131,12 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.macroFieldMissing'),
   },
   {
-    // Both the retired "from Yahoo" wording and the source-neutral one.
-    pattern: /^options open interest (?:from Yahoo is )?missing or zero/,
+    pattern: /^options open interest missing or zero/,
     keywordKey: KEY.missingData,
     toText: (_m, t) => t('tiered.note.optionsOiMissing'),
   },
   {
-    pattern: /^options volume (?:from Yahoo is )?missing or zero/,
+    pattern: /^options volume missing or zero/,
     keywordKey: KEY.missingData,
     toText: (_m, t) => t('tiered.note.optionsVolumeMissing'),
   },
@@ -173,31 +144,6 @@ const NOTE_RULES: NoteRule[] = [
     pattern: /^Yahoo returned no insider transaction rows/,
     keywordKey: KEY.missingData,
     toText: (_m, t) => t('tiered.note.insiderRowsMissing'),
-  },
-  {
-    pattern: /^LLM sentiment output unparseable or empty$/,
-    keywordKey: KEY.aiReply,
-    toText: (_m, t) => t('tiered.note.sentimentUnreadable'),
-  },
-  {
-    pattern: /^no verifiable citations survive — discarding narrative$/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.citationsDiscarded'),
-  },
-  {
-    pattern: /^citation dropped: quote not found in (\S+?):?\s/,
-    keywordKey: KEY.citations,
-    toText: (m, t) => t('tiered.note.citationQuoteMissing', { domain: hostOf(m[1]) }),
-  },
-  {
-    pattern: /^citation dropped: invalid source index/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.citationBadIndex'),
-  },
-  {
-    pattern: /^malformed adjustment entry ignored$/,
-    keywordKey: KEY.levels,
-    toText: (_m, t) => t('tiered.note.adjustmentMalformed'),
   },
   {
     pattern: /^adjustment for unknown level\b/,
@@ -228,21 +174,14 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.noAtrStopTarget'),
   },
   {
-    pattern: /^no deeper support strictly below the ideal entry — no backup entry$/,
-    keywordKey: KEY.levels,
-    toText: (_m, t) => t('tiered.note.noBackupEntry'),
-  },
-  {
     pattern: /^no usable entry price — cannot place a stop$/,
     keywordKey: KEY.levels,
     toText: (_m, t) => t('tiered.note.noEntryNoStop'),
   },
-  // --- v8 evidence-vote notes (tier 2) + format-2 risk-vote notes
-  // (tier 3): the two engines share their phrasing, differing only in
-  // bullet/risk wording ---
+  // --- evidence-vote notes (tier 2) ---
   {
     // v8 wording ("list") and v12 wording ("grade sheet").
-    pattern: /^(first|second) analyst (?:list|grade sheet) invalid after retry — proceeding with/,
+    pattern: /^(first|second) analyst grade sheet invalid after retry — proceeding with/,
     keywordKey: KEY.vote,
     toText: (m, t) =>
       t('tiered.note.listerDegradedRole', {
@@ -250,7 +189,7 @@ const NOTE_RULES: NoteRule[] = [
       }),
   },
   {
-    pattern: /^both analyst (?:lists|grade sheets) invalid after retry — tier-2 verdict voided$/,
+    pattern: /^both analyst grade sheets invalid after retry — tier-2 verdict voided$/,
     keywordKey: KEY.verdict,
     toText: (_m, t) => t('tiered.note.sheetsVoided'),
   },
@@ -260,27 +199,12 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.noOutlook'),
   },
   {
-    pattern: /^both analyst lists invalid after retry — tier-3 risk verdict voided$/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.riskVoided'),
-  },
-  {
-    pattern: /^risk stress produced no verdict — direction falls back to tier 2$/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.riskFellBack'),
-  },
-  {
-    pattern: /^merge invalid after retry — second list dropped$/,
-    keywordKey: KEY.vote,
-    toText: (_m, t) => t('tiered.note.mergeDegraded'),
-  },
-  {
-    pattern: /^check round invalid after retry — (?:bullets|risks) counted on/,
+    pattern: /^check round invalid after retry — bullets counted on/,
     keywordKey: KEY.vote,
     toText: (_m, t) => t('tiered.note.checkDegraded'),
   },
   {
-    pattern: /^deciding round invalid after retry — tied (?:bullets|risks) excluded/,
+    pattern: /^deciding round invalid after retry — tied bullets excluded/,
     keywordKey: KEY.vote,
     toText: (_m, t) => t('tiered.note.tiebreakDegraded'),
   },
@@ -300,7 +224,7 @@ const NOTE_RULES: NoteRule[] = [
     toText: (_m, t) => t('tiered.note.unresolved'),
   },
   {
-    pattern: /^every (?:bullet|risk) was listed by both analysts — check round skipped$/,
+    pattern: /^every bullet was listed by both analysts — check round skipped$/,
     keywordKey: KEY.vote,
     toText: (_m, t) => t('tiered.note.allConfirmed'),
   },
@@ -308,17 +232,6 @@ const NOTE_RULES: NoteRule[] = [
     pattern: / — the final score rests on a thin base$/,
     keywordKey: KEY.vote,
     toText: (_m, t) => t('tiered.note.thinBase'),
-  },
-  // --- v7 tree-debate notes ---
-  {
-    pattern: /^defender \S+: citations unfixable .* — struck from the debate$/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.struckBullet'),
-  },
-  {
-    pattern: /^attacker \S+: citations unfixable .* — bullet dropped$/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.attackerBulletDropped'),
   },
   {
     pattern: /citation-fix reply invalid — fix round lost$/,
@@ -329,38 +242,6 @@ const NOTE_RULES: NoteRule[] = [
     pattern: /^summary citations unfixable — those values are shown without links$/,
     keywordKey: KEY.citations,
     toText: (_m, t) => t('tiered.note.summaryLinksDropped'),
-  },
-  // --- v6 tree-debate notes ---
-  {
-    pattern: /citation check failed mechanically$/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.valueMismatch'),
-  },
-  {
-    pattern: / — link dropped$/,
-    keywordKey: KEY.citations,
-    toText: (_m, t) => t('tiered.note.linkDropped'),
-  },
-  {
-    pattern: /evidence restored to the final pool$/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.restoredEvidence'),
-  },
-  {
-    pattern: /included in the final pool$/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.includedAddition'),
-  },
-  // --- v5 tree-debate notes ---
-  {
-    pattern: /^(?:defender opening|defender reply|judge rulings) invalid after retry — tier-2 verdict voided$/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.stageInvalid'),
-  },
-  {
-    pattern: /^attacker (?:opening|review) invalid after retry — proceeding without/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.attackerDegraded'),
   },
   {
     pattern: /^(.+) needed a retry — first reply was invalid$/,
@@ -375,117 +256,14 @@ const NOTE_RULES: NoteRule[] = [
       t('tiered.note.stageInvalidRole', { role: stageRole(m[1], t) }),
   },
   {
-    pattern: /^defender accepted an attack the judge ruled wrong/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.concededFlawedAttack'),
-  },
-  {
-    pattern: /^attacker raised no challenges — defender response skipped/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.noChallenges'),
-  },
-  {
     pattern: /^no surviving evidence to weigh/,
     keywordKey: KEY.debate,
     toText: (_m, t) => t('tiered.note.emptyLedger'),
   },
   {
-    pattern: / — the weight rests on a thin base$/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.thinBase'),
-  },
-  {
-    pattern: /^(defender|attacker|judge) cited evidence that does not resolve to a single value/,
-    keywordKey: KEY.citations,
-    toText: (m, t) =>
-      t('tiered.note.treeBadRefs', { side: t(`tiered.tree.${m[1]}` as UiTextKey) }),
-  },
-  // --- pre-v5 debate notes (old stored runs) ---
-  {
-    // v3: "bull reply was not JSON — argument kept as plain text, no score"
-    // v4: "bull argument|attack|response was not JSON — kept as plain text[, no score]"
-    pattern: /^(bull|bear) (?:reply|argument|attack|response) was not JSON — .*kept as plain text/,
-    keywordKey: KEY.aiReply,
-    toText: (m, t) =>
-      t('tiered.note.debaterNotJson', {
-        side: t(m[1] === 'bull' ? 'tiered.debate.bull' : 'tiered.debate.bear'),
-      }),
-  },
-  {
-    pattern: /^(bull|bear) (?:bullishness|position score) .* is not a whole number 0-10 — dropped$/,
-    keywordKey: KEY.aiReply,
-    toText: (m, t) =>
-      t('tiered.note.debaterScoreDropped', {
-        side: t(m[1] === 'bull' ? 'tiered.debate.bull' : 'tiered.debate.bear'),
-      }),
-  },
-  {
-    pattern: /^no usable (?:bullishness|position) score from .* — tier-2 verdict voided$/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.debateVoided'),
-  },
-  {
-    pattern: /^(bull|bear) cited evidence that does not resolve — invalid refs dropped$/,
-    keywordKey: KEY.citations,
-    toText: (m, t) =>
-      t('tiered.note.debaterBadRefs', {
-        side: t(m[1] === 'bull' ? 'tiered.debate.bull' : 'tiered.debate.bear'),
-      }),
-  },
-  {
-    pattern: /^grading judge gave no quote for .* — kept, flagged$/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.gradingNoQuote'),
-  },
-  {
-    pattern: /^grading judge quote for .* not found verbatim in the transcript — kept, flagged$/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.gradingQuoteMismatch'),
-  },
-  {
-    pattern: /^grading judge .* voided$/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.gradingVoided'),
-  },
-  {
-    pattern: /^both debaters graded zero validity/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.zeroValidity'),
-  },
-  {
     pattern: /^(?:judge summary unparseable|summary LLM call failed: .*) — computed verdict stands$/,
     keywordKey: KEY.aiReply,
     toText: (_m, t) => t('tiered.note.summaryFailed'),
-  },
-  {
-    pattern: /^(?:risk )?judge confidence .* unusable — dropped$/,
-    keywordKey: KEY.aiReply,
-    toText: (_m, t) => t('tiered.note.judgeConfidenceDropped'),
-  },
-  {
-    pattern: /^judge gave no summary$/,
-    keywordKey: KEY.aiReply,
-    toText: (_m, t) => t('tiered.note.judgeNoSummary'),
-  },
-  {
-    pattern: /^risk judge gave no summary$/,
-    keywordKey: KEY.aiReply,
-    toText: (_m, t) => t('tiered.note.riskNoSummary'),
-  },
-  {
-    pattern: /^(?:judge|risk) claim not anchored to evidence \(kept, flagged\)/,
-    keywordKey: KEY.debate,
-    toText: (_m, t) => t('tiered.note.claimNoEvidence'),
-  },
-  {
-    pattern: /^risk judge stop advice .* unusable/,
-    keywordKey: KEY.riskCheck,
-    toText: (_m, t) => t('tiered.note.stopAdviceUnusable'),
-  },
-  {
-    pattern: /^tightened stop .* — dropped$/,
-    keywordKey: KEY.riskCheck,
-    toText: (_m, t) => t('tiered.note.tightenedStopDropped'),
   },
   {
     pattern: / is not a number — ignored$/,
@@ -572,11 +350,6 @@ const NOTE_RULES: NoteRule[] = [
     toText: (m, t) => t('tiered.note.providerCrashed', { dimension: m[1] }),
   },
   {
-    pattern: /^tier-1 analysis failed for/,
-    keywordKey: KEY.verdict,
-    toText: (_m, t) => t('tiered.note.tier1Failed'),
-  },
-  {
     pattern: /^debate LLM call failed/,
     keywordKey: KEY.aiReply,
     toText: (_m, t) => t('tiered.note.debateCallFailed'),
@@ -644,11 +417,6 @@ const NOTE_RULES: NoteRule[] = [
     pattern: /^next report date unparseable/,
     keywordKey: KEY.missingData,
     toText: (_m, t) => t('tiered.note.reportDateUnreadable'),
-  },
-  {
-    pattern: /^next report is more than (\d+) days away/,
-    keywordKey: KEY.missingData,
-    toText: (m, t) => t('tiered.note.reportTooFar', { days: m[1] }),
   },
   {
     pattern: /^no usable at-the-money quotes/,
@@ -844,8 +612,6 @@ const NOTE_RULES: NoteRule[] = [
 // renders no plan card they disappear with it instead of leaking onto
 // the preliminary-analysis card.
 const PLAN_NOTE_RES: RegExp[] = [
-  /^unparseable sniper level /,
-  /^sniper points missing from tier-1 result$/,
   /^reward below goal: /,
   /^trend warning: /,
   /^sma_(?:50|60) unavailable — trend check skipped$/,
@@ -858,9 +624,6 @@ const PLAN_NOTE_RES: RegExp[] = [
   /^technicals unavailable — deterministic levels/,
   /^adjustment for /,
   /^duplicate adjustment for /,
-  /^malformed adjustment entry ignored$/,
-  // Retired backup-entry note old stored runs still carry.
-  /^no deeper support strictly below/,
   /^plan-review /,
   /^plan review /,
 ];

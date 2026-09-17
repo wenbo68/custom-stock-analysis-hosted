@@ -51,7 +51,6 @@ export type TieredDimension = {
 
 export type TieredLevels = {
   entry: number | null;
-  secondary_entry: number | null;
   stop_loss: number | null;
   take_profit: number | null;
 };
@@ -59,8 +58,7 @@ export type TieredLevels = {
 // v2 slice 3 audit trail: per-level formula base + validated AI adjustment.
 // The plan-review redesign (2026-07-22) adds a "shares" entry in the same
 // shape (base = count from the computed levels; adjusted_inputs = the
-// final levels a mechanical recompute used) and `links` — inline
-// citations for the adjustment reason, in the debate-link shape.
+// final levels a mechanical recompute used).
 // One adjustment reason: the flagged check it fixes (a fixed keyword id
 // the UI translates) plus one cited sentence.
 export type TieredLevelReason = {
@@ -74,11 +72,8 @@ export type TieredLevelDetail = {
   formula: string | null;
   inputs: Record<string, number> | null;
   adjusted: number | null;
-  /** Old stored runs: one paragraph. New runs carry `reasons` instead. */
-  reason?: string | null;
   reasons?: TieredLevelReason[] | null;
   evidence: string[];
-  links?: TieredDebateLink[];
   adjusted_inputs?: Record<string, number> | null;
   /** Shares only: the mechanical recompute from the adjusted levels,
    *  before any AI trim — the receipt's result line. */
@@ -320,41 +315,14 @@ export type TieredDebateDetail = {
   // 5/6/7 on tree-format runs; absent on everything stored before.
   format?: number;
   items?: TieredDebateItem[];
-  turns: {
-    role: string;
-    // v2/v3 runs number their rounds; v4 turns carry a kind instead.
-    round?: number;
-    kind?: string;
-    argument: string;
-    bullishness?: number | null;
-    position_score?: number | null;
-    citations?: string[];
-  }[];
   verdict: {
     direction: string;
     summary: string;
-    // v11+ structured report: the fixed five-group outline the summary
-    // stage fills (summary + one group per dimension); `summary` above
-    // is its flat-text rendering for older readers.
+    // The fixed-outline report the summary stage fills (summary + one
+    // group per dimension); `summary` above is its flat-text rendering.
     summary_structure?: TieredSummaryStructure | null;
-    // v2 judged shape
-    confidence?: number | null;
-    reasons_for?: TieredAnchoredReason[];
-    reasons_against?: TieredAnchoredReason[];
-    would_change_mind?: string | null;
-    // v3 scored shape
     final_score?: number | null;
-    final_score_rounded?: number | null;
-    bull_summary?: string | null;
-    bear_summary?: string | null;
-    scoring?: { bull: TieredDebaterScore; bear: TieredDebaterScore } | null;
-    // v5/v6 tree shape (v5 scores are whole numbers + weight; v6 scores
-    // are 2-decimal pool counts + pools)
     initial_score?: number | null;
-    adjusted_score?: number | null;
-    adjusted_kept?: boolean | null;
-    weight?: { numerator: number; denominator: number; value: number } | null;
-    // v8 pools drop the adjusted snapshot (no concede/adopt step).
     pools?: {
       initial: TieredDebatePool;
       adjusted?: TieredDebatePool;
@@ -364,79 +332,14 @@ export type TieredDebateDetail = {
   warnings: string[];
 };
 
-// One tier-3 risk bullet (risk_detail format 2): the tier-2 vote-item
-// shape minus the direction tag — every bullet is a risk, and code maps
-// the confirmed count to the size multiplier.
-export type TieredRiskItem = {
-  id: string;
-  dimension: string;
-  claim: string;
-  links?: TieredDebateLink[];
-  struck?: boolean;
-  problems?: string[];
-  authors?: number;
-  votes?: TieredDebateVote[];
-  final_status?: 'counted' | 'excluded' | null;
-  exclusion_reason?: string | null;
-};
-
-// Per-group and total risk counts for one pool snapshot.
-export type TieredRiskCounts = {
-  groups: Record<string, number>;
-  total: number;
-};
-
-// Risk stress audit trail (tier-3 section). Two generations coexist in
-// stored runs: the persona/judge shape (takes + stance/stop advice) and
-// the format-2 risk vote (items + count-derived multiplier) — every
-// generation-specific field is optional.
-export type TieredRiskDetail = {
-  // 2 on risk-vote runs; absent on the stored persona/judge runs.
-  format?: number;
-  takes: { persona: string; assessment: string }[];
-  items?: TieredRiskItem[];
-  verdict: {
-    stance: string;
-    size_multiplier: number;
-    // Absent on runs stored before the risk judge reported its own 0-1
-    // sureness; the UI hides the score for those.
-    confidence?: number | null;
-    stop_advice: string;
-    tightened_stop: number | null;
-    summary: string;
-    key_risks: TieredAnchoredReason[];
-    // format 2: the code-owned count → multiplier arithmetic.
-    confirmed_risks?: number;
-    total_risks?: number;
-    counts?: { initial: TieredRiskCounts; final: TieredRiskCounts } | null;
-  } | null;
-  warnings: string[];
-};
-
-// Outlook redesign (2026-07): the impersonal judgment on the stock.
-// 'stopped' (2026-08-08): the staleness gate halted the run before any
-// LLM stage — the data cards exist, but no analysis or plan does.
 export type TieredOutlook = 'bullish' | 'neutral' | 'bearish' | 'unknown' | 'stopped';
-// …and the personal instruction code derives from the outlook plus the
-// plan's reward-to-risk vs the user's goal. (keep_holding / sell_all
-// went with the ownership input, 2026-09-16.)
 export type TieredAction = 'enter' | 'enter_later' | 'no_trade' | 'unknown';
-
-// Warning-only earnings info: never gates anything, never moves numbers.
 export type TieredEarnings = {
   next_date: string | null;
   days_until: number | null;
   warning_days: number;
   is_near: boolean;
   note: string | null;
-};
-
-// One display-only risk-card entry. The 13 ids and their value keys are
-// fixed by the backend (risk_card.py); wording lives in the i18n layer.
-export type TieredRiskCardEntry = {
-  id: string;
-  status: 'ok' | 'flag' | 'na';
-  values: Record<string, unknown>;
 };
 
 // The deepest tier's verdict in summary form — what the run ends on.
@@ -458,16 +361,12 @@ export type TieredTierSection = {
   narrative: string | null;
   warnings: string[];
   debate_detail?: TieredDebateDetail;
-  risk_detail?: TieredRiskDetail;
 };
 
 // v2 slice 6: deterministic sizing block (share count or explicit refusal).
 export type TieredSizing = {
   enabled: boolean;
   shares: number | null;
-  // Multiplier keys died with tier 3 — absent on outlook-redesign runs.
-  shares_before_multiplier?: number | null;
-  risk_multiplier?: number | null;
   position_value: number | null;
   risk_amount: number | null;
   loss_per_share: number | null;
@@ -528,15 +427,12 @@ export type TieredResult = {
   depth?: number;
   final?: TieredFinal | null;
   tier2?: TieredTierSection | null;
-  tier3?: TieredTierSection | null;
   sizing?: TieredSizing | null;
   llm_usage?: TieredLlmUsage | null;
   // Outlook redesign additions — absent on old stored runs.
   outlook?: TieredOutlook;
   action?: TieredAction;
   earnings?: TieredEarnings | null;
-  // Retired 2026-07-22 (kept so old stored runs still type-check).
-  risk_card?: TieredRiskCardEntry[] | null;
   // Plan review (2026-07-22): per-column trade-plan warnings.
   plan_warnings?: TieredPlanWarnings | null;
   // Max hold time in weeks the run was judged against (2026-08-08);

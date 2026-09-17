@@ -143,9 +143,6 @@ class TieredRunOutcome:
     #: Next earnings date, read from the fundamentals payload (display
     #: lives on the fundamentals card; the debate weighs the event risk).
     earnings: Optional[EarningsInfo] = None
-    #: Retired display-only risk card (2026-07-22) — always None on new
-    #: runs; the field survives so old consumers keep a stable shape.
-    risk_card: Optional[list] = None
     #: Plan review (2026-07-22): structured per-column warnings for the
     #: trade-plan card — {"entry"|"stop_loss"|"take_profit"|"shares":
     #: [{"id", "values"}]}. None when the run produced no buy plan.

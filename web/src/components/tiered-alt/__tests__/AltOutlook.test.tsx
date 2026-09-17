@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import type {
   TieredDebateDetail,
   TieredResult,
-  TieredRiskCardEntry,
 } from '../../../api/tiered';
 import type { TieredPlanWarnings } from '../../../api/tiered';
 import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
@@ -12,10 +11,9 @@ import { AltResult } from '../AltResult';
 
 // Outlook-redesign rendering: the conclusion block, the conditional plan
 // display, the staleness note, the plan-review warnings row, and the
-// v10/v11 vote trees. Old stored runs (no outlook field) keep their
-// legacy layout — covered by AltResult.test.tsx.
+// v10/v11 vote trees.
 
-const LEVELS = { entry: 96, secondary_entry: 94, stop_loss: 90, take_profit: 108 };
+const LEVELS = { entry: 96, stop_loss: 90, take_profit: 108 };
 
 function makeDimension(name: string): TieredResult['dimensions'][number] {
   return {
@@ -30,29 +28,6 @@ function makeDimension(name: string): TieredResult['dimensions'][number] {
 }
 
 // A full 13-entry card: one flagged, one n/a, the rest ok.
-function makeRiskCard(): TieredRiskCardEntry[] {
-  const ok = (id: string, values: Record<string, unknown>): TieredRiskCardEntry => ({
-    id,
-    status: 'ok',
-    values,
-  });
-  return [
-    ok('concentration', { fraction: 0.15936, cap_fraction: 0.25 }),
-    ok('cash', { cash_left: 84064, capital: 100000 }),
-    ok('max_loss', { risk_amount: 996, fraction: 0.00996 }),
-    { id: 'liquidity', status: 'flag', values: { fraction_of_adv: 0.083, flag_fraction: 0.05 } },
-    ok('var', { var_amount: 478, risk_amount: 996 }),
-    ok('gap_stress', { gap_price: 87, loss_if_gap: 1494 }),
-    ok('volatility', { atr_fraction: 0.03, flag_fraction: 0.04 }),
-    ok('reward_risk', { ratio: 2 }),
-    ok('stop_atr', { atr_multiple: 2 }),
-    ok('stop_vs_swing_low', { stop_loss: 90, swing_low_20: 94 }),
-    ok('staleness', { close: 100, entry: 96 }),
-    ok('both_entries', { combined_risk: 1660, risk_budget: 1000 }),
-    { id: 'ownership_context', status: 'na', values: { ownership: 0 } },
-  ];
-}
-
 function makeOutlookResult(overrides: Partial<TieredResult> = {}): TieredResult {
   return {
     symbol: 'AAPL',
@@ -65,12 +40,11 @@ function makeOutlookResult(overrides: Partial<TieredResult> = {}): TieredResult 
     levels_detail: null,
     narrative: null,
     warnings: [],
-    dimensions: ['technicals', 'fundamentals', 'macro_econ', 'sentiment'].map(makeDimension),
+    dimensions: ['technicals', 'fundamentals', 'macro_econ', 'positioning'].map(makeDimension),
     depth: 1,
     outlook: 'bullish',
     action: 'enter',
     earnings: null,
-    risk_card: makeRiskCard(),
     ...overrides,
   };
 }
@@ -81,7 +55,6 @@ function makeOutlookResult(overrides: Partial<TieredResult> = {}): TieredResult 
 function makeWeightedDebate(): TieredDebateDetail {
   return {
     format: 10,
-    turns: [],
     items: [
       {
         id: 'T1',
@@ -102,7 +75,7 @@ function makeWeightedDebate(): TieredDebateDetail {
       },
       {
         id: 'S1',
-        dimension: 'sentiment',
+        dimension: 'positioning',
         direction: 'bearish',
         claim: 'The deal is not closed yet.',
         links: [{ ref: 'citation:2', value: null }],
@@ -130,9 +103,7 @@ function makeWeightedDebate(): TieredDebateDetail {
       direction: 'hold',
       summary: 'Weighted to hold.',
       final_score: 5.45,
-      final_score_rounded: 5,
       initial_score: 5.45,
-      adjusted_score: null,
       pools: {
         initial: {
           dimensions: {
@@ -140,7 +111,7 @@ function makeWeightedDebate(): TieredDebateDetail {
               bullish: 1, bearish: 0, total: 1,
               bullish_weight: 3, bearish_weight: 0, total_weight: 3,
             },
-            sentiment: {
+            positioning: {
               bullish: 0, bearish: 1, total: 1,
               bullish_weight: 0, bearish_weight: 3, total_weight: 3,
             },
@@ -155,7 +126,7 @@ function makeWeightedDebate(): TieredDebateDetail {
               bullish: 1, bearish: 0, total: 1,
               bullish_weight: 3, bearish_weight: 0, total_weight: 3,
             },
-            sentiment: {
+            positioning: {
               bullish: 0, bearish: 1, total: 1,
               bullish_weight: 0, bearish_weight: 2.5, total_weight: 2.5,
             },
@@ -165,13 +136,6 @@ function makeWeightedDebate(): TieredDebateDetail {
           score: 5.45,
         },
       },
-      confidence: null,
-      reasons_for: [],
-      reasons_against: [],
-      would_change_mind: null,
-      bull_summary: null,
-      bear_summary: null,
-      scoring: null,
     },
     warnings: [],
   };
@@ -318,7 +282,7 @@ describe('AltResult outlook conclusion', () => {
   });
 
   it('plan warnings stay off the conclusion card and vanish with the plan', () => {
-    // Owner report 2026-08-09: a bearish run showed sniper-level and
+    // Owner report 2026-08-09: a bearish run showed plan-level and
     // reward warnings outside the (hidden) plan card. Plan-flavored
     // notes now live on the plan card only; the conclusion card carries
     // the analysis/data notes (the preliminary card is gone).
@@ -328,10 +292,10 @@ describe('AltResult outlook conclusion', () => {
         action: 'no_trade',
         direction: 'sell',
         warnings: [
-          "unparseable sniper level ideal_buy='Not applicable due to bearish trend.'",
+          'no usable ATR — no volatility stop, and no target without a stop',
           "reward below goal: overhead resistance at 316.94 caps the plan's " +
             'reward-to-risk at 0.28, below your 2× goal',
-          'tier-1 analysis failed for AAPL: boom',
+          'no collected evidence to vote on — no outlook (re-run)',
         ],
       }),
     );
@@ -343,7 +307,7 @@ describe('AltResult outlook conclusion', () => {
     // The analysis note stays; both plan notes are gone with the plan.
     expect(dialog).toHaveTextContent(/Verdict|结论/);
     expect(dialog).not.toHaveTextContent(/0\.28/);
-    expect(dialog).not.toHaveTextContent(/left blank|留空/);
+    expect(within(dialog).getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('a bearish run with only plan warnings shows no notes mark at all', () => {
@@ -352,9 +316,7 @@ describe('AltResult outlook conclusion', () => {
         outlook: 'bearish',
         action: 'no_trade',
         direction: 'sell',
-        warnings: [
-          "unparseable sniper level ideal_buy='Not applicable due to bearish trend.'",
-        ],
+        warnings: ['no usable ATR — no volatility stop, and no target without a stop'],
       }),
     );
     const conclusion = screen.getByTestId('alt-conclusion');
@@ -446,75 +408,6 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.queryByTestId('alt-stale-note')).not.toBeInTheDocument();
   });
 
-  it('an old stored run (no outlook) has no conclusion block', () => {
-    renderResult(makeOutlookResult({ outlook: undefined, action: undefined, risk_card: null }));
-    expect(screen.queryByTestId('alt-conclusion')).not.toBeInTheDocument();
-  });
-});
-
-// The current 6-check card (2026-07-21 trim): gap check with both
-// overnight scenarios, reward-to-risk vs the user's chosen goal.
-function makeTrimmedRiskCard(): TieredRiskCardEntry[] {
-  return [
-    {
-      id: 'liquidity',
-      status: 'ok',
-      values: { shares: 40, avg_volume_20: 1000000, fraction_of_adv: 0.00004, flag_fraction: 0.05 },
-    },
-    {
-      id: 'gap_stress',
-      status: 'flag',
-      values: {
-        entry: 96, stop_loss: 90, shares: 100, loss_at_stop: 600,
-        atr_14: 3, gap_atr_multiple: 1, atr_open: 87, atr_loss: 900, atr_extra: 300,
-        worst_day_1y: -0.1, worst_open: 86.4, worst_gaps_stop: true,
-        worst_loss: 960, worst_extra: 360,
-      },
-    },
-    {
-      id: 'volatility',
-      status: 'ok',
-      values: { atr_14: 3, close: 100, atr_fraction: 0.03, flag_fraction: 0.04 },
-    },
-    {
-      id: 'reward_risk',
-      status: 'flag',
-      values: { entry: 96, stop_loss: 90, take_profit: 106, ratio: 1.67, goal: 2 },
-    },
-    {
-      id: 'stop_atr',
-      status: 'ok',
-      values: { entry: 96, stop_loss: 90, atr_14: 3, atr_multiple: 2 },
-    },
-    {
-      id: 'stop_vs_swing_low',
-      status: 'ok',
-      values: { stop_loss: 90, swing_low_20: 94, stop_at_or_above_swing_low: false },
-    },
-  ];
-}
-
-describe('AltResult risk checks (retired card)', () => {
-  it('never renders the risk-checks card, even on runs that stored one', () => {
-    renderResult(makeOutlookResult({ risk_card: makeTrimmedRiskCard() }));
-    expect(screen.queryByTestId('alt-risk-card')).not.toBeInTheDocument();
-  });
-});
-
-describe('AltResult reward warning on the plan', () => {
-  it('surfaces the below-goal warning above the levels table', () => {
-    renderResult(
-      makeOutlookResult({
-        warnings: [
-          "reward below goal: overhead resistance at 106 caps the plan's " +
-            'reward-to-risk at 1.67, below your 2× goal',
-        ],
-      }),
-    );
-    const warning = screen.getByTestId('alt-reward-warning');
-    expect(warning).toHaveTextContent('1.67');
-    expect(warning).toHaveTextContent('2');
-  });
 });
 
 describe('AltResult plan-card data notes vs the warnings row', () => {
@@ -527,7 +420,7 @@ describe('AltResult plan-card data notes vs the warnings row', () => {
       '(downtrend) — a pullback buy against the trend carries extra downside risk';
     renderResult(
       makeOutlookResult({
-        warnings: [staleReward, trendNote, 'sniper points missing from tier-1 result'],
+        warnings: [staleReward, trendNote, 'no usable entry price — cannot place a stop'],
         plan_warnings: {
           entry: [{ id: 'downtrend', values: { close: 100, sma_60: 102 } }],
           stop_loss: [],
@@ -552,7 +445,7 @@ describe('AltResult plan-card data notes vs the warnings row', () => {
   });
 });
 
-describe('AltResult v10 weighted vote tree', () => {
+describe('AltResult weighted vote formula', () => {
   function renderWeighted() {
     const result = makeOutlookResult({
       depth: 2,
@@ -569,24 +462,6 @@ describe('AltResult v10 weighted vote tree', () => {
     });
     renderResult(result);
   }
-
-  it('shows a clickable weight badge whose modal explains the median', () => {
-    renderWeighted();
-    const badge = screen.getByTestId('alt-tree-weight-S1');
-    expect(badge).toHaveTextContent('2.5');
-    fireEvent.click(badge);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/中位数|median/);
-    expect(dialog).toHaveTextContent('3');
-  });
-
-  it('a vote modal carries the voter’s own importance rating', () => {
-    renderWeighted();
-    fireEvent.click(
-      within(screen.getByTestId('alt-tree-item-S1')).getByRole('button', { name: '✓' }),
-    );
-    expect(screen.getByRole('dialog')).toHaveTextContent(/重要性评分：2|importance rating: 2/);
-  });
 
   it('renders a structured summary as the fixed outline instead of the paragraph', () => {
     const result = makeOutlookResult({
@@ -747,9 +622,8 @@ describe('AltResult trade-plan warnings row and shares column', () => {
     formula: 'capital × risk_fraction ÷ (entry − stop_loss)',
     inputs: { capital: 100000, risk_fraction: 0.01, entry: 96, stop_loss: 90 },
     adjusted: 50,
-    reason: 'The planned order is far above the 5% liquidity limit.',
+    reasons: [{ check: 'liquidity', text: 'The planned order is far above the 5% liquidity limit.' }],
     evidence: [],
-    links: [],
     rejection: null,
     final: 50,
   };
@@ -785,7 +659,6 @@ describe('AltResult trade-plan warnings row and shares column', () => {
   function renderPlan() {
     renderResult(
       makeOutlookResult({
-        risk_card: null,
         plan_warnings: planWarnings,
         levels_detail: {
           levels: {

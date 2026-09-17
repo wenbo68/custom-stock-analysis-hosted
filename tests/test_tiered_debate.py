@@ -110,8 +110,7 @@ def _tier1(direction=Direction.BUY, dimensions=()):
         market=Market.US,
         direction=direction,
         score=68,
-        levels=SniperLevels(entry=96.0, secondary_entry=94.0,
-                            stop_loss=90.0, take_profit=108.0),
+        levels=SniperLevels(entry=96.0, stop_loss=90.0, take_profit=108.0),
         narrative="buy the pullback",
         dimensions=list(dimensions),
     )
@@ -1338,12 +1337,12 @@ class PromptContentTest(unittest.TestCase):
 
 
 class DetailShapeTest(unittest.TestCase):
-    def test_to_detail_is_json_ready_with_the_v11_marker_and_legacy_keys(self):
+    def test_to_detail_is_json_ready_with_the_v11_marker(self):
         result, _ = _run()
         detail = result.to_detail()
         json.dumps(detail)  # must not raise
         self.assertEqual(detail["format"], 11)
-        self.assertEqual(detail["turns"], [])
+        self.assertNotIn("turns", detail)  # pre-v5 key, removed 2026-09-16
         self.assertEqual(len(detail["items"]), 6)
         # v12 addition: every bullet names the field it grades.
         self.assertEqual(detail["items"][0]["field"], "technicals.rsi_14")
@@ -1354,12 +1353,10 @@ class DetailShapeTest(unittest.TestCase):
         self.assertIn("final", verdict["pools"])
         self.assertNotIn("adjusted", verdict["pools"])
         self.assertEqual(verdict["pools"]["final"]["total"], 6)
-        # Legacy keys pre-v8 readers touch must exist and be inert.
-        self.assertIsNone(verdict["adjusted_score"])
-        self.assertIsNone(verdict["confidence"])
-        self.assertIsNone(verdict["scoring"])
-        self.assertIsNone(verdict["weight"])
-        self.assertEqual(verdict["reasons_for"], [])
+        # The inert pre-v8 keys are gone (2026-09-16).
+        for legacy in ("adjusted_score", "confidence", "scoring", "weight",
+                       "reasons_for", "final_score_rounded"):
+            self.assertNotIn(legacy, verdict)
 
     def test_voided_run_still_serializes(self):
         result, _ = _run(_replies(lister1="not json", lister2="not json"))
