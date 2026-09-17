@@ -189,6 +189,17 @@ describe('AltRunHistory', () => {
     expect(screen.getByText('MSFT')).toBeInTheDocument();
   });
 
+  it('shows a dash outlook for a run the stale-data gate stopped', () => {
+    renderHistory({
+      runs: [makeRun('t1', { stock_code: 'MSFT', direction: 'unknown', outlook: 'stopped' })],
+    });
+
+    expect(screen.getByText(/^(已完成|Done)$/)).toBeInTheDocument();
+    expect(screen.queryByText(/已停止|Stopped/)).not.toBeInTheDocument();
+    // outlook dash plus the reward and hold dashes
+    expect(screen.getAllByText('—')).toHaveLength(3);
+  });
+
   it('filters by tier from the dropdown', () => {
     renderHistory({
       runs: [

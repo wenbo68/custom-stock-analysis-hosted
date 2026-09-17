@@ -11,9 +11,11 @@ import { AltResult } from './AltResult';
 const PAGE_SIZE = 10;
 // Status (where the run is: queued, running, done, failed) and outlook
 // (what the finished analysis says) are separate columns (owner request
-// 2026-09-17). A run with no usable outlook shows a dash.
+// 2026-09-17). Only a real opinion counts as an outlook: a run with none
+// — unfinished, failed, judge failed, or stopped by the stale-data gate
+// before any analysis — shows a dash.
 const FILTER_STATUSES = ['queued', 'running', 'done', 'failed'] as const;
-const FILTER_OUTLOOKS = ['bullish', 'neutral', 'bearish', 'stopped'] as const;
+const FILTER_OUTLOOKS = ['bullish', 'neutral', 'bearish'] as const;
 const FILTER_TIERS = ['1', '2'] as const;
 // Max hold choices in weeks — same values the run form offers.
 const FILTER_HOLDS = ['1', '2', '3', '4'] as const;
@@ -117,10 +119,11 @@ function runOutlook(run: TieredRunSummary): string {
   return run.outlook ?? 'unknown';
 }
 
-// Whether the row has an outlook worth a word: an unfinished or failed
-// run, or one whose judge produced nothing, shows a dash instead.
+// Whether the row has an outlook worth a word (see FILTER_OUTLOOKS).
 function hasOutlook(run: TieredRunSummary): boolean {
-  return run.status === 'done' && runOutlook(run) !== 'unknown';
+  return (
+    run.status === 'done' && (FILTER_OUTLOOKS as readonly string[]).includes(runOutlook(run))
+  );
 }
 
 interface HistoryFilters {
@@ -534,7 +537,7 @@ export const AltRunHistory = ({
                       ? '—'
                       : t('tiered.altHistory.hold', { value: run.hold_weeks })}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-400">
                     {run.tier == null ? '—' : t('tiered.altHistory.tier', { value: run.tier })}
                   </span>
                   {run.status === 'queued' ? (
@@ -550,7 +553,7 @@ export const AltRunHistory = ({
                   ) : run.status === 'failed' ? (
                     <span className="text-xs text-red-300">{t('tiered.status.failed')}</span>
                   ) : (
-                    <span className="text-xs text-gray-400">{t('tiered.status.done')}</span>
+                    <span className="text-xs text-emerald-300">{t('tiered.status.done')}</span>
                   )}
                   {hasOutlook(run) ? (
                     <span className={cn('text-xs', OUTLOOK_TEXT[runOutlook(run)])}>
@@ -559,7 +562,7 @@ export const AltRunHistory = ({
                   ) : (
                     <span className="text-xs text-gray-400">—</span>
                   )}
-                  <span className="truncate text-xs tabular-nums text-gray-500">
+                  <span className="truncate text-xs tabular-nums text-gray-400">
                     {formatTime(run)}
                   </span>
                 </button>
