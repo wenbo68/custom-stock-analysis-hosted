@@ -63,6 +63,19 @@ class TestCatalog:
         with pytest.raises(user_settings.UnknownModel):
             user_settings.model_choice("acme/made-up")
 
+    def test_every_provider_has_a_listed_default_pair(self):
+        providers = {choice["provider"] for choice in user_settings.catalog()}
+        defaults = user_settings.provider_defaults()
+        assert set(defaults) == providers
+        for provider, pair in defaults.items():
+            assert user_settings.model_choice(pair["main"]).provider == provider
+            assert user_settings.model_choice(pair["sub"]).provider == provider
+        # the forward-tested pair (daily_stock_analysis fork .env, 2026-09)
+        assert defaults["gemini"] == {
+            "main": "gemini/gemini-3.8-flash", "sub": "gemini/gemini-3.5-flash-lite",
+        }
+        assert user_settings.DEFAULT_PROVIDER == "gemini"
+
 
 class TestEncryption:
     def test_roundtrip_and_mask(self, encryption_key):
@@ -83,12 +96,38 @@ class TestEncryption:
 
 
 class TestSaveAndLoad:
-    def test_fresh_user_has_nothing_set(self, user):
+    def test_fresh_user_starts_on_the_gemini_pair_and_only_lacks_a_key(self, user):
         view = user_settings.load_user_settings(user["id"])
-        assert view["llm_model"] is None
+        assert view["llm_model"] == "gemini/gemini-3.8-flash"
+        assert view["llm_sub_model"] == "gemini/gemini-3.5-flash-lite"
         assert view["llm_api_key"] == {"set": False, "hint": None}
         assert set(view["data_keys"]) == {"finnhub", "alphavantage", "fred"}
-        assert user_settings.run_settings_for(user["id"]).is_llm_configured is False
+        bundle = user_settings.run_settings_for(user["id"])
+        assert bundle.llm_model == "gemini/gemini-3.8-flash"
+        assert bundle.llm_sub_model == "gemini/gemini-3.5-flash-lite"
+        assert bundle.is_llm_configured is False
+        # a key alone makes the account runnable — on the default pair
+        user_settings.save_user_settings(user["id"], llm_api_key="sk-only-1234")
+        bundle = user_settings.run_settings_for(user["id"])
+        assert bundle.llm_model == "gemini/gemini-3.8-flash"
+        assert bundle.is_llm_configured is True
+
+    def test_a_first_save_that_picks_a_model_does_not_drag_the_starting_pair_along(self, user):
+        view = user_settings.save_user_settings(user["id"], llm_model="openai/gpt-5.6-sol")
+        assert view["llm_model"] == "openai/gpt-5.6-sol"
+        assert view["llm_sub_model"] is None
+
+    def test_removed_default_models_stay_removed(self, user):
+        # the starting pair is a value like any other: clearing it leaves
+        # the field empty (it does not snap back), as on the run form
+        view = user_settings.save_user_settings(user["id"], llm_model="")
+        assert view["llm_model"] is None
+        assert view["llm_sub_model"] == "gemini/gemini-3.5-flash-lite"
+        view = user_settings.save_user_settings(user["id"], llm_sub_model="")
+        assert view["llm_model"] is None and view["llm_sub_model"] is None
+        bundle = user_settings.run_settings_for(user["id"])
+        assert bundle.llm_model is None and bundle.llm_sub_model is None
+        assert user_settings.load_user_settings(user["id"])["llm_model"] is None
 
     def test_save_masks_keys_and_the_run_bundle_decrypts_them(self, user):
         view = user_settings.save_user_settings(
@@ -183,11 +222,14 @@ class TestSettingsApi:
         app.dependency_overrides[current_user] = lambda: user
         return TestClient(app)
 
-    def test_get_returns_masked_view_plus_catalog(self, client):
+    def test_get_returns_masked_view_plus_catalog_and_provider_defaults(self, client):
         body = client.get("/settings/me").json()
-        assert body["llm_model"] is None
+        assert body["llm_model"] == "gemini/gemini-3.8-flash"
         assert body["llm_api_key"]["set"] is False
         assert any(m["id"] == "gemini/gemini-3.8-flash" for m in body["models"])
+        assert body["defaults"]["openai"] == {
+            "main": "openai/gpt-5.6-terra", "sub": "openai/gpt-5.6-luna",
+        }
 
     def test_put_updates_only_the_given_fields(self, client):
         body = client.put("/settings/me", json={
@@ -212,7 +254,8 @@ class TestSettingsApi:
         assert response.status_code == 422
         assert response.json()["detail"]["error"] == "model_mismatch"
         body = client.get("/settings/me").json()
-        assert body["llm_model"] is None and body["llm_sub_model"] is None
+        assert body["llm_model"] == "gemini/gemini-3.8-flash"
+        assert body["llm_sub_model"] == "gemini/gemini-3.5-flash-lite"
 
     def test_missing_encryption_key_is_503(self, client, monkeypatch):
         monkeypatch.delenv("APP_ENCRYPTION_KEY")

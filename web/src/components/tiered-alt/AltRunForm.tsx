@@ -234,6 +234,7 @@ export const AltRunForm = ({
       <div className="grid w-full grid-cols-2 gap-2 text-sm sm:grid-cols-6 sm:gap-3 md:gap-4">
         <AltSelect
           label={t('tiered.altForm.ticker')}
+          tone={ticker ? TONE.ticker : undefined}
           options={TICKER_IDEAS.map((value) => ({ value, label: value }))}
           selected={ticker ? [ticker] : undefined}
           placeholder={t('tiered.altForm.tickerPh')}
@@ -252,6 +253,7 @@ export const AltRunForm = ({
               underline={false}
             />
           }
+          tone={capital ? TONE.capital : undefined}
           options={CAPITAL_IDEAS.map((value) => ({ value, label: value }))}
           selected={capital ? [capital] : undefined}
           placeholder={t('tiered.altForm.capitalPh')}
@@ -268,6 +270,7 @@ export const AltRunForm = ({
               underline={false}
             />
           }
+          tone={riskPct ? TONE.risk : undefined}
           options={RISK_IDEAS.map((value) => ({ value, label: value }))}
           selected={riskPct ? [riskPct] : undefined}
           placeholder={t('tiered.altForm.riskPh')}
@@ -284,6 +287,7 @@ export const AltRunForm = ({
               underline={false}
             />
           }
+          tone={reward ? TONE.reward : undefined}
           options={REWARD_IDEAS.map((value) => ({ value, label: value }))}
           selected={reward ? [reward] : undefined}
           placeholder={t('tiered.altForm.rewardPh')}
@@ -307,6 +311,7 @@ export const AltRunForm = ({
               underline={false}
             />
           }
+          tone={hold ? TONE.hold : undefined}
           options={HOLD_WEEKS.map((value) => ({ value, label: value }))}
           selected={hold ? [hold] : undefined}
           placeholder={t('tiered.altForm.holdPh')}
@@ -316,6 +321,7 @@ export const AltRunForm = ({
           label={
             <HelpTerm label={t('tiered.altForm.tier')} helpKey="tiered.help.depth" underline={false} />
           }
+          tone={tier !== null ? TONE.tier : undefined}
           options={TIERS.map((value) => ({
             value: String(value),
             label: t(`tiered.altForm.tierOption${value}` as UiTextKey),

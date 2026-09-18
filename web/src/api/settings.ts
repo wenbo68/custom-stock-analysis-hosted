@@ -14,13 +14,20 @@ export type ModelChoice = {
   key_url: string;
 };
 
+/** What picking a provider fills the two model fields with. */
+export type ModelPair = { main: string; sub: string };
+
 export type UserSettings = {
+  /** A brand-new account comes with the default provider's pair; once
+   *  removed, a model stays removed (null). */
   llm_model: string | null;
   /** The cheaper model for screening chores; null = the main model. */
   llm_sub_model: string | null;
   llm_api_key: KeyStatus;
   data_keys: Record<DataKeyName, KeyStatus>;
   models: ModelChoice[];
+  /** Per provider id, its default pair. */
+  defaults: Record<string, ModelPair>;
 };
 
 // Absent = unchanged, "" = clear the key (or model).

@@ -286,4 +286,15 @@ describe('AltRunForm', () => {
       screen.getByRole('button', { name: /1: preliminary analysis|1：初步分析/ }),
     ).toBeInTheDocument();
   });
+
+  it("colors a set field's title like its pill and leaves the others gray", () => {
+    renderForm({ ticker: 'AAPL', hold: '4' });
+    // the title span itself carries the color (ticker = red, hold = emerald)
+    expect(screen.getByText(/^Ticker$|^代码$/)).toHaveClass('text-red-300');
+    expect(screen.getByText(/^Max hold: weeks$|^最长持有: 周$/).closest('.font-semibold')).toHaveClass(
+      'text-emerald-300',
+    );
+    // (capital is labeled with the ticker's currency once a ticker is set)
+    expect(screen.getByText(/^Capital|^本金/).closest('.font-semibold')).toHaveClass('text-gray-300');
+  });
 });

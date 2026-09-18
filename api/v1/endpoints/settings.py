@@ -27,7 +27,11 @@ class SettingsUpdate(BaseModel):
 
 
 def _with_catalog(view: Dict[str, Any]) -> Dict[str, Any]:
-    return {**view, "models": user_settings.catalog()}
+    return {
+        **view,
+        "models": user_settings.catalog(),
+        "defaults": user_settings.provider_defaults(),
+    }
 
 
 @router.get("/me")

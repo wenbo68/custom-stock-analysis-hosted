@@ -251,17 +251,21 @@ interface SettingsFormProps {
 // The seven write-only fields and their pills. A pill shows what the
 // server holds; clicking it clears that value. Every change is saved at
 // once, so what the pills show is what the next run uses.
+//
+// The provider is never picked on its own: choosing one fills both model
+// fields with that provider's default pair (owner request 2026-09-18),
+// and the provider shown is whichever the stored models belong to. A
+// brand-new account comes with the Gemini pair, so only the key is left
+// to fill in; like the run form's defaults, those pills can be removed
+// and the fields then stay empty.
 const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
   const { t } = useUiLanguage();
-  // A provider picked before any of its models — models pin the provider
-  // themselves, so this only matters while both model fields are empty.
-  const [providerPick, setProviderPick] = useState<string | null>(null);
 
   const modelById = (id: string | null | undefined): ModelChoice | null =>
     settings.models.find((choice) => choice.id === id) ?? null;
   const mainModel = modelById(settings.llm_model);
   const subModel = modelById(settings.llm_sub_model);
-  const provider = mainModel?.provider ?? subModel?.provider ?? providerPick;
+  const provider = mainModel?.provider ?? subModel?.provider ?? null;
   const providerModel = settings.models.find((choice) => choice.provider === provider) ?? null;
 
   const providerOptions = settings.models
@@ -273,27 +277,18 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
 
   const change = (update: UserSettingsUpdate) => void onChange(update);
 
+  // Picking a provider (again, too) puts both models on its default
+  // pair — one key pays for both, so any model from another provider
+  // goes with it. Without a pair on file for it, nothing changes.
   const commitProvider = (value: string) => {
-    if (value === provider) {
-      // Clicking the picked provider again (or its pill) clears it and
-      // the models that pinned it.
-      setProviderPick(null);
-      change({ llm_model: '', llm_sub_model: '' });
-      return;
-    }
-    setProviderPick(value);
-    // One key pays for both models, so a model from another provider goes.
-    const update: UserSettingsUpdate = {};
-    if (mainModel && mainModel.provider !== value) {
-      update.llm_model = '';
-    }
-    if (subModel && subModel.provider !== value) {
-      update.llm_sub_model = '';
-    }
-    if (Object.keys(update).length > 0) {
-      change(update);
+    const pair = settings.defaults[value];
+    if (pair) {
+      change({ llm_model: pair.main, llm_sub_model: pair.sub });
     }
   };
+  // The provider pill clears both models (the provider is nothing but
+  // what they belong to); every model is listed again afterwards.
+  const clearProvider = () => change({ llm_model: '', llm_sub_model: '' });
   const commitModel = (field: 'llm_model' | 'llm_sub_model', value: string) => {
     const current = field === 'llm_model' ? mainModel : subModel;
     if (value === current?.id) {
@@ -316,6 +311,7 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
       <div className={FIELD_GRID}>
         <AltSelect
           label={<FieldTitle text={t('tiered.user.f.provider')} helpKey="tiered.help.llmProvider" href={keyUrl} />}
+          tone={provider ? TONE.provider : undefined}
           options={providerOptions}
           selected={provider ? [provider] : undefined}
           placeholder={t('tiered.user.ph.provider')}
@@ -323,6 +319,7 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
         />
         <AltSelect
           label={<FieldTitle text={t('tiered.user.f.main')} helpKey="tiered.help.mainLlm" href={keyUrl} />}
+          tone={mainModel ? TONE.main : undefined}
           options={modelOptions}
           selected={mainModel ? [mainModel.id] : undefined}
           placeholder={t('tiered.user.ph.main')}
@@ -330,6 +327,7 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
         />
         <AltSelect
           label={<FieldTitle text={t('tiered.user.f.sub')} helpKey="tiered.help.subLlm" href={keyUrl} />}
+          tone={subModel ? TONE.sub : undefined}
           options={modelOptions}
           selected={subModel ? [subModel.id] : undefined}
           placeholder={t('tiered.user.ph.sub')}
@@ -337,6 +335,7 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
         />
         <AltTextField
           label={<FieldTitle text={t('tiered.user.f.llmKey')} helpKey="tiered.help.llmKey" href={keyUrl} />}
+          tone={settings.llm_api_key.set ? TONE.llmKey : undefined}
           placeholder={t('tiered.user.ph.llmKey')}
           type="password"
           onCommit={(value) => change({ llm_api_key: value })}
@@ -351,6 +350,9 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
                 href={DATA_KEY_URL[name]}
               />
             }
+            // always colored: a data key always has a pill, the server's
+            // default one when the user brings none (owner request 2026-09-18)
+            tone={TONE[name]}
             placeholder={t(`tiered.user.ph.${name}` as UiTextKey)}
             type="password"
             onCommit={(value) => change({ [DATA_KEY_FIELD[name]]: value })}
@@ -360,7 +362,7 @@ const SettingsForm = ({ settings, saveError, onChange }: SettingsFormProps) => {
 
       <AltPillRow>
         {provider ? (
-          <AltPill tone={TONE.provider} onRemove={() => commitProvider(provider)}>
+          <AltPill tone={TONE.provider} onRemove={clearProvider}>
             {t('tiered.pill.llmProvider', { value: providerModel?.provider_label ?? provider })}
           </AltPill>
         ) : null}

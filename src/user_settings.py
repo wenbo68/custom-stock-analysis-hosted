@@ -62,6 +62,32 @@ MODEL_CATALOG: List[ModelChoice] = [
     ModelChoice("deepseek/deepseek-flash", "DeepSeek Flash", *_DEEPSEEK),
 ]
 
+
+@dataclass(frozen=True)
+class ModelPair:
+    main: str
+    sub: str
+
+
+#: The models a provider starts with when picked. The Gemini pair is what
+#: the owner forward-tests with in the daily_stock_analysis fork
+#: (``LITELLM_MODEL=gemini/gemini-flash-latest``, which resolves to 3.8
+#: Flash as of 2026-09-02, and ``NEWS_SCREEN_MODEL=gemini/gemini-flash-
+#: lite-latest``). The other pairs mirror those tiers: the balanced
+#: mid-tier model for the analysis, the fastest/cheapest for screening.
+PROVIDER_DEFAULTS: Dict[str, ModelPair] = {
+    "gemini": ModelPair("gemini/gemini-3.8-flash", "gemini/gemini-3.5-flash-lite"),
+    "openai": ModelPair("openai/gpt-5.6-terra", "openai/gpt-5.6-luna"),
+    "deepseek": ModelPair("deepseek/deepseek-v4-pro", "deepseek/deepseek-flash"),
+}
+
+#: What a brand-new account starts on (owner request 2026-09-18): the
+#: forward-tested Gemini pair, so a fresh sign-in only has to bring a
+#: key. "New" = no settings row yet; the first save writes the pair
+#: down, and from then on the stored values are the truth — a model the
+#: user removes stays removed, like any other default on the page.
+DEFAULT_PROVIDER = "gemini"
+
 #: Data-source keys a user may override, in display order.
 DATA_KEY_NAMES = tuple(DATA_KEY_ENV)
 
@@ -70,6 +96,17 @@ _MASK_VISIBLE = 4
 
 def catalog() -> List[Dict[str, str]]:
     return [choice.__dict__.copy() for choice in MODEL_CATALOG]
+
+
+def provider_defaults() -> Dict[str, Dict[str, str]]:
+    """``{provider: {"main": id, "sub": id}}`` — what picking a provider
+    fills the two model fields with."""
+    return {provider: pair.__dict__.copy() for provider, pair in PROVIDER_DEFAULTS.items()}
+
+
+def _starting_pair() -> ModelPair:
+    """What an account without a settings row is on."""
+    return PROVIDER_DEFAULTS[DEFAULT_PROVIDER]
 
 
 def model_rank(model_id: Optional[str]) -> Optional[int]:
@@ -175,9 +212,15 @@ def _view(row: Any) -> Dict[str, Any]:
         secret = decrypt_secret(token) if token else None
         return {"set": bool(secret), "hint": mask_secret(secret)}
 
+    if row is None:
+        main: Optional[str] = _starting_pair().main
+        sub: Optional[str] = _starting_pair().sub
+    else:
+        main = _listed(row.llm_model)
+        sub = _listed(row.llm_sub_model)
     return {
-        "llm_model": _listed(getattr(row, "llm_model", None)),
-        "llm_sub_model": _listed(getattr(row, "llm_sub_model", None)),
+        "llm_model": main,
+        "llm_sub_model": sub,
         "llm_api_key": key_view(_KEY_COLUMNS["llm"]),
         "data_keys": {
             name: key_view(_KEY_COLUMNS[name]) for name in DATA_KEY_NAMES
@@ -243,7 +286,18 @@ def save_user_settings(
     with _session() as session:
         row = session.get(UserSettingsRecord, int(user_id))
         if row is None:
-            row = UserSettingsRecord(user_id=int(user_id))
+            # The first save writes the starting pair down, so a key
+            # saved on its own does not lose the models the page showed.
+            # A first save that picks a model is a choice already — the
+            # pair would only get in its way (a sub model from another
+            # provider than the one picked). Clearing one is not a pick:
+            # the other half of the pair stays, as on the page.
+            picks_a_model = bool(updates.get("llm_model") or updates.get("llm_sub_model"))
+            row = UserSettingsRecord(
+                user_id=int(user_id),
+                llm_model=None if picks_a_model else _starting_pair().main,
+                llm_sub_model=None if picks_a_model else _starting_pair().sub,
+            )
             session.add(row)
         # Checked on the merged result, so a sub model saved on its own
         # still has to match the main model already stored.
@@ -266,7 +320,9 @@ def run_settings_for(user_id: int) -> RunSettings:
     with _session() as session:
         row = session.get(UserSettingsRecord, int(user_id))
         if row is None:
-            return RunSettings()
+            return RunSettings(
+                llm_model=_starting_pair().main, llm_sub_model=_starting_pair().sub,
+            )
         data_keys = {}
         for name in DATA_KEY_NAMES:
             secret = decrypt_secret(getattr(row, _KEY_COLUMNS[name]))

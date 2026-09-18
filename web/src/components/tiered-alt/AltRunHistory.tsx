@@ -383,6 +383,7 @@ export const AltRunHistory = ({
       <div className={FILTER_GRID}>
         <AltSelect
           label={t('tiered.altForm.ticker')}
+          tone={filters.tickers.length > 0 ? TONE.ticker : undefined}
           options={knownTickers.map((value) => ({ value, label: value }))}
           selected={filters.tickers}
           placeholder={t('tiered.altFilter.tickerPh')}
@@ -391,6 +392,7 @@ export const AltRunHistory = ({
         />
         <AltPairField
           label={t('tiered.altFilter.capital')}
+          tone={filters.capitalMin || filters.capitalMax ? TONE.capital : undefined}
           start={{
             placeholder: t('tiered.altFilter.min'),
             inputMode: 'decimal',
@@ -406,6 +408,7 @@ export const AltRunHistory = ({
         />
         <AltPairField
           label={t('tiered.altFilter.risk')}
+          tone={filters.riskMin || filters.riskMax ? TONE.risk : undefined}
           start={{
             placeholder: t('tiered.altFilter.min'),
             inputMode: 'decimal',
@@ -421,6 +424,7 @@ export const AltRunHistory = ({
         />
         <AltPairField
           label={t('tiered.altFilter.reward')}
+          tone={filters.rewardMin || filters.rewardMax ? TONE.reward : undefined}
           start={{
             placeholder: t('tiered.altFilter.min'),
             inputMode: 'decimal',
@@ -436,6 +440,7 @@ export const AltRunHistory = ({
         />
         <AltSelect
           label={t('tiered.altForm.hold')}
+          tone={filters.holds.length > 0 ? TONE.hold : undefined}
           options={FILTER_HOLDS.map((value) => ({ value, label: value }))}
           selected={filters.holds}
           placeholder={t('tiered.altFilter.holdPh')}
@@ -444,6 +449,7 @@ export const AltRunHistory = ({
         />
         <AltSelect
           label={t('tiered.altFilter.tier')}
+          tone={filters.tiers.length > 0 ? TONE.tier : undefined}
           options={FILTER_TIERS.map((value) => ({
             value,
             label: t(`tiered.altForm.tierOption${value}` as UiTextKey),
@@ -455,6 +461,7 @@ export const AltRunHistory = ({
         />
         <AltSelect
           label={t('tiered.altFilter.status')}
+          tone={filters.statuses.length > 0 ? TONE.status : undefined}
           options={FILTER_STATUSES.map((value) => ({
             value,
             label: t(`tiered.status.${value}` as UiTextKey),
@@ -466,6 +473,7 @@ export const AltRunHistory = ({
         />
         <AltSelect
           label={t('tiered.altFilter.outlook')}
+          tone={filters.outlooks.length > 0 ? TONE.outlook : undefined}
           options={FILTER_OUTLOOKS.map((value) => ({
             value,
             label: outlookOptionLabel(value, t),
@@ -477,6 +485,7 @@ export const AltRunHistory = ({
         />
         <AltPairField
           label={t('tiered.altFilter.date')}
+          tone={filters.dateMin || filters.dateMax ? TONE.date : undefined}
           start={{
             placeholder: t('tiered.altFilter.min'),
             validate: isValidDay,

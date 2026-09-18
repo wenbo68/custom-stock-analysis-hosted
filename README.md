@@ -28,9 +28,12 @@ This repo is the hosted, many-user version of the app (split from the self-host 
 - **Your own keys.** The user block above New Run holds each user's
   model choice (a curated list) and their LLM key, plus optional
   Finnhub / AlphaVantage / FRED keys that override the server's
-  defaults. Keys are encrypted at rest (`APP_ENCRYPTION_KEY`) and only
-  ever shown back masked. A run refuses to start until a model and key
-  are on file.
+  defaults. A fresh account starts on the forward-tested Gemini pair
+  (3.8 Flash for the analysis, 3.5 Flash-Lite for the news screen);
+  picking a provider puts both models on that provider's default pair
+  (`PROVIDER_DEFAULTS` in `src/user_settings.py`). Keys are encrypted
+  at rest (`APP_ENCRYPTION_KEY`) and only ever shown back masked. A
+  run refuses to start until a model and key are on file.
 - **Private history.** Runs belong to the user who started them; the
   list, detail and transcript routes only show your own.
 - **Postgres.** Set `DATABASE_URL` (Neon, Railway, ...) — hosts wipe

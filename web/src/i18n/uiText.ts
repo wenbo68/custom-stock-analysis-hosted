@@ -282,7 +282,7 @@ const zh = {
   'tiered.pill.finnhubKey': 'FinnHub 密钥: {value}',
   'tiered.pill.alphavantageKey': 'AlphaVantage 密钥: {value}',
   'tiered.help.llmProvider':
-    'AI 由哪家公司提供。\n选定后只列出该公司的模型。\n点击标题打开它的密钥页面。',
+    'AI 由哪家公司提供。\n选定后两个模型字段会填入该公司的默认模型，且只列出它的模型。\n点击标题打开它的密钥页面。',
   'tiered.help.mainLlm': '负责分析的模型。\n越强的模型每次运行费用越高。',
   'tiered.help.subLlm':
     '可选：用更便宜的模型做新闻筛选（判断一篇新闻是否与公司相关）。\n须与主 LLM 同一提供商。\n留空则由主 LLM 完成。',
@@ -861,7 +861,7 @@ const en: Record<UiTextKey, string> = {
   'tiered.pill.finnhubKey': 'FinnHub key: {value}',
   'tiered.pill.alphavantageKey': 'AlphaVantage key: {value}',
   'tiered.help.llmProvider':
-    'The company whose AI answers your runs.\nPicking one narrows the model lists to its models.\nClick the title to open its key page.',
+    'The company whose AI answers your runs.\nPicking one fills both model fields with its defaults and narrows the lists to its models.\nClick the title to open its key page.',
   'tiered.help.mainLlm': 'The model that does the analysis.\nStronger models cost more per run.',
   'tiered.help.subLlm':
     'Optional: a cheaper model for the news screen (is this article about the company?).\nMust be from the same provider as the main LLM.\nEmpty = the main LLM does it.',

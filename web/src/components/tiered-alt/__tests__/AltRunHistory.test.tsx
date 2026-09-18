@@ -44,6 +44,11 @@ function renderHistory(overrides: Partial<AltRunHistoryProps> = {}) {
 const minBoxes = () => screen.getAllByPlaceholderText(/^下限$|^Min$/);
 const DATE_MIN = 3;
 
+// A filter's title: the bold span above its control (the table has
+// column headers with the same words).
+const titleOf = (text: RegExp) =>
+  screen.getAllByText(text).find((el) => el.classList.contains('font-semibold')) as HTMLElement;
+
 describe('AltRunHistory', () => {
   it('shows a queued row with its place in line and explains it when expanded', () => {
     renderHistory({
@@ -367,5 +372,23 @@ describe('AltRunHistory', () => {
     fireEvent.click(screen.getByRole('button', { name: /MSFT/ }));
     expect(props.onToggle).toHaveBeenCalledWith('t1');
     expect(screen.getByText('LLM quota exhausted')).toBeInTheDocument();
+  });
+
+  it("colors a set filter's title like its pill and leaves the others gray", () => {
+    renderHistory({ runs: [makeRun('t1', { stock_code: 'MSFT' })] });
+    expect(titleOf(/^Capital$|^本金$/)).toHaveClass('text-gray-300');
+
+    // one end of a range is enough to count as set
+    fireEvent.change(minBoxes()[0], { target: { value: '50000' } });
+    fireEvent.keyDown(minBoxes()[0], { key: 'Enter' });
+    expect(titleOf(/^Capital$|^本金$/)).toHaveClass('text-orange-300');
+
+    fireEvent.focus(screen.getByLabelText(/^Status$|^状态$/));
+    fireEvent.click(screen.getByRole('button', { name: /^Done$|^已完成$/ }));
+    expect(titleOf(/^Status$|^状态$/)).toHaveClass('text-blue-300');
+    // removing the pill grays the title again
+    fireEvent.click(screen.getByRole('button', { name: /(Status|状态): (Done|已完成)/ }));
+    expect(titleOf(/^Status$|^状态$/)).toHaveClass('text-gray-300');
+    expect(titleOf(/^Ticker$|^代码$/)).toHaveClass('text-gray-300');
   });
 });

@@ -38,6 +38,12 @@ export const ALT_COLOR = {
   gray: 'bg-gray-500/20 text-gray-300 ring-gray-500/30',
 } as const;
 
+// The text color alone out of a pill tone, for a field title that turns
+// the pill's color while a value is committed (owner request 2026-09-18):
+// a colored title means "this filter is set", a gray one means it is not.
+export const toneText = (tone: string): string =>
+  tone.split(' ').find((token) => token.startsWith('text-')) ?? '';
+
 // One line of a formula block (words / plugged-in / result): same element,
 // font and spacing on every line, never wrapping. Colors match the shared
 // modal contract in AltUi (body gray-300, emphasis gray-200 semibold).

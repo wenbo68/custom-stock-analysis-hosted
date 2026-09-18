@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { TAG_BASE } from './altStyles';
+import { TAG_BASE, toneText } from './altStyles';
 
 // Write-only form controls in the showplayer style: what the user picks or
 // types never stays in the field — it becomes a removable pill below the
@@ -15,19 +15,25 @@ export interface AltSelectOption {
 
 interface AltFieldShellProps {
   label: ReactNode;
+  /** The pill tone of a committed value; while set, the title takes
+   *  the pill's text color so a set filter stands out from an unset
+   *  (gray) one. */
+  tone?: string;
   children: ReactNode;
 }
 
 // A labeled form column, showplayer-style: bold label above the control.
-const AltFieldShell = ({ label, children }: AltFieldShellProps) => (
+const AltFieldShell = ({ label, tone, children }: AltFieldShellProps) => (
   <div className="flex w-full flex-col gap-2">
-    <span className="font-semibold text-gray-300">{label}</span>
+    <span className={cn('font-semibold', tone ? toneText(tone) : 'text-gray-300')}>{label}</span>
     {children}
   </div>
 );
 
 interface AltSelectProps {
   label: ReactNode;
+  /** See AltFieldShell: the committed value's pill tone, for the title. */
+  tone?: string;
   options: AltSelectOption[];
   /** Committed value(s) — highlighted in the dropdown; clicking a
    *  highlighted option again is how the parent gets asked to clear it
@@ -50,6 +56,7 @@ interface AltSelectProps {
 // chevron, opening a flat dropdown panel underneath.
 export const AltSelect = ({
   label,
+  tone,
   options,
   selected,
   placeholder,
@@ -99,7 +106,7 @@ export const AltSelect = ({
   };
 
   return (
-    <AltFieldShell label={label}>
+    <AltFieldShell label={label} tone={tone}>
       <div ref={containerRef} className="relative">
         <div className="flex w-full items-center rounded bg-gray-800">
           <input
@@ -207,13 +214,15 @@ export const AltCommitInput = ({
 
 interface AltPairFieldProps {
   label: ReactNode;
+  /** See AltFieldShell: the pill tone while either end is committed. */
+  tone?: string;
   start: AltCommitInputProps;
   end: AltCommitInputProps;
 }
 
 // A labeled min/max (or start/end) pair — two commit boxes on one row.
-export const AltPairField = ({ label, start, end }: AltPairFieldProps) => (
-  <AltFieldShell label={label}>
+export const AltPairField = ({ label, tone, start, end }: AltPairFieldProps) => (
+  <AltFieldShell label={label} tone={tone}>
     <div className="flex w-full items-center gap-2">
       <AltCommitInput {...start} />
       <AltCommitInput {...end} />
@@ -223,11 +232,13 @@ export const AltPairField = ({ label, start, end }: AltPairFieldProps) => (
 
 interface AltTextFieldProps extends AltCommitInputProps {
   label: ReactNode;
+  /** See AltFieldShell: the committed value's pill tone, for the title. */
+  tone?: string;
 }
 
 // A single labeled commit box (no dropdown).
-export const AltTextField = ({ label, ...input }: AltTextFieldProps) => (
-  <AltFieldShell label={label}>
+export const AltTextField = ({ label, tone, ...input }: AltTextFieldProps) => (
+  <AltFieldShell label={label} tone={tone}>
     <AltCommitInput {...input} />
   </AltFieldShell>
 );
