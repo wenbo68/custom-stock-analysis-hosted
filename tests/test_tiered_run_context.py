@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline tests for per-run settings (public-server work, 2026-09-14):
+"""Offline tests for per-run settings (hosted-app work, 2026-09-14):
 a run's own model and keys beat the environment, reach litellm
 explicitly, ride into worker threads with the tracker, and never touch
 the process environment."""

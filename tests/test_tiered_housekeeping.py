@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline tests for the public-server storage work (2026-09-14):
+"""Offline tests for the hosted-app storage work (2026-09-14):
 
 - DATABASE_URL (hosted Postgres) beats the sqlite path, with the driver
   spelled out the way SQLAlchemy needs it;

@@ -19,9 +19,9 @@ run history.
 - `scripts/run_tiered_analysis.py` — one-off CLI run
 - `tests/` — offline test suite
 
-## Public server
+## Hosted version
 
-The app can be hosted for many users (public-server branch, 2026-09-14):
+This repo is the hosted, many-user version of the app (split from the self-host repo on 2026-09-18):
 
 - **Sign-in** with Google or Discord (`GOOGLE_*` / `DISCORD_*` client
   credentials, `SESSION_SECRET` for the login cookie). Every run route

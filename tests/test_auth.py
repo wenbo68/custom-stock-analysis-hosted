@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline tests for sign-in (public-server work, 2026-09-14).
+"""Offline tests for sign-in (hosted-app work, 2026-09-14).
 
 The OAuth provider is faked at the seam the routes use
 (``api.auth.providers.get_provider``): a fake that redirects to a

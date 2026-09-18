@@ -136,7 +136,7 @@ class TieredRunRecord(Base):
     #: JSON, recorded at creation so history rows can show them while the
     #: run is still in flight (owner decision 2026-07-24).
     inputs_json = Column(Text)
-    #: The signed-in user who started the run (public server); NULL on
+    #: The signed-in user who started the run (hosted app); NULL on
     #: rows from before accounts existed, which no one can see.
     owner_user_id = Column(Integer, index=True)
     #: Run reuse (2026-09-17): the trading day the run analyses — the

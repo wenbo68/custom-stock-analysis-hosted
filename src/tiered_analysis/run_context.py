@@ -2,7 +2,7 @@
 """Per-run settings: which model answers, whose key pays, which data keys
 the report cards may use.
 
-On the public server every run belongs to a signed-in user who brings
+On the hosted app every run belongs to a signed-in user who brings
 their own LLM key and may bring their own data-source keys. Those must
 never be written into the process environment — every concurrent run
 would see them — so they ride on the run's ``LlmUsageTracker``, which

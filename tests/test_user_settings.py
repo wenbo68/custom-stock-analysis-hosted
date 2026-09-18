@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline tests for user settings (public-server work, 2026-09-14):
+"""Offline tests for user settings (hosted-app work, 2026-09-14):
 the curated model list, Fernet-encrypted keys that only come back
 masked, and the settings API."""
 from __future__ import annotations
