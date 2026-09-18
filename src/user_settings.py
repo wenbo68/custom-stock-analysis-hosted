@@ -2,7 +2,7 @@
 """Each user's own keys and model choice (the ``user_settings`` table).
 
 Keys are encrypted at rest with Fernet (symmetric: one server secret,
-``APP_ENCRYPTION_KEY``, both locks and unlocks) and only ever shown back
+``API_KEY_ENCRYPTION_KEY``, both locks and unlocks) and only ever shown back
 masked. The model comes from a short curated list: the prompts were
 tuned on these, structured-output support is known for them, and the
 key must match the model's provider.
@@ -17,7 +17,7 @@ from src.tiered_analysis.run_context import DATA_KEY_ENV, RunSettings
 
 
 class EncryptionNotConfigured(RuntimeError):
-    """``APP_ENCRYPTION_KEY`` is missing or malformed."""
+    """``API_KEY_ENCRYPTION_KEY`` is missing or malformed."""
 
 
 class UnknownModel(ValueError):
@@ -160,15 +160,15 @@ def _listed(model_id: Optional[str]) -> Optional[str]:
 def _fernet():
     from cryptography.fernet import Fernet
 
-    raw = (os.getenv("APP_ENCRYPTION_KEY") or "").strip()
+    raw = (os.getenv("API_KEY_ENCRYPTION_KEY") or "").strip()
     if not raw:
         raise EncryptionNotConfigured(
-            "APP_ENCRYPTION_KEY is not set; the server cannot store keys"
+            "API_KEY_ENCRYPTION_KEY is not set; the server cannot store keys"
         )
     try:
         return Fernet(raw.encode("utf-8"))
     except Exception as exc:
-        raise EncryptionNotConfigured(f"APP_ENCRYPTION_KEY is malformed: {exc}") from exc
+        raise EncryptionNotConfigured(f"API_KEY_ENCRYPTION_KEY is malformed: {exc}") from exc
 
 
 def encrypt_secret(value: str) -> str:

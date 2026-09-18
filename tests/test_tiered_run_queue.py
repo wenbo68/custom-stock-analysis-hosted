@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Offline tests for the global run queue (2026-09-15).
 
-At most TIERED_MAX_CONCURRENT_RUNS runs execute at once; the rest wait
+At most MAX_CONCURRENT_RUNS runs execute at once; the rest wait
 as ``queued`` rows and start first come, first served. The line lives in
 the database so a restart resumes it. Uses the repo-standard isolated
 sqlite fixture; runners are fakes gated on threading events.

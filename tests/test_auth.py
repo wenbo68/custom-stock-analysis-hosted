@@ -234,7 +234,7 @@ class TestSessionSettings:
         assert session.cookie_is_https_only() is False
 
     def test_missing_session_secret_gets_a_random_one(self, monkeypatch):
-        monkeypatch.delenv("SESSION_SECRET", raising=False)
+        monkeypatch.delenv("AUTH_SECRET", raising=False)
         assert len(session.session_secret()) > 32
-        monkeypatch.setenv("SESSION_SECRET", "fixed")
+        monkeypatch.setenv("AUTH_SECRET", "fixed")
         assert session.session_secret() == "fixed"

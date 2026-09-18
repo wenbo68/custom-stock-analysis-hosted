@@ -13,7 +13,7 @@ list and detail routes only ever show the caller's runs.
 
 Run queue (2026-09-15): a new run is stored ``queued`` and the global
 queue (src/tiered_analysis/run_queue.py) starts it when one of the
-``TIERED_MAX_CONCURRENT_RUNS`` slots is free. An exact duplicate of the
+``MAX_CONCURRENT_RUNS`` slots is free. An exact duplicate of the
 caller's own unfinished run (same ticker and inputs) is refused with a
 409 naming that run, so a double click never pays twice.
 

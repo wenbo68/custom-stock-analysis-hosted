@@ -23,7 +23,7 @@ run history.
 This repo is the hosted, many-user version of the app (split from the self-host repo on 2026-09-18):
 
 - **Sign-in** with Google or Discord (`GOOGLE_*` / `DISCORD_*` client
-  credentials, `SESSION_SECRET` for the login cookie). Every run route
+  credentials, `AUTH_SECRET` for the login cookie). Every run route
   requires a signed-in user.
 - **Your own keys.** The user block above New Run holds each user's
   model choice (a curated list) and their LLM key, plus optional
@@ -32,7 +32,7 @@ This repo is the hosted, many-user version of the app (split from the self-host 
   (3.8 Flash for the analysis, 3.5 Flash-Lite for the news screen);
   picking a provider puts both models on that provider's default pair
   (`PROVIDER_DEFAULTS` in `src/user_settings.py`). Keys are encrypted
-  at rest (`APP_ENCRYPTION_KEY`) and only ever shown back masked. A
+  at rest (`API_KEY_ENCRYPTION_KEY`) and only ever shown back masked. A
   run refuses to start until a model and key are on file.
 - **Private history.** Runs belong to the user who started them; the
   list, detail and transcript routes only show your own.
@@ -43,7 +43,7 @@ This repo is the hosted, many-user version of the app (split from the self-host 
   passes `PORT`, and trusts forwarded headers so OAuth callbacks stay
   https. Set `PUBLIC_BASE_URL` to the site's address. A restart marks
   any run still in flight as failed (runs are in-process threads).
-- **Run queue.** At most `TIERED_MAX_CONCURRENT_RUNS` analyses (default
+- **Run queue.** At most `MAX_CONCURRENT_RUNS` analyses (default
   2) run at once across all users; the rest wait in line and start by
   themselves, and a restart resumes whatever was still waiting. Your
   own unfinished run with the same ticker and inputs cannot be started

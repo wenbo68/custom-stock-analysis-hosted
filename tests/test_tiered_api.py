@@ -83,7 +83,7 @@ def open_clock_gate(monkeypatch):
 def encryption_key(monkeypatch):
     from cryptography.fernet import Fernet
 
-    monkeypatch.setenv("APP_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("API_KEY_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 
 def _signed_in_client(user):
@@ -533,7 +533,7 @@ class TestAccessControl:
         assert bare.get("/tiered/runs").json() == {"items": []}
 
     def test_missing_encryption_key_is_a_clear_503(self, user, monkeypatch):
-        monkeypatch.delenv("APP_ENCRYPTION_KEY")
+        monkeypatch.delenv("API_KEY_ENCRYPTION_KEY")
         response = _signed_in_client(user).post("/tiered/analyze", json={"stock_code": "AAPL"})
         assert response.status_code == 503
         assert response.json()["detail"]["error"] == "encryption_not_configured"
@@ -555,7 +555,7 @@ class TestRunQueueEndpoint:
         return runner, release
 
     def test_second_run_past_the_cap_waits_then_runs(self, client, monkeypatch):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release = self._gated_runner()
         with patch.object(tiered, "_run_analysis", runner):
             first = client.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
@@ -575,7 +575,7 @@ class TestRunQueueEndpoint:
             assert _poll_until_done(client, second["task_id"])["status"] == "done"
 
     def test_exact_duplicate_of_an_unfinished_run_is_409(self, client, monkeypatch):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release = self._gated_runner()
         body = {"stock_code": "AAPL", "depth": 2, "hold_weeks": 3,
                 "sizing": {"capital": 50000, "risk_fraction": 0.02, "reward_risk": 2}}
@@ -607,7 +607,7 @@ class TestRunQueueEndpoint:
             assert client.post("/tiered/analyze", json=body).status_code == 202
 
     def test_duplicates_are_per_user(self, client, user, monkeypatch):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release = self._gated_runner()
         other = upsert_from_identity(Identity(provider="discord", subject="u2"))
         save_user_settings(other["id"], llm_model="openai/gpt-5.6-luna", llm_api_key="k")
@@ -622,7 +622,7 @@ class TestRunQueueEndpoint:
             _poll_until_done(_signed_in_client(other), theirs.json()["task_id"])
 
     def test_a_queued_run_reads_the_owners_key_when_it_starts(self, client, user, monkeypatch):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release = self._gated_runner()
         seen = {}
 
@@ -642,7 +642,7 @@ class TestRunQueueEndpoint:
     def test_a_queued_run_whose_owner_lost_their_key_fails_cleanly(
         self, client, user, monkeypatch
     ):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release = self._gated_runner()
         with patch.object(tiered, "_run_analysis", runner):
             client.post("/tiered/analyze", json={"stock_code": "AAPL"})
@@ -724,7 +724,7 @@ class TestRunReuseEndpoint:
     def test_a_running_run_parks_the_new_run_as_waiting_then_finishes_it(
         self, client, monkeypatch
     ):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release, calls = self._gated_runner()
         with patch.object(tiered, "_run_analysis", runner):
             first = client.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
@@ -763,7 +763,7 @@ class TestRunReuseEndpoint:
     def test_a_failed_source_sends_the_waiting_run_back_to_the_queue(
         self, client, monkeypatch
     ):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         release = threading.Event()
         calls = []
 
@@ -845,7 +845,7 @@ class TestRunReuseEndpoint:
     def test_an_exact_duplicate_of_ones_own_waiting_run_is_still_refused(
         self, client, monkeypatch
     ):
-        monkeypatch.setenv("TIERED_MAX_CONCURRENT_RUNS", "1")
+        monkeypatch.setenv("MAX_CONCURRENT_RUNS", "1")
         runner, release, calls = self._gated_runner()
         with patch.object(tiered, "_run_analysis", runner):
             client.post("/tiered/analyze", json={"stock_code": "AAPL"})

@@ -44,7 +44,7 @@ def isolated_db(tmp_path):
 
 @pytest.fixture()
 def encryption_key(monkeypatch):
-    monkeypatch.setenv("APP_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("API_KEY_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 
 @pytest.fixture()
@@ -87,10 +87,10 @@ class TestEncryption:
         assert user_settings.mask_secret(None) is None
 
     def test_missing_or_malformed_key_is_loud(self, monkeypatch):
-        monkeypatch.delenv("APP_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("API_KEY_ENCRYPTION_KEY", raising=False)
         with pytest.raises(user_settings.EncryptionNotConfigured):
             user_settings.encrypt_secret("x")
-        monkeypatch.setenv("APP_ENCRYPTION_KEY", "not-a-fernet-key")
+        monkeypatch.setenv("API_KEY_ENCRYPTION_KEY", "not-a-fernet-key")
         with pytest.raises(user_settings.EncryptionNotConfigured):
             user_settings.encrypt_secret("x")
 
@@ -258,7 +258,7 @@ class TestSettingsApi:
         assert body["llm_sub_model"] == "gemini/gemini-3.5-flash-lite"
 
     def test_missing_encryption_key_is_503(self, client, monkeypatch):
-        monkeypatch.delenv("APP_ENCRYPTION_KEY")
+        monkeypatch.delenv("API_KEY_ENCRYPTION_KEY")
         response = client.put("/settings/me", json={"llm_api_key": "k"})
         assert response.status_code == 503
         assert response.json()["detail"]["error"] == "encryption_not_configured"

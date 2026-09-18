@@ -129,7 +129,7 @@ class TestStartupHousekeeping:
         from src.user_settings import save_user_settings
         from src.users import upsert_from_identity
 
-        monkeypatch.setenv("APP_ENCRYPTION_KEY", Fernet.generate_key().decode())
+        monkeypatch.setenv("API_KEY_ENCRYPTION_KEY", Fernet.generate_key().decode())
         owner = upsert_from_identity(Identity(provider="google", subject="q"))
         save_user_settings(owner["id"], llm_model="gemini/gemini-3.8-flash",
                            llm_api_key="k")

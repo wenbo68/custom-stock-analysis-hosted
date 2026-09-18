@@ -309,12 +309,12 @@ describe('AltUserBlock signed in', () => {
 
   it('shows the save error instead of hiding it', async () => {
     vi.mocked(settingsApi.get).mockResolvedValue(freshSettings());
-    vi.mocked(settingsApi.update).mockRejectedValue(new Error('server has no APP_ENCRYPTION_KEY'));
+    vi.mocked(settingsApi.update).mockRejectedValue(new Error('server has no API_KEY_ENCRYPTION_KEY'));
     renderBlock({ user });
     await screen.findByText('Ada');
     fireEvent.focus(screen.getByPlaceholderText('Enter main LLM...'));
     fireEvent.click(screen.getByRole('button', { name: 'Gemini 3.5 Flash-Lite' }));
-    expect(await screen.findByText(/APP_ENCRYPTION_KEY/)).toBeInTheDocument();
+    expect(await screen.findByText(/API_KEY_ENCRYPTION_KEY/)).toBeInTheDocument();
   });
 
   it('signs out through the callback', async () => {

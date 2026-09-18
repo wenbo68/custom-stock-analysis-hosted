@@ -2,7 +2,7 @@
 """The signed session cookie and the "who is calling" dependencies.
 
 After sign-in the server stores only the user id in a cookie signed with
-``SESSION_SECRET`` (Starlette's SessionMiddleware, backed by
+``AUTH_SECRET`` (Starlette's SessionMiddleware, backed by
 itsdangerous). Signed means the server can tell the cookie was not
 tampered with; HttpOnly means page scripts cannot read it; SameSite=Lax
 means other sites cannot ride it on cross-site POSTs, which is the
@@ -25,14 +25,14 @@ _SESSION_USER_KEY = "user_id"
 
 
 def session_secret() -> str:
-    """``SESSION_SECRET`` from the environment. A missing secret gets a
+    """``AUTH_SECRET`` from the environment. A missing secret gets a
     random one (every restart signs everyone out) with a loud warning —
     fine on a laptop, wrong on the public host."""
-    secret = (os.getenv("SESSION_SECRET") or "").strip()
+    secret = (os.getenv("AUTH_SECRET") or "").strip()
     if secret:
         return secret
     logger.warning(
-        "SESSION_SECRET is not set — using a random secret; every restart "
+        "AUTH_SECRET is not set — using a random secret; every restart "
         "signs all users out. Set it on the public host."
     )
     return secrets.token_urlsafe(48)
