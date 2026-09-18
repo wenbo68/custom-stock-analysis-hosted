@@ -36,18 +36,18 @@ const DIMENSION_ORDER = [
   'technicals',
   'fundamentals',
   'positioning',
-  'macro_econ',
-  'company_events',
-  'world_events',
+  'macro_economy',
+  'company_news',
+  'world_news',
 ];
 
 const DIMENSION_LABEL_KEYS: Record<string, UiTextKey> = {
   technicals: 'tiered.dimension.technicals',
   fundamentals: 'tiered.dimension.fundamentals',
-  macro_econ: 'tiered.dimension.macro_econ',
+  macro_economy: 'tiered.dimension.macro_economy',
   positioning: 'tiered.dimension.positioning',
-  company_events: 'tiered.dimension.company_events',
-  world_events: 'tiered.dimension.world_events',
+  company_news: 'tiered.dimension.company_news',
+  world_news: 'tiered.dimension.world_news',
 };
 
 const CITATION_REF_RE = /^citation:(\d+)$/;

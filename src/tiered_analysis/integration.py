@@ -163,7 +163,7 @@ def _collect_dimensions(
 ) -> List[DimensionResult]:
     # Stage-label each provider's collection so its LLM calls (the news
     # screens) show under the dimension's name in llm_usage and the run
-    # transcript instead of pooling as "unattributed".
+    # transcript instead of pooling as "unknown".
     tracker = active_tracker()
     results: List[DimensionResult] = []
     for provider in providers:
@@ -408,7 +408,7 @@ def run_tiered_analysis(
             # judged against the same max hold time. No outlook
             # (LLM down, bad replies) → UNKNOWN direction, fail-loud
             # warnings, no fallback — same contract as the debate.
-            with tracker.stage("tier1_quick"):
+            with tracker.stage("tier1_analysis"):
                 quick = (quick_judge or QuickJudge()).run(
                     symbol, dimensions, hold_weeks=hold_weeks
                 )
@@ -450,7 +450,7 @@ def run_tiered_analysis(
 
         final = report
         if depth >= 2:
-            with tracker.stage("tier2_debate"):
+            with tracker.stage("tier2_analysis"):
                 final = (tier2_stage or Tier2Stage()).run(state)
             state.reports[2] = final
 
@@ -459,7 +459,7 @@ def run_tiered_analysis(
         # reasons, and produce the plan card's structured warnings.
         review = None
         if final.direction is Direction.BUY and bases.get("entry") is not None:
-            with tracker.stage("plan_adjust"):
+            with tracker.stage("trade_plan"):
                 review = review_plan(
                     symbol, dimensions, bases, final.direction, market,
                     sizing_settings,

@@ -16,7 +16,7 @@ const LONG_ABSTRACT =
 
 function makeEvents(overrides: Partial<TieredDimension> = {}): TieredDimension {
   return {
-    dimension: 'company_events',
+    dimension: 'company_news',
     kind: 'textual',
     is_actionable: false,
     narrative: null,
@@ -79,7 +79,7 @@ describe('AltDimensions — company news', () => {
 
   it('renders date | publisher header lines above full summary bullets', () => {
     renderEvents();
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(within(card).getByText('Company news')).toBeInTheDocument();
     // The card's horizon sits beside the title as the actual date span
     // fetched (owner format 2026-08-17, same as the world card).
@@ -108,9 +108,9 @@ describe('AltDimensions — company news', () => {
 
   it('lists numbered sources as links to the original articles', () => {
     renderEvents();
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(within(card).getByText('Sources')).toBeInTheDocument();
-    const sourceRow = document.getElementById('alt-src-company_events-2');
+    const sourceRow = document.getElementById('alt-src-company_news-2');
     expect(sourceRow).not.toBeNull();
     expect(within(sourceRow as HTMLElement).getByText('[2]')).toBeInTheDocument();
     const link = within(sourceRow as HTMLElement).getByRole('link');
@@ -121,7 +121,7 @@ describe('AltDimensions — company news', () => {
     renderEvents();
     const scrollSpy = vi.fn();
     window.HTMLElement.prototype.scrollIntoView = scrollSpy;
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     fireEvent.click(within(card).getByRole('button', { name: '[2]' }));
     expect(scrollSpy).toHaveBeenCalled();
   });
@@ -133,13 +133,13 @@ describe('AltDimensions — company news', () => {
         citations: [],
       }),
     );
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(within(card).getByText('None in the last 14 days')).toBeInTheDocument();
   });
 
   it('shows no underscore anywhere on the card (payload keys never leak)', () => {
     renderEvents();
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(card.textContent).not.toContain('_');
   });
 
@@ -158,7 +158,7 @@ describe('AltDimensions — company news', () => {
         },
       }),
     );
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(within(card).getByText(/Still-shown news bullet/)).toBeInTheDocument();
     // The deleted group no longer renders, even from old stored runs.
     expect(within(card).queryByText(/Old statements bullet/)).toBeNull();
@@ -167,7 +167,7 @@ describe('AltDimensions — company news', () => {
   it('renders the world-news card through the same events renderer', () => {
     renderEvents(
       makeEvents({
-        dimension: 'world_events',
+        dimension: 'world_news',
         payload: {
           news_coverage: {
             oldest: '2026-08-14',
@@ -192,7 +192,7 @@ describe('AltDimensions — company news', () => {
         ],
       }),
     );
-    const card = screen.getByTestId('alt-dimension-world_events');
+    const card = screen.getByTestId('alt-dimension-world_news');
     expect(within(card).getByText('World news')).toBeInTheDocument();
     // The honest horizon label beside the title: the feed has no date
     // range, so the card states the span it actually covered.
@@ -205,21 +205,21 @@ describe('AltDimensions — company news', () => {
     ).toBeInTheDocument();
     // Bullet [n] marks target this card's own source rows, not the
     // company card's.
-    const sourceRow = document.getElementById('alt-src-world_events-1');
+    const sourceRow = document.getElementById('alt-src-world_news-1');
     expect(sourceRow).not.toBeNull();
   });
 
   it('world card with an empty feed says so with the generic empty text', () => {
     renderEvents(
       makeEvents({
-        dimension: 'world_events',
+        dimension: 'world_news',
         payload: {
           news_coverage: { oldest: null, newest: null, items: [] },
         },
         citations: [],
       }),
     );
-    const card = screen.getByTestId('alt-dimension-world_events');
+    const card = screen.getByTestId('alt-dimension-world_news');
     expect(within(card).getByText('None found')).toBeInTheDocument();
   });
 
@@ -236,7 +236,7 @@ describe('AltDimensions — company news', () => {
         },
       }),
     );
-    const card = screen.getByTestId('alt-dimension-company_events');
+    const card = screen.getByTestId('alt-dimension-company_news');
     expect(
       within(card).getByText('Old-format bullet — Wire (2026-08-12)'),
     ).toBeInTheDocument();

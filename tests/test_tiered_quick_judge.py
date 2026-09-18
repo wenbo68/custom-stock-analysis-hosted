@@ -29,7 +29,7 @@ def _dims():
             payload={"rsi_14": 56.28},
         ),
         DimensionResult(
-            dimension="macro_econ",
+            dimension="macro_economy",
             kind=SourceKind.TEXTUAL,
             payload={"headline": "rates unchanged"},
         ),

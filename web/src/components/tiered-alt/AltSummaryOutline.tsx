@@ -14,9 +14,9 @@ const GROUPS: { key: keyof TieredSummaryStructure; labelKey: UiTextKey }[] = [
   { key: 'technicals', labelKey: 'tiered.dimension.technicals' },
   { key: 'fundamentals', labelKey: 'tiered.dimension.fundamentals' },
   { key: 'positioning', labelKey: 'tiered.dimension.positioning' },
-  { key: 'macro_econ', labelKey: 'tiered.dimension.macro_econ' },
-  { key: 'company_events', labelKey: 'tiered.dimension.company_events' },
-  { key: 'world_events', labelKey: 'tiered.dimension.world_events' },
+  { key: 'macro_economy', labelKey: 'tiered.dimension.macro_economy' },
+  { key: 'company_news', labelKey: 'tiered.dimension.company_news' },
+  { key: 'world_news', labelKey: 'tiered.dimension.world_news' },
 ];
 
 interface AltSummaryOutlineProps {

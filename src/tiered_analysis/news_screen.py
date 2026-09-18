@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """LLM news screen — the judgment stage of the company-news pipeline.
 
-The deterministic relevance filter (company_events.py) answers "does the
+The deterministic relevance filter (company_news.py) answers "does the
 article NAME the company?" — cheap, no AI, cuts the bulk junk. This
 stage answers what a keyword cannot, split into two LLM steps with
 opposite caching behavior:
@@ -65,7 +65,7 @@ Wired into the provider's collect() since 2026-08-15.
 
 Two prompt sets share these mechanics (``ScreenPrompts``,
 2026-08-16): ``COMPANY_PROMPTS`` (the default — per-company news, "is
-it about this company?") and ``WORLD_PROMPTS`` (the world_events
+it about this company?") and ``WORLD_PROMPTS`` (the world_news
 provider — general market/world news, "is it about the macro backdrop,
 and how much could it move the OVERALL market?").
 Everything below the prompt layer — judgment parsing, caching,
@@ -97,8 +97,9 @@ INCLUDE_THRESHOLD = 3
 
 #: The card's ceiling: when more bar-passing events exist, the rank
 #: call orders them and the top MAX_EVENTS survive. Never a target — a
-#: quiet week shows fewer, nothing is padded.
-MAX_EVENTS = 20
+#: quiet week shows fewer, nothing is padded. 20 -> 30 (owner decision
+#: 2026-09-18).
+MAX_EVENTS = 30
 
 #: One summary sentence may use at most this many words (prompt-level
 #: guidance; the model is not hard-truncated).
@@ -283,7 +284,7 @@ COMPANY_PROMPTS = ScreenPrompts(
     summarize=_SUMMARIZE_PROMPT,
 )
 
-#: The macro/world-backdrop lens (world_events provider).
+#: The macro/world-backdrop lens (world_news provider).
 WORLD_PROMPTS = ScreenPrompts(
     judge=_WORLD_JUDGE_PROMPT,
     answer_compact=_WORLD_ANSWER_COMPACT,
@@ -541,7 +542,7 @@ class NewsJudgmentCache:
     summary only when it wins a card slot, so most judged articles never
     have one (and a summary-only entry must never masquerade as a
     judgment). Corrupt or unwritable cache degrades to a cold cache,
-    never to a failed run (macro_econ cache convention).
+    never to a failed run (macro_economy cache convention).
     """
 
     version = 1

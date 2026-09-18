@@ -32,9 +32,9 @@ const WARN_KEYWORD_KEYS: Record<string, UiTextKey> = {
 // The macro events group's payload row + display-name key per warning
 // event tag.
 const MACRO_EVENT_REFS: Record<string, string> = {
-  rate_decision: 'macro_econ.events.next_rate_decision_date',
-  inflation_data: 'macro_econ.events.next_cpi_release_date',
-  employment_data: 'macro_econ.events.next_jobs_release_date',
+  rate_decision: 'macro_economy.events.next_rate_decision_date',
+  inflation_data: 'macro_economy.events.next_cpi_release_date',
+  employment_data: 'macro_economy.events.next_jobs_release_date',
 };
 const MACRO_EVENT_NAME_KEYS: Record<string, UiTextKey> = {
   rate_decision: 'tiered.alt.warnEvent.rate_decision',

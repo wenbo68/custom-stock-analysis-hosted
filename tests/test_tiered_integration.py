@@ -484,7 +484,7 @@ class TestPlanReviewAdjustments(unittest.TestCase):
         # gap warning recomputes off the trimmed count: 50 × (96−87) = 450
         gap = outcome.plan_warnings["stop_loss"][0]
         self.assertAlmostEqual(gap["values"]["atr_loss"], 450.0)
-        self.assertEqual(outcome.llm_usage["stages"].get("plan_adjust", {})
+        self.assertEqual(outcome.llm_usage["stages"].get("trade_plan", {})
                          .get("calls", 0), 0)  # fake summarizer records none
 
     def test_uncited_number_in_reason_drops_adjustment(self):
@@ -730,7 +730,7 @@ class TestMacroEventGateWarning(unittest.TestCase):
         from src.tiered_analysis.providers.technicals import make_metric
 
         return DimensionResult(
-            dimension="macro_econ", kind=SourceKind.NUMERIC,
+            dimension="macro_economy", kind=SourceKind.NUMERIC,
             payload={"events": {
                 key: make_metric(key, "x", value)
                 for key, value in events.items()

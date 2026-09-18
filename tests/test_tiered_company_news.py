@@ -11,9 +11,9 @@ from datetime import date
 from unittest import mock
 
 from src.tiered_analysis.providers.base import Market, SourceKind
-from src.tiered_analysis.providers import company_events
-from src.tiered_analysis.providers.company_events import (
-    CompanyEventsProvider,
+from src.tiered_analysis.providers import company_news
+from src.tiered_analysis.providers.company_news import (
+    CompanyNewsProvider,
     business_days_back,
     flatten_summary,
     mentions_company,
@@ -95,7 +95,7 @@ def news_fixture():
 
 def make_provider(news=None, screener=passthrough_screener):
     passthrough_screener.calls = []
-    return CompanyEventsProvider(
+    return CompanyNewsProvider(
         news_loader=lambda symbol: news if news is not None else news_fixture(),
         today=lambda: TODAY,
         # Offline: no yfinance name lookup; ticker + BRAND_ALIASES suffice.
@@ -215,18 +215,18 @@ class TestHelpers(unittest.TestCase):
 
     def test_default_loader_dispatches_on_finnhub_key(self):
         with mock.patch.object(
-            company_events, "_finnhub_news_loader", return_value=["finnhub"]
+            company_news, "_finnhub_news_loader", return_value=["finnhub"]
         ) as finnhub, mock.patch.object(
-            company_events, "_yahoo_news_loader", return_value=["yahoo"]
+            company_news, "_yahoo_news_loader", return_value=["yahoo"]
         ) as yahoo:
             with mock.patch.dict("os.environ", {"FINNHUB_API_KEY": "k"}):
                 self.assertEqual(
-                    company_events._default_news_loader("AAPL"), ["finnhub"]
+                    company_news._default_news_loader("AAPL"), ["finnhub"]
                 )
                 finnhub.assert_called_once_with("AAPL", "k")
             with mock.patch.dict("os.environ", {"FINNHUB_API_KEY": ""}):
                 self.assertEqual(
-                    company_events._default_news_loader("AAPL"), ["yahoo"]
+                    company_news._default_news_loader("AAPL"), ["yahoo"]
                 )
                 yahoo.assert_called_once_with("AAPL")
 
@@ -249,7 +249,7 @@ class TestCollect(unittest.TestCase):
     def test_full_run_windows_citations_and_fallback_bullets(self):
         result = make_provider().collect("AAPL")
 
-        self.assertEqual(result.dimension, "company_events")
+        self.assertEqual(result.dimension, "company_news")
         self.assertEqual(result.kind, SourceKind.TEXTUAL)
         self.assertIsNotNone(result.payload)  # no card-level grade anymore
         self.assertFalse(result.is_actionable)  # textual never feeds sizing
@@ -259,10 +259,10 @@ class TestCollect(unittest.TestCase):
         # length, so no window_days promise rides in the payload — the
         # card title shows the actual span instead (owner format
         # 2026-08-17, matching the world card). TODAY is Thursday
-        # 2026-08-13; 7 business days back lands on Wednesday
-        # 2026-08-05 (one weekend inside the span).
+        # 2026-08-13; 6 business days back lands on Thursday
+        # 2026-08-06 (one weekend inside the span).
         self.assertNotIn("window_days", news)
-        self.assertEqual(news["oldest"], "2026-08-05")
+        self.assertEqual(news["oldest"], "2026-08-06")
         self.assertEqual(news["newest"], "2026-08-13")
         self.assertEqual(
             [item["text"] for item in news["items"]],
@@ -385,13 +385,13 @@ class TestCollect(unittest.TestCase):
         def broken(symbol):
             raise RuntimeError("Yahoo down")
 
-        provider = CompanyEventsProvider(news_loader=broken, today=lambda: TODAY)
+        provider = CompanyNewsProvider(news_loader=broken, today=lambda: TODAY)
         result = provider.collect("AAPL")
         news = result.payload["news_coverage"]
         self.assertEqual(news["items"], [])
         # The window bounds are real dates, so the empty card still shows
-        # the span it covers (7 business days back from Thursday 08-13).
-        self.assertEqual(news["oldest"], "2026-08-05")
+        # the span it covers (6 business days back from Thursday 08-13).
+        self.assertEqual(news["oldest"], "2026-08-06")
         self.assertEqual(news["newest"], "2026-08-13")
         self.assertEqual(news["filtered_out"], 0)
         self.assertEqual(news["mention_only"], 0)

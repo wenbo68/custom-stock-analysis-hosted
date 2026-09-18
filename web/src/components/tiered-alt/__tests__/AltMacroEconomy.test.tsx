@@ -16,7 +16,7 @@ const env = (name: string, value: unknown) => ({
 // every field an envelope, diffs and trends carrying receipts.
 function makeMacro(): TieredDimension {
   return {
-    dimension: 'macro_econ',
+    dimension: 'macro_economy',
     kind: 'numeric',
     is_actionable: true,
     narrative: null,
@@ -98,7 +98,7 @@ describe('AltDimensions — macro econ v2', () => {
 
   it('renders the truth groups as titled sections without an Other bucket', () => {
     renderMacro();
-    const card = screen.getByTestId('alt-dimension-macro_econ');
+    const card = screen.getByTestId('alt-dimension-macro_economy');
     expect(within(card).getByText('Inflation')).toBeInTheDocument();
     expect(within(card).getByText('Employment')).toBeInTheDocument();
     expect(within(card).getByText('Interest rates')).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe('AltDimensions — macro econ v2', () => {
 
   it('labels the fields from metricLabels and shows units and trend words', () => {
     renderMacro();
-    const card = screen.getByTestId('alt-dimension-macro_econ');
+    const card = screen.getByTestId('alt-dimension-macro_economy');
     expect(within(card).getByText('Official interest rate')).toBeInTheDocument();
     expect(within(card).getByText('10y gov bond yield')).toBeInTheDocument();
     expect(

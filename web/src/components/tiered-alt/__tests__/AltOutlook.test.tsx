@@ -40,7 +40,7 @@ function makeOutlookResult(overrides: Partial<TieredResult> = {}): TieredResult 
     levels_detail: null,
     narrative: null,
     warnings: [],
-    dimensions: ['technicals', 'fundamentals', 'macro_econ', 'positioning'].map(makeDimension),
+    dimensions: ['technicals', 'fundamentals', 'macro_economy', 'positioning'].map(makeDimension),
     depth: 1,
     outlook: 'bullish',
     action: 'enter',
@@ -199,11 +199,11 @@ function makeRichDebate(): TieredDebateDetail {
   };
 }
 
-function renderResult(result: TieredResult, runDate?: Date | null) {
+function renderResult(result: TieredResult) {
   render(
     <MemoryRouter>
       <UiLanguageProvider>
-        <AltResult result={result} taskId="task-9" runDate={runDate} />
+        <AltResult result={result} taskId="task-9" />
       </UiLanguageProvider>
     </MemoryRouter>,
   );
@@ -212,7 +212,7 @@ function renderResult(result: TieredResult, runDate?: Date | null) {
 describe('AltResult outlook conclusion', () => {
   it('leads with outlook and action; enter keeps the full levels table', () => {
     renderResult(makeOutlookResult());
-    const conclusion = screen.getByTestId('alt-conclusion');
+    const conclusion = screen.getByTestId('alt-tier1');
     expect(conclusion).toHaveTextContent(/(展望|Outlook): (看多|Bullish)/);
     expect(conclusion).toHaveTextContent(/(操作|Action): (现在买入|Buy now)/);
     expect(screen.getByTestId('alt-levels-table')).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('AltResult outlook conclusion', () => {
 
   it('enter_later says buy later and keeps the full levels table', () => {
     renderResult(makeOutlookResult({ action: 'enter_later' }));
-    const conclusion = screen.getByTestId('alt-conclusion');
+    const conclusion = screen.getByTestId('alt-tier1');
     expect(conclusion).toHaveTextContent(/(操作|Action): (稍后再买|Buy later)/);
     expect(screen.getByTestId('alt-levels-table')).toBeInTheDocument();
   });
@@ -277,11 +277,11 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.queryByTestId('alt-structural-stop')).not.toBeInTheDocument();
   });
 
-  it('plan warnings stay off the conclusion card and vanish with the plan', () => {
+  it('plan warnings stay off the analysis card and vanish with the plan', () => {
     // Owner report 2026-08-09: a bearish run showed plan-level and
     // reward warnings outside the (hidden) plan card. Plan-flavored
-    // notes now live on the plan card only; the conclusion card carries
-    // the analysis/data notes (the preliminary card is gone).
+    // notes now live on the plan card only; the analysis card carries
+    // the analysis/data notes.
     renderResult(
       makeOutlookResult({
         outlook: 'bearish',
@@ -296,8 +296,7 @@ describe('AltResult outlook conclusion', () => {
       }),
     );
     expect(screen.queryByTestId('alt-plan')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('alt-tier1')).not.toBeInTheDocument();
-    const conclusion = screen.getByTestId('alt-conclusion');
+    const conclusion = screen.getByTestId('alt-tier1');
     fireEvent.click(within(conclusion).getByTestId('alt-notes-button'));
     const dialog = screen.getByRole('dialog');
     // The analysis note stays; both plan notes are gone with the plan.
@@ -315,7 +314,7 @@ describe('AltResult outlook conclusion', () => {
         warnings: ['no usable ATR — no volatility stop, and no target without a stop'],
       }),
     );
-    const conclusion = screen.getByTestId('alt-conclusion');
+    const conclusion = screen.getByTestId('alt-tier1');
     expect(within(conclusion).queryByTestId('alt-notes-button')).not.toBeInTheDocument();
   });
 
@@ -329,7 +328,7 @@ describe('AltResult outlook conclusion', () => {
     // Owner request 2026-08-09: the conclusion is outlook + action only;
     // the max hold shows as its own run-history column instead.
     renderResult(makeOutlookResult({ hold_weeks: 3 }));
-    const conclusion = screen.getByTestId('alt-conclusion');
+    const conclusion = screen.getByTestId('alt-tier1');
     expect(conclusion).not.toHaveTextContent(/(最长持有|Max hold)/);
   });
 
@@ -379,16 +378,31 @@ describe('AltResult outlook conclusion', () => {
     expect(screen.queryByTestId('alt-earnings-warning')).not.toBeInTheDocument();
   });
 
-  it('notes a report from a previous trading day; a same-day run has no note', () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    renderResult(makeOutlookResult(), yesterday);
-    expect(screen.getByTestId('alt-stale-note')).toHaveTextContent(/重跑|re-run/);
+  it('carries no previous-day note itself (that lives on the history row date)', () => {
+    renderResult(makeOutlookResult());
+    expect(screen.queryByTestId('alt-stale-note')).not.toBeInTheDocument();
+    expect(screen.queryByText(/重跑|re-run/)).not.toBeInTheDocument();
   });
 
-  it('a same-day run has no staleness note', () => {
-    renderResult(makeOutlookResult(), new Date());
-    expect(screen.queryByTestId('alt-stale-note')).not.toBeInTheDocument();
+  it('a depth-1 run shows the preliminary-analysis card with outlook and action, no conclusion card', () => {
+    renderResult(makeOutlookResult());
+    expect(screen.getByText(/^(初步分析|Preliminary analysis)$/)).toBeInTheDocument();
+    expect(screen.queryByTestId('alt-conclusion')).not.toBeInTheDocument();
+    const card = screen.getByTestId('alt-tier1');
+    expect(card).toHaveTextContent(/(展望|Outlook): (看多|Bullish)/);
+    expect(card).toHaveTextContent(/(操作|Action): (现在买入|Buy now)/);
+  });
+
+  it('a depth-2 run puts the action on the deep-analysis card, after the score', () => {
+    renderResult(makeOutlookResult({ depth: 2, tier2: makeTier2(makeWeightedDebate()) }));
+    expect(screen.queryByTestId('alt-tier1')).not.toBeInTheDocument();
+    const card = screen.getByTestId('alt-tier2');
+    const text = card.textContent ?? '';
+    expect(text).toMatch(/(操作|Action): (现在买入|Buy now)/);
+    const scoreAt = text.search(/(评分|Score): /);
+    const actionAt = text.search(/(操作|Action): /);
+    expect(scoreAt).toBeGreaterThan(-1);
+    expect(actionAt).toBeGreaterThan(scoreAt);
   });
 
 });
@@ -483,7 +497,7 @@ describe('AltResult weighted vote formula', () => {
                   children: [],
                 },
               ],
-              macro_econ: [],
+              macro_economy: [],
             },
           },
         },

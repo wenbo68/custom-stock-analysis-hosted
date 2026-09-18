@@ -85,7 +85,7 @@ def _deep_result(outlook="bullish"):
         "symbol": "AAPL", "market": "us", "depth": 2, "outlook": outlook,
         "direction": "unknown", "narrative": None, "debate_detail": None,
         "final": {"tier": 2, "direction": "buy"},
-        "dimensions": [_dimension(), _dimension("company_events", "textual")],
+        "dimensions": [_dimension(), _dimension("company_news", "textual")],
         "tier2": {"tier": 2, "direction": "buy", "narrative": "bull case holds",
                   "warnings": ["a debate note"],
                   "debate_detail": {"format": 11, "outlook": {"direction": "buy"}}},
@@ -124,7 +124,7 @@ class TestReusableResult:
 class TestDimensionsRoundTrip:
     def test_stored_dimensions_become_dataclasses(self):
         dims = dimensions_from_result(_deep_result())
-        assert [d.dimension for d in dims] == ["technicals", "company_events"]
+        assert [d.dimension for d in dims] == ["technicals", "company_news"]
         assert dims[0].kind is SourceKind.NUMERIC
         assert dims[0].payload == {"trend": {"close": 100.0}}
         assert dims[0].warnings == ["one note"]
@@ -143,7 +143,7 @@ class TestReuseKit:
     def test_deep_result_yields_a_tier2_stand_in(self):
         kit = reuse_kit(_deep_result())
         assert kit.depth == 2 and kit.quick_judge is None
-        assert [p.dimension for p in kit.providers] == ["technicals", "company_events"]
+        assert [p.dimension for p in kit.providers] == ["technicals", "company_news"]
         foundation = TierReport(
             tier=1, symbol="AAPL", market=Market.US, direction=Direction.UNKNOWN,
             levels=SniperLevels(entry=100.0, stop_loss=95.0, take_profit=110.0),

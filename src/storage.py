@@ -13,9 +13,10 @@ A股自选股智能分析系统 - 存储层
 
 import atexit
 import logging
+import re
 import threading
 from datetime import datetime, timezone
-from typing import Optional, TypeVar
+from typing import Dict, Optional, TypeVar
 
 from sqlalchemy import (
     create_engine,
@@ -44,6 +45,49 @@ from src.config import get_config
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 CURRENT_SCHEMA_VERSION = "2026-06-05-create-all-baseline"
+
+#: Stored-name rewrite (owner decision 2026-09-17): the identifiers the
+#: code uses for data reports and run steps now read like their UI
+#: labels (macro_economy, company_news, world_news; tier1_analysis,
+#: tier2_analysis, trade_plan, unknown). Runs stored under the old
+#: names are rewritten once at startup so the page keeps recognising
+#: them; this version string in schema_migrations marks that it ran.
+RENAME_MIGRATION_VERSION = "2026-09-18-rename-dimensions-and-stages"
+RENAMED_DIMENSIONS: Dict[str, str] = {
+    "macro_econ": "macro_economy",
+    "company_events": "company_news",
+    "world_events": "world_news",
+}
+RENAMED_STAGES: Dict[str, str] = {
+    "tier1_quick": "tier1_analysis",
+    "tier2_debate": "tier2_analysis",
+    "plan_adjust": "trade_plan",
+    "unattributed": "unknown",
+    # One-day intermediate names (2026-09-17) a database may have been
+    # rewritten to before the final choice.
+    "conclusion_tier1": "tier1_analysis",
+    "conclusion_tier2": "tier2_analysis",
+}
+# A dimension name appears in stored JSON as a quoted key/value
+# ("macro_econ") or as the head of a dotted evidence ref
+# ("macro_econ.cpi", "company_events.news_coverage.items.3.text").
+_DIMENSION_NAME_RE = re.compile(
+    '"(' + "|".join(map(re.escape, RENAMED_DIMENSIONS)) + ')(?=["."])'
+)
+_STAGE_NAME_RE = re.compile(
+    '"(' + "|".join(map(re.escape, RENAMED_STAGES)) + ')"'
+)
+
+
+def rename_stored_identifiers(result_json: str) -> str:
+    """Rewrite a stored run's JSON text from the pre-2026-09-17 names to
+    the current ones. Idempotent: the new names match nothing here."""
+    renamed = _DIMENSION_NAME_RE.sub(
+        lambda m: '"' + RENAMED_DIMENSIONS[m.group(1)], result_json
+    )
+    return _STAGE_NAME_RE.sub(
+        lambda m: '"' + RENAMED_STAGES[m.group(1)] + '"', renamed
+    )
 
 # SQLAlchemy ORM 基类
 Base = declarative_base()
@@ -269,6 +313,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             self._ensure_column(TieredRunRecord.__tablename__, "source_task_id", "VARCHAR(64)")
             self._ensure_column(UserSettingsRecord.__tablename__, "llm_sub_model", "VARCHAR(128)")
             self._ensure_schema_migration_record()
+            self._apply_rename_migration()
 
             self._initialized = True
             logger.info(f"数据库初始化完成: {db_url}")
@@ -310,6 +355,57 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         except Exception:
             session.rollback()
             raise
+        finally:
+            session.close()
+
+    def _apply_rename_migration(self) -> None:
+        """One-time rewrite of stored runs and transcript rows to the
+        current dimension/stage names (see RENAME_MIGRATION_VERSION).
+        Best-effort like _ensure_column: a failure only leaves old runs
+        showing under their old names, never blocks startup. Two servers
+        starting together may both rewrite — the rewrite is idempotent
+        and the second one's marker insert is simply ignored."""
+        session = self._SessionLocal()
+        try:
+            if session.get(DatabaseSchemaMigration, RENAME_MIGRATION_VERSION) is not None:
+                return
+            runs = 0
+            for row in session.query(TieredRunRecord).filter(
+                TieredRunRecord.result_json.isnot(None)
+            ):
+                renamed = rename_stored_identifiers(row.result_json)
+                if renamed != row.result_json:
+                    runs += 1
+                    session.execute(
+                        TieredRunRecord.__table__.update()
+                        .where(TieredRunRecord.id == row.id)
+                        # Explicit updated_at: the onupdate default must
+                        # not re-stamp a run nobody touched.
+                        .values(result_json=renamed, updated_at=row.updated_at)
+                    )
+            stages = 0
+            # News-screen calls are staged under their dimension's name.
+            for old_name, new_name in {**RENAMED_STAGES, **RENAMED_DIMENSIONS}.items():
+                stages += session.execute(
+                    TieredRunTranscriptRecord.__table__.update()
+                    .where(TieredRunTranscriptRecord.stage == old_name)
+                    .values(stage=new_name)
+                ).rowcount
+            session.add(DatabaseSchemaMigration(
+                version=RENAME_MIGRATION_VERSION,
+                description="Stored dimension and run-stage names rewritten to the UI-aligned identifiers",
+            ))
+            session.commit()
+            if runs or stages:
+                logger.info(
+                    "renamed stored identifiers in %d run(s) and %d transcript row(s)",
+                    runs, stages,
+                )
+        except IntegrityError:
+            session.rollback()  # another instance recorded the marker first
+        except Exception as exc:
+            session.rollback()
+            logger.warning("stored-name rename migration skipped: %s", exc)
         finally:
             session.close()
 

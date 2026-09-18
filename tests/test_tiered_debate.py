@@ -261,7 +261,7 @@ def _summary():
         "positioning": [
             {"text": "Short interest is modest.", "children": []},
         ],
-        "macro_econ": [],
+        "macro_economy": [],
     })
 
 
@@ -1183,7 +1183,7 @@ class FailureRulesTest(unittest.TestCase):
             "fundamentals": [],
             "positioning": [{"text": "Short interest is modest.",
                              "links": [], "children": []}],
-            "macro_econ": [],
+            "macro_economy": [],
         })
         fixed = json.dumps({
             "summary": [{"text": "The outlook is neutral.", "links": [],
@@ -1195,7 +1195,7 @@ class FailureRulesTest(unittest.TestCase):
             "fundamentals": [],
             "positioning": [{"text": "Short interest is modest.",
                              "links": [], "children": []}],
-            "macro_econ": [],
+            "macro_economy": [],
         })
         result, fake = _run(_replies(summary=broken, summary_fix=fixed))
         self.assertIn("summary_fix", fake.stages())
@@ -1219,7 +1219,7 @@ class FailureRulesTest(unittest.TestCase):
             "fundamentals": [],
             "positioning": [{"text": "Short interest is modest.",
                              "links": [], "children": []}],
-            "macro_econ": [],
+            "macro_economy": [],
         })
         result, _ = _run(_replies(summary=broken, summary_fix=broken))
         self.assertIsNotNone(result.outlook)
@@ -1243,12 +1243,12 @@ class UsageTrackingTest(unittest.TestCase):
         tracker = LlmUsageTracker()
         dims = _dimensions()
         with tracker.activate():
-            with tracker.stage("tier2_debate"):
+            with tracker.stage("tier2_analysis"):
                 result = engine.run("AAPL", _tier1(dimensions=dims), dims)
         self.assertIsNotNone(result.outlook)
         detail = tracker.to_detail()
-        self.assertEqual(detail["stages"]["tier2_debate"]["calls"], 5)
-        self.assertEqual(detail["stages"]["tier2_debate"]["prompt_tokens"], 50)
+        self.assertEqual(detail["stages"]["tier2_analysis"]["calls"], 5)
+        self.assertEqual(detail["stages"]["tier2_analysis"]["prompt_tokens"], 50)
 
     def test_fix_round_calls_are_counted_too(self):
         routed = RoutedSummarizer(
@@ -1266,11 +1266,11 @@ class UsageTrackingTest(unittest.TestCase):
         tracker = LlmUsageTracker()
         dims = _dimensions()
         with tracker.activate():
-            with tracker.stage("tier2_debate"):
+            with tracker.stage("tier2_analysis"):
                 result = engine.run("AAPL", _tier1(dimensions=dims), dims)
         self.assertIsNotNone(result.outlook)
         detail = tracker.to_detail()
-        self.assertEqual(detail["stages"]["tier2_debate"]["calls"], 6)
+        self.assertEqual(detail["stages"]["tier2_analysis"]["calls"], 6)
 
 
 class PromptContentTest(unittest.TestCase):
@@ -1451,14 +1451,14 @@ BOND_TEXT = (
 SUIT_TEXT = "A new antitrust lawsuit seeks damages after an adverse ruling."
 
 N_REFS = [
-    "company_events.news_coverage.items.0.text",
-    "company_events.news_coverage.items.1.text",
+    "company_news.news_coverage.items.0.text",
+    "company_news.news_coverage.items.1.text",
 ]
 
 
 def _news():
     return DimensionResult(
-        dimension="company_events",
+        dimension="company_news",
         kind=SourceKind.TEXTUAL,
         payload={
             "news_coverage": {
@@ -1493,7 +1493,7 @@ def _news_summary():
     # Same outline as _summary() plus the company-news group the extra
     # data dimension requires.
     parsed = json.loads(_summary())
-    parsed["company_events"] = [
+    parsed["company_news"] = [
         {"text": "News flow is mixed: financing support against legal risk.",
          "links": [{"ref": N_REFS[0], "value": "bond offering"}],
          "children": []},
@@ -1509,10 +1509,10 @@ class NewsDimensionTest(unittest.TestCase):
 
     def test_news_rows_are_one_per_event_never_the_counters(self):
         refs = gradable_field_refs(self.dims())
-        self.assertEqual(refs["company_events"], N_REFS)
+        self.assertEqual(refs["company_news"], N_REFS)
         flat = [ref for rows in refs.values() for ref in rows]
-        self.assertNotIn("company_events.news_coverage.window_days", flat)
-        self.assertNotIn("company_events.news_coverage.filtered_out", flat)
+        self.assertNotIn("company_news.news_coverage.window_days", flat)
+        self.assertNotIn("company_news.news_coverage.filtered_out", flat)
 
     def test_item_text_ref_resolves_and_list_paths_do_not(self):
         from src.tiered_analysis.debate import _payload_value
@@ -1522,11 +1522,11 @@ class NewsDimensionTest(unittest.TestCase):
         self.assertEqual(value, BOND_TEXT)
         # The bare list is not a leaf; an out-of-range index is nothing.
         self.assertFalse(
-            _payload_value("company_events.news_coverage.items", self.dims())[0]
+            _payload_value("company_news.news_coverage.items", self.dims())[0]
         )
         self.assertFalse(
             _payload_value(
-                "company_events.news_coverage.items.9.text", self.dims()
+                "company_news.news_coverage.items.9.text", self.dims()
             )[0]
         )
 
@@ -1547,7 +1547,7 @@ class NewsDimensionTest(unittest.TestCase):
         # 2-0 at birth, no check votes needed, no fix rounds (the routed
         # fake would fail loudly on an unexpected fix prompt).
         bond = _item_by_id(result, "N1")
-        self.assertEqual(bond["dimension"], "company_events")
+        self.assertEqual(bond["dimension"], "company_news")
         self.assertEqual(bond["field"], N_REFS[0])
         self.assertEqual(bond["direction"], "bullish")
         self.assertEqual(bond["claim"], BOND_CLAIM)
@@ -1563,12 +1563,12 @@ class NewsDimensionTest(unittest.TestCase):
         self.assertEqual(suit["final_status"], "counted")
 
         # News bullets join the pools like any other dimension.
-        news_pool = result.outlook.pools["final"]["dimensions"]["company_events"]
+        news_pool = result.outlook.pools["final"]["dimensions"]["company_news"]
         self.assertEqual(news_pool["total"], 2)
         self.assertEqual(news_pool["bullish"], 1)
         self.assertEqual(news_pool["bearish"], 1)
         # And the summary carries the company-news group.
-        self.assertTrue(result.outlook.summary_structure["company_events"])
+        self.assertTrue(result.outlook.summary_structure["company_news"])
         self.assertIn("Company news:", result.outlook.summary)
 
     def test_summary_schema_requires_every_group(self):
@@ -1589,7 +1589,7 @@ class NewsDimensionTest(unittest.TestCase):
         # summary that cited a news event was rejected twice and the deep
         # analysis card showed no summary at all.
         parsed = json.loads(_news_summary())
-        parsed["company_events"] = [
+        parsed["company_news"] = [
             {"text": "Financing support: the bond offering.",
              "links": [{"ref": N_REFS[0]}], "children": []},
             {"text": "Legal risk: the antitrust suit.",
@@ -1608,7 +1608,7 @@ class NewsDimensionTest(unittest.TestCase):
             any("judge summary unparseable" in w for w in result.warnings),
             result.warnings,
         )
-        news_bullets = result.outlook.summary_structure["company_events"]
+        news_bullets = result.outlook.summary_structure["company_news"]
         self.assertEqual(len(news_bullets), 2)
         self.assertEqual(news_bullets[0]["links"][0]["ref"], N_REFS[0])
         self.assertEqual(news_bullets[1]["links"][0]["ref"], N_REFS[1])

@@ -206,3 +206,14 @@ export const stripInlineRefs = (
     .replace(/ {2,}/g, ' ');
   return { text: clean, links: merged };
 };
+
+// True when the run's local calendar day is before today's — a plan from
+// a previous trading day should be re-run, not traded (owner decision:
+// no expiry mechanism, just the note the history row's date carries).
+export const isFromPreviousDay = (runDate: Date): boolean => {
+  const now = new Date();
+  return (
+    new Date(runDate.getFullYear(), runDate.getMonth(), runDate.getDate()).getTime() <
+    new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  );
+};

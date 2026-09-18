@@ -3,18 +3,22 @@ import type { TieredResult, TieredRunSummary } from '../../api/tiered';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey } from '../../i18n/uiText';
 import { cn } from '../../utils/cn';
-import { plainNumber, queuePosition, riskPctText } from './altFormat';
-import { ALT_COLOR, OUTLOOK_TEXT, STATUS_DOT } from './altStyles';
+import { isFromPreviousDay, plainNumber, queuePosition, riskPctText } from './altFormat';
+import { ALT_COLOR, OUTLOOK_TEXT } from './altStyles';
 import { AltPageSelector, AltPairField, AltPill, AltPillRow, AltSelect } from './AltFields';
 import { AltResult } from './AltResult';
+import { AltModal } from './AltUi';
 
 const PAGE_SIZE = 10;
 // Status (where the run is: queued, running, done, failed) and outlook
 // (what the finished analysis says) are separate columns (owner request
 // 2026-09-17). Only a real opinion counts as an outlook: a run with none
-// (unfinished, failed, or the judge produced nothing) shows a dash.
+// (unfinished, failed, or the judge produced nothing) shows a dash —
+// and the outlook filter offers that dash too (owner request 2026-09-18).
 const FILTER_STATUSES = ['queued', 'running', 'done', 'failed'] as const;
-const FILTER_OUTLOOKS = ['bullish', 'neutral', 'bearish'] as const;
+const OUTLOOK_WORDS = ['bullish', 'neutral', 'bearish'] as const;
+const NO_OUTLOOK = 'none';
+const FILTER_OUTLOOKS = [...OUTLOOK_WORDS, NO_OUTLOOK] as const;
 const FILTER_TIERS = ['1', '2'] as const;
 // Max hold choices in weeks — same values the run form offers.
 const FILTER_HOLDS = ['1', '2', '3', '4'] as const;
@@ -118,11 +122,30 @@ function runOutlook(run: TieredRunSummary): string {
   return run.outlook ?? 'unknown';
 }
 
-// Whether the row has an outlook worth a word (see FILTER_OUTLOOKS).
+// Whether the row has an outlook worth a word (see OUTLOOK_WORDS).
 function hasOutlook(run: TieredRunSummary): boolean {
-  return (
-    run.status === 'done' && (FILTER_OUTLOOKS as readonly string[]).includes(runOutlook(run))
-  );
+  return run.status === 'done' && (OUTLOOK_WORDS as readonly string[]).includes(runOutlook(run));
+}
+
+// The outlook filter value the row matches: its word, or the dash.
+function filterOutlook(run: TieredRunSummary): string {
+  return hasOutlook(run) ? runOutlook(run) : NO_OUTLOOK;
+}
+
+// The outlook filter's option text: the outlook word, or the dash.
+function outlookOptionLabel(value: string, t: (key: UiTextKey) => string): string {
+  return value === NO_OUTLOOK ? '—' : t(`tiered.outlook.${value}` as UiTextKey);
+}
+
+// The history row's date color (owner request 2026-09-18): green when
+// the finished report is good to use, amber when it is from a previous
+// trading day (clicking it says so), gray while there is no report.
+function dateTone(run: TieredRunSummary): 'fresh' | 'stale' | 'none' {
+  if (run.status !== 'done') {
+    return 'none';
+  }
+  const time = runTime(run);
+  return time && isFromPreviousDay(time) ? 'stale' : 'fresh';
 }
 
 interface HistoryFilters {
@@ -201,7 +224,7 @@ function matchesFilters(run: TieredRunSummary, filters: HistoryFilters): boolean
   if (filters.statuses.length > 0 && !filters.statuses.includes(run.status)) {
     return false;
   }
-  if (filters.outlooks.length > 0 && !filters.outlooks.includes(runOutlook(run))) {
+  if (filters.outlooks.length > 0 && !filters.outlooks.includes(filterOutlook(run))) {
     return false;
   }
   const time = runTime(run);
@@ -240,6 +263,8 @@ export const AltRunHistory = ({
   const { t, language } = useUiLanguage();
   const [filters, setFilters] = useState<HistoryFilters>(NO_FILTERS);
   const [page, setPage] = useState(1);
+  // The run whose amber date was clicked — its previous-day note is open.
+  const [staleNoteTaskId, setStaleNoteTaskId] = useState<string | null>(null);
 
   const updateFilters = (patch: Partial<HistoryFilters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -334,9 +359,7 @@ export const AltRunHistory = ({
     pills.push({
       key: `outlook-${outlook}`,
       tone: TONE.outlook,
-      label: t('tiered.pill.outlook', {
-        value: t(`tiered.outlook.${outlook}` as UiTextKey),
-      }),
+      label: t('tiered.pill.outlook', { value: outlookOptionLabel(outlook, t) }),
       onRemove: () => updateFilters({ outlooks: toggled(filters.outlooks, outlook) }),
     });
   });
@@ -445,7 +468,7 @@ export const AltRunHistory = ({
           label={t('tiered.altFilter.outlook')}
           options={FILTER_OUTLOOKS.map((value) => ({
             value,
-            label: t(`tiered.outlook.${value}` as UiTextKey),
+            label: outlookOptionLabel(value, t),
           }))}
           selected={filters.outlooks}
           placeholder={t('tiered.altFilter.outlookPh')}
@@ -507,12 +530,7 @@ export const AltRunHistory = ({
                     isExpanded ? 'bg-gray-800/40' : '',
                   )}
                 >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span
-                      className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_DOT[run.status])}
-                    />
-                    <span className="truncate font-semibold text-gray-300">{run.stock_code}</span>
-                  </span>
+                  <span className="truncate font-semibold text-gray-300">{run.stock_code}</span>
                   <span
                     id={`alt-run-${run.task_id}-capital`}
                     className="text-xs tabular-nums text-gray-400"
@@ -561,10 +579,40 @@ export const AltRunHistory = ({
                   ) : (
                     <span className="text-xs text-gray-400">—</span>
                   )}
-                  <span className="truncate text-xs tabular-nums text-gray-400">
-                    {formatTime(run)}
-                  </span>
+                  {dateTone(run) === 'stale' ? (
+                    // A span, not a button: the whole row is already a
+                    // button, and a click here must not toggle it.
+                    <span
+                      role="button"
+                      data-testid="alt-run-date-stale"
+                      title={t('tiered.alt.staleNote')}
+                      className="cursor-pointer truncate text-xs tabular-nums text-amber-300 hover:text-amber-200"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setStaleNoteTaskId(run.task_id);
+                      }}
+                    >
+                      {formatTime(run)}
+                    </span>
+                  ) : (
+                    <span
+                      className={cn(
+                        'truncate text-xs tabular-nums',
+                        dateTone(run) === 'fresh' ? 'text-emerald-300' : 'text-gray-400',
+                      )}
+                    >
+                      {formatTime(run)}
+                    </span>
+                  )}
                 </button>
+                <AltModal
+                  isOpen={staleNoteTaskId === run.task_id}
+                  onClose={() => setStaleNoteTaskId(null)}
+                >
+                  <p className="text-sm text-amber-300" data-testid="alt-stale-note">
+                    {t('tiered.alt.staleNote')}
+                  </p>
+                </AltModal>
                 {isExpanded ? (
                   <div className="pb-5 pt-3">
                     {run.status === 'failed' ? (
@@ -576,11 +624,7 @@ export const AltRunHistory = ({
                     ) : run.status === 'running' ? (
                       <p className="text-sm text-gray-500">{t('tiered.running')}</p>
                     ) : expandedResult ? (
-                      <AltResult
-                        result={expandedResult}
-                        taskId={run.task_id}
-                        runDate={runTime(run)}
-                      />
+                      <AltResult result={expandedResult} taskId={run.task_id} />
                     ) : expandedError ? (
                       <p className="text-sm text-red-300">{expandedError}</p>
                     ) : (

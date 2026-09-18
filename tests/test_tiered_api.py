@@ -170,7 +170,7 @@ def _deep_outcome(symbol="AAPL"):
     )
     sizing = {"enabled": True, "shares": 83,
               "reason_code": None, "refusal_reason": None, "notes": []}
-    llm_usage = {"stages": {"tier2_debate": {"calls": 3, "prompt_tokens": 900,
+    llm_usage = {"stages": {"tier2_analysis": {"calls": 3, "prompt_tokens": 900,
                                              "completion_tokens": 300}},
                  "total": {"calls": 3, "prompt_tokens": 900,
                            "completion_tokens": 300},

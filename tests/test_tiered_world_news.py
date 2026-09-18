@@ -26,9 +26,9 @@ from src.tiered_analysis.providers.base import (
     Market,
     SourceKind,
 )
-from src.tiered_analysis.providers import world_events
-from src.tiered_analysis.providers.world_events import (
-    WorldEventsProvider,
+from src.tiered_analysis.providers import world_news
+from src.tiered_analysis.providers.world_news import (
+    WorldNewsProvider,
     normalize_alphavantage_entry,
 )
 
@@ -91,7 +91,7 @@ def news_fixture():
     ]
 
 
-class TestWorldEventsProvider(unittest.TestCase):
+class TestWorldNewsProvider(unittest.TestCase):
     def setUp(self):
         self.cache = MemoryCacheStore()
 
@@ -102,7 +102,7 @@ class TestWorldEventsProvider(unittest.TestCase):
             calls.append(1)
             return news if news is not None else news_fixture()
 
-        provider = WorldEventsProvider(
+        provider = WorldNewsProvider(
             news_loader=loader or default_loader,
             today=today,
             screener=passthrough_screener,
@@ -118,7 +118,7 @@ class TestWorldEventsProvider(unittest.TestCase):
     def test_payload_shape_span_and_citation_alignment(self):
         provider, _ = self.make_provider()
         result = provider.collect("AAPL")
-        self.assertEqual(result.dimension, "world_events")
+        self.assertEqual(result.dimension, "world_news")
         self.assertEqual(result.kind, SourceKind.TEXTUAL)
         self.assertIsNotNone(result.payload)  # no card-level grade anymore
         news = result.payload["news_coverage"]
@@ -194,12 +194,13 @@ class TestWorldEventsProvider(unittest.TestCase):
 
         failing_loader.calls = 0
         tomorrow, _ = self.make_provider(
-            loader=failing_loader, today=lambda: date(2026, 8, 17)
+            loader=failing_loader, today=lambda: date(2026, 8, 18)
         )
         result = tomorrow.collect("AAPL")
-        # The pooled articles inside tomorrow's window (08-16..17) still
-        # make the card, loudly warned (the warning is the degradation
-        # signal now — no card-level grade); the 08-15 article ages out.
+        # The pooled articles inside the later run's 3-day window
+        # (08-16..18) still make the card, loudly warned (the warning is
+        # the degradation signal now — no card-level grade); the 08-15
+        # article ages out.
         self.assertEqual(len(result.payload["news_coverage"]["items"]), 1)
         self.assertTrue(
             any("world news fetch failed" in warning for warning in result.warnings)
@@ -221,18 +222,18 @@ class TestWorldEventsProvider(unittest.TestCase):
                 "title": "ECB cuts rates",
                 "publisher": "FT",
                 "url": "https://example.com/ecb-cut",
-                "date": "2026-08-17",
+                "date": "2026-08-18",
                 "summary": "The ECB cut its policy rate.",
             }
         ]
         tomorrow, _ = self.make_provider(
-            news=extra, today=lambda: date(2026, 8, 17)
+            news=extra, today=lambda: date(2026, 8, 18)
         )
         result = tomorrow.collect("AAPL")
         news = result.payload["news_coverage"]
-        # Day 2's single-article fetch screens WITH day 1's pooled
-        # articles that are still inside the 2-day window; the 08-15
-        # article ages out of it.
+        # The later run's single-article fetch screens WITH the earlier
+        # pooled articles that are still inside the 3-day window
+        # (08-16..18); the 08-15 article ages out of it.
         self.assertEqual(
             [item["text"] for item in news["items"]],
             [
@@ -241,7 +242,7 @@ class TestWorldEventsProvider(unittest.TestCase):
             ],
         )
         self.assertEqual(news["oldest"], "2026-08-16")
-        self.assertEqual(news["newest"], "2026-08-17")
+        self.assertEqual(news["newest"], "2026-08-18")
 
     def test_pool_prunes_past_retention(self):
         stale = [
@@ -259,8 +260,8 @@ class TestWorldEventsProvider(unittest.TestCase):
         self.assertNotIn("Ancient story", texts)
 
     def test_screen_reads_only_the_calendar_day_window(self):
-        # TODAY is 2026-08-16: the 2-calendar-day window starts
-        # 2026-08-15. An article inside the pool's retention but before
+        # TODAY is 2026-08-16: the 3-calendar-day window starts
+        # 2026-08-14. An article inside the pool's retention but before
         # that boundary stays pooled (failure-fallback depth) yet never
         # reaches the screen or the card.
         aged = [
@@ -298,7 +299,7 @@ class TestWorldEventsProvider(unittest.TestCase):
             for day in (16, 15)
             for index in range(3)
         ]
-        with mock.patch.object(world_events, "MAX_SCREEN_ARTICLES", 4):
+        with mock.patch.object(world_news, "MAX_SCREEN_ARTICLES", 4):
             provider, _ = self.make_provider(news=crowd)
             result = provider.collect("AAPL")
         news = result.payload["news_coverage"]
@@ -369,7 +370,7 @@ class TestSpamPrefilter(unittest.TestCase):
     def test_blacklisted_publisher_is_spam_case_insensitive(self):
         for publisher in ("MarketBeat", "marketbeat", " MARKETBEAT "):
             self.assertTrue(
-                world_events.is_world_spam(
+                world_news.is_world_spam(
                     {"title": "Any headline at all", "publisher": publisher}
                 ),
                 publisher,
@@ -385,7 +386,7 @@ class TestSpamPrefilter(unittest.TestCase):
         ]
         for title in titles:
             self.assertTrue(
-                world_events.is_world_spam(
+                world_news.is_world_spam(
                     {"title": title, "publisher": "Whatever Wire"}
                 ),
                 title,
@@ -400,16 +401,16 @@ class TestSpamPrefilter(unittest.TestCase):
         ]
         for title in titles:
             self.assertFalse(
-                world_events.is_world_spam(
+                world_news.is_world_spam(
                     {"title": title, "publisher": "Reuters"}
                 ),
                 title,
             )
 
     def test_missing_fields_are_not_spam(self):
-        self.assertFalse(world_events.is_world_spam({}))
+        self.assertFalse(world_news.is_world_spam({}))
         self.assertFalse(
-            world_events.is_world_spam({"title": None, "publisher": None})
+            world_news.is_world_spam({"title": None, "publisher": None})
         )
 
     def test_spam_is_cut_before_the_screen_and_counted(self):
@@ -433,7 +434,7 @@ class TestSpamPrefilter(unittest.TestCase):
             "date": "2026-08-16",
             "summary": None,
         }
-        provider = WorldEventsProvider(
+        provider = WorldNewsProvider(
             news_loader=lambda: news_fixture() + [spam_title, spam_publisher],
             today=lambda: TODAY,
             screener=recording_screener,
@@ -490,33 +491,33 @@ class TestLoaderStack(unittest.TestCase):
 
     def test_default_loader_prefers_alphavantage_when_key_set(self):
         with mock.patch.object(
-            world_events,
+            world_news,
             "_alphavantage_world_news_loader",
             return_value=["av"],
         ), mock.patch.object(
-            world_events, "_yahoo_world_news_loader", return_value=["yahoo"]
+            world_news, "_yahoo_world_news_loader", return_value=["yahoo"]
         ):
             with mock.patch.dict("os.environ", {"ALPHAVANTAGE_API_KEY": "k"}):
                 self.assertEqual(
-                    world_events._default_world_news_loader(), (["av"], [])
+                    world_news._default_world_news_loader(), (["av"], [])
                 )
             # Key absent: Yahoo is the design source, silently — no
             # degradation warning for the keyless setup.
             with mock.patch.dict("os.environ", {"ALPHAVANTAGE_API_KEY": ""}):
                 self.assertEqual(
-                    world_events._default_world_news_loader(), (["yahoo"], [])
+                    world_news._default_world_news_loader(), (["yahoo"], [])
                 )
 
     def test_default_loader_falls_back_to_yahoo_with_warning(self):
         with mock.patch.object(
-            world_events,
+            world_news,
             "_alphavantage_world_news_loader",
             side_effect=RuntimeError("rate limited"),
         ), mock.patch.object(
-            world_events, "_yahoo_world_news_loader", return_value=["yahoo"]
+            world_news, "_yahoo_world_news_loader", return_value=["yahoo"]
         ):
             with mock.patch.dict("os.environ", {"ALPHAVANTAGE_API_KEY": "k"}):
-                entries, warnings = world_events._default_world_news_loader()
+                entries, warnings = world_news._default_world_news_loader()
         self.assertEqual(entries, ["yahoo"])
         self.assertEqual(len(warnings), 1)
         self.assertIn("AlphaVantage failed", warnings[0])
@@ -524,17 +525,17 @@ class TestLoaderStack(unittest.TestCase):
 
     def test_default_loader_raises_when_both_feeds_fail(self):
         with mock.patch.object(
-            world_events,
+            world_news,
             "_alphavantage_world_news_loader",
             side_effect=RuntimeError("rate limited"),
         ), mock.patch.object(
-            world_events,
+            world_news,
             "_yahoo_world_news_loader",
             side_effect=RuntimeError("yahoo down"),
         ):
             with mock.patch.dict("os.environ", {"ALPHAVANTAGE_API_KEY": "k"}):
                 with self.assertRaises(RuntimeError) as ctx:
-                    world_events._default_world_news_loader()
+                    world_news._default_world_news_loader()
         self.assertIn("rate limited", str(ctx.exception))
         self.assertIn("yahoo down", str(ctx.exception))
 
@@ -589,7 +590,7 @@ class TestWorldPromptSet(unittest.TestCase):
 class TestDebateEnumeration(unittest.TestCase):
     def test_world_news_rows_enumerate_by_textual_kind(self):
         world = DimensionResult(
-            dimension="world_events",
+            dimension="world_news",
             kind=SourceKind.TEXTUAL,
             payload={
                 "news_coverage": {
@@ -604,10 +605,10 @@ class TestDebateEnumeration(unittest.TestCase):
         )
         refs = gradable_field_refs([world])
         self.assertEqual(
-            refs["world_events"],
+            refs["world_news"],
             [
-                "world_events.news_coverage.items.0.text",
-                "world_events.news_coverage.items.1.text",
+                "world_news.news_coverage.items.0.text",
+                "world_news.news_coverage.items.1.text",
             ],
         )
 

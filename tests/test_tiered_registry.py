@@ -39,12 +39,12 @@ class TestProviderRouting(unittest.TestCase):
         self.assertEqual(
             sorted(dimensions),
             [
-                "company_events",
+                "company_news",
                 "fundamentals",
-                "macro_econ",
+                "macro_economy",
                 "positioning",
                 "technicals",
-                "world_events",
+                "world_news",
             ],
         )
 
@@ -57,22 +57,22 @@ class TestProviderRouting(unittest.TestCase):
                 "technicals",
                 "fundamentals",
                 "positioning",
-                "macro_econ",
-                "company_events",
-                "world_events",
+                "macro_economy",
+                "company_news",
+                "world_news",
             ],
         )
 
-    def test_positioning_and_company_events_are_us_only(self):
+    def test_positioning_and_company_news_are_us_only(self):
         for market in (Market.CN, Market.HK, Market.JP, Market.KR, Market.TW):
             dimensions = [p.dimension for p in get_providers(market)]
             self.assertNotIn("positioning", dimensions)
-            self.assertNotIn("company_events", dimensions)
+            self.assertNotIn("company_news", dimensions)
 
-    def test_world_events_registered_for_all_markets(self):
+    def test_world_news_registered_for_all_markets(self):
         for market in (Market.US, Market.CN, Market.HK, Market.JP, Market.KR, Market.TW):
             dimensions = [p.dimension for p in get_providers(market)]
-            self.assertIn("world_events", dimensions)
+            self.assertIn("world_news", dimensions)
 
     def test_registered_providers_declare_kind(self):
         for provider in get_providers(Market.US):

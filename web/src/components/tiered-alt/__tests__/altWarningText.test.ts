@@ -202,7 +202,7 @@ describe('friendlyWarning — every backend note reaches plain English', () => {
       'Missing data',
     ],
     ['EPS estimate trend failed for AAPL: HTTPError()', 'Failed fetch'],
-    // src/tiered_analysis/providers/macro_econ.py
+    // src/tiered_analysis/providers/macro_economy.py
     ['FRED_API_KEY is not set; get a free key at fred.stlouisfed.org', 'Invalid setting'],
     ['FRED release calendar for inflation data (CPI) failed: HTTPError()', 'Failed fetch'],
     ['no upcoming inflation data (CPI) release date found', 'Missing data'],

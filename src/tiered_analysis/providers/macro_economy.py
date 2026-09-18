@@ -299,10 +299,10 @@ def _default_release_dates_fetcher(release_id: int) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-class MacroEconProvider(DimensionProvider):
+class MacroEconomyProvider(DimensionProvider):
     """NUMERIC shared macro background, cached once per region per day."""
 
-    dimension = "macro_econ"
+    dimension = "macro_economy"
     kind = SourceKind.NUMERIC
     region = "us"
     #: Cache format marker — bump when the payload shape changes so a
@@ -930,7 +930,7 @@ class MacroEconProvider(DimensionProvider):
 
     def _cache_key(self) -> str:
         return (
-            f"macro_econ_{self.region}_{self.cache_version}_"
+            f"macro_economy_{self.region}_{self.cache_version}_"
             f"{self._today().isoformat()}"
         )
 

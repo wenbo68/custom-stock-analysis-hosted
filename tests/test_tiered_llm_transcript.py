@@ -36,7 +36,7 @@ class TestLlmTranscript(unittest.TestCase):
     def test_record_hands_one_entry_per_call_to_the_writer(self):
         transcript, entries = _capturing_transcript()
         transcript.record(
-            stage="world_events",
+            stage="world_news",
             model="gemini/x",
             temperature=0.0,
             prompt="the prompt",
@@ -49,7 +49,7 @@ class TestLlmTranscript(unittest.TestCase):
         entry = entries[0]
         self.assertEqual(entry["task_id"], "task-1")
         self.assertEqual(entry["seq"], 1)
-        self.assertEqual(entry["stage"], "world_events")
+        self.assertEqual(entry["stage"], "world_news")
         self.assertEqual(entry["model"], "gemini/x")
         self.assertEqual(entry["prompt"], "the prompt")
         self.assertEqual(entry["reply"], '{"groups": [[1]]}')
@@ -134,12 +134,12 @@ class TestSummarizerTranscript(unittest.TestCase):
     def test_successful_call_lands_in_the_transcript_with_its_stage(self):
         fake = _FakeLitellm(reply='{"order": [1]}')
         with self.tracker.activate():
-            with self.tracker.stage("world_events"):
+            with self.tracker.stage("world_news"):
                 reply = self._summarize_with(fake)
 
         self.assertEqual(reply, '{"order": [1]}')
         [entry] = self.entries
-        self.assertEqual(entry["stage"], "world_events")
+        self.assertEqual(entry["stage"], "world_news")
         self.assertEqual(entry["model"], "fake/model")
         self.assertEqual(entry["reply"], '{"order": [1]}')
         self.assertEqual(entry["prompt_tokens"], 7)
@@ -154,7 +154,7 @@ class TestSummarizerTranscript(unittest.TestCase):
         [entry] = self.entries
         self.assertIsNone(entry["reply"])
         self.assertIn("boom", entry["error"])
-        self.assertEqual(entry["stage"], "unattributed")
+        self.assertEqual(entry["stage"], "unknown")
 
     def test_no_tracker_means_no_transcript_and_no_error(self):
         fake = _FakeLitellm()

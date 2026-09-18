@@ -94,23 +94,7 @@ const TierHeader = ({ section, notes, side }: TierHeaderProps) => {
   );
 };
 
-// ---------- the conclusion (outlook redesign) ----------
-
-// True when the run's local calendar day is before today's — a plan from
-// a previous trading day should be re-run, not traded (owner decision:
-// no expiry mechanism, just this note).
-const isFromPreviousDay = (runDate: Date): boolean => {
-  const now = new Date();
-  return (
-    new Date(runDate.getFullYear(), runDate.getMonth(), runDate.getDate()).getTime() <
-    new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  );
-};
-
-interface AltConclusionProps {
-  result: TieredResult;
-  runDate?: Date | null;
-}
+// ---------- outlook + action ----------
 
 // The numbers behind a "Buy later": the plan review's reward-below-goal
 // warning carries them; a run without that warning (none expected) falls
@@ -143,54 +127,56 @@ const jumpToPlanCell = (key: PlanColumn) => {
   }
 };
 
-// The run's bottom line, above everything else: the impersonal outlook,
-// the personal action code derived from the outlook and the plan, and
-// the previous-day staleness note. (The old earnings warning is gone —
-// the date now lives on the fundamentals card, and the deep analysis
-// weighs the event risk itself.) The run-level analysis/data notes mark
-// sits here too (owner decision 2026-08-09: the preliminary-analysis
-// card is gone — its outlook duplicated this card); plan-flavored
-// warnings stay on the plan card.
-const AltConclusion = ({ result, runDate }: AltConclusionProps) => {
+// The personal action code derived from the outlook and the plan.
+// "Buy later" says why, inline: the plan's current reward-to-risk,
+// clickable for its arithmetic (owner request 2026-09-16). Shown on
+// whichever analysis card the run has (owner decision 2026-09-18: the
+// separate conclusion card is gone).
+const ActionFact = ({ result }: { result: TieredResult }) => {
   const { t } = useUiLanguage();
-  const outlook = result.outlook ?? 'unknown';
   const action = result.action ?? 'unknown';
-  const stale = runDate ? isFromPreviousDay(runDate) : false;
-  // (The max hold time moved to the run-history row, 2026-08-09.)
-  // "Buy later" says why, inline: the plan's current reward-to-risk,
-  // clickable for its arithmetic (owner request 2026-09-16).
   const rewardValues = action === 'enter_later' ? rewardRatioValues(result) : null;
   return (
-    <AltCard testId="alt-conclusion">
+    <AltFact label={t('tiered.alt.action')} helpKey="tiered.help.action">
+      {t(`tiered.action.${action}` as UiTextKey)}
+      {rewardValues ? (
+        <span data-testid="alt-action-reason">
+          {' ('}
+          {fillTemplate(t('tiered.alt.actionRatio'), {
+            ratio: <RewardRatioValue values={rewardValues} onJump={jumpToPlanCell} />,
+          })}
+          {')'}
+        </span>
+      ) : null}
+    </AltFact>
+  );
+};
+
+// The run-level analysis/data notes: everything but the plan-flavored
+// warnings, which stay on the plan card.
+const analysisNotes = (result: TieredResult): string[] =>
+  (result.warnings ?? []).filter((raw) => !isPlanNote(raw));
+
+// The preliminary-analysis card (depth 1): the impersonal outlook and
+// the personal action, plus the run-level notes mark. (The old earnings
+// warning is gone — the date lives on the fundamentals card; the
+// previous-day note moved to the history row's date, 2026-09-18.)
+const AltPreliminary = ({ result }: { result: TieredResult }) => {
+  const { t } = useUiLanguage();
+  const outlook = result.outlook ?? 'unknown';
+  return (
+    <AltCard testId="alt-tier1">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
         <AltFact label={t('tiered.alt.outlook')} helpKey="tiered.help.outlook">
           <span className={OUTLOOK_TEXT[outlook]}>
             {t(`tiered.outlook.${outlook}` as UiTextKey)}
           </span>
         </AltFact>
-        <AltFact label={t('tiered.alt.action')} helpKey="tiered.help.action">
-          {t(`tiered.action.${action}` as UiTextKey)}
-          {rewardValues ? (
-            <span data-testid="alt-action-reason">
-              {' ('}
-              {fillTemplate(t('tiered.alt.actionRatio'), {
-                ratio: <RewardRatioValue values={rewardValues} onJump={jumpToPlanCell} />,
-              })}
-              {')'}
-            </span>
-          ) : null}
-        </AltFact>
+        <ActionFact result={result} />
         <span className="ml-auto">
-          <AltNotesButton
-            notes={(result.warnings ?? []).filter((raw) => !isPlanNote(raw))}
-          />
+          <AltNotesButton notes={analysisNotes(result)} />
         </span>
       </div>
-      {stale ? (
-        <p className="mt-2 text-xs text-amber-300" data-testid="alt-stale-note">
-          {t('tiered.alt.staleNote')}
-        </p>
-      ) : null}
     </AltCard>
   );
 };
@@ -249,36 +235,43 @@ const AltPlanCard = ({ result, taskId }: AltPlanProps) => (
 );
 
 interface AltDebateProps {
+  result: TieredResult;
   section: TieredTierSection;
 }
 
 // The deep-analysis card: the outlook, the clickable pool score, the
-// fixed-outline report, and the evidence vote tree.
-const AltDebate = ({ section }: AltDebateProps) => {
+// action, the fixed-outline report, and the evidence vote tree. Its
+// notes mark carries the card's own warnings plus the run-level ones
+// (owner decision 2026-09-18: the conclusion card that held them is gone).
+const AltDebate = ({ result, section }: AltDebateProps) => {
   const { t } = useUiLanguage();
   const [scoreOpen, setScoreOpen] = useState(false);
   const detail = section.debate_detail ?? null;
   const outlook = detail?.outlook ?? null;
+  const notes = Array.from(new Set([...section.warnings, ...analysisNotes(result)]));
   return (
     <AltCard testId="alt-tier2">
       <TierHeader
         section={section}
-        notes={section.warnings}
+        notes={notes}
         side={
-          outlook?.final_score != null ? (
-            <AltFact label={t('tiered.score')} helpKey="tiered.help.debateScore">
-              {/* Clicking the score opens its arithmetic (owner
-                  decision 2026-07-22 — moved out of the fold). */}
-              <button
-                type="button"
-                data-testid="alt-debate-score"
-                className={cn('cursor-pointer tabular-nums', ALT_LINK)}
-                onClick={() => setScoreOpen(true)}
-              >
-                {outlook.final_score.toFixed(2)}/10
-              </button>
-            </AltFact>
-          ) : null
+          <>
+            {outlook?.final_score != null ? (
+              <AltFact label={t('tiered.score')} helpKey="tiered.help.debateScore">
+                {/* Clicking the score opens its arithmetic (owner
+                    decision 2026-07-22 — moved out of the fold). */}
+                <button
+                  type="button"
+                  data-testid="alt-debate-score"
+                  className={cn('cursor-pointer tabular-nums', ALT_LINK)}
+                  onClick={() => setScoreOpen(true)}
+                >
+                  {outlook.final_score.toFixed(2)}/10
+                </button>
+              </AltFact>
+            ) : null}
+            <ActionFact result={result} />
+          </>
         }
       />
       {outlook?.summary_structure ? (
@@ -312,32 +305,37 @@ interface AltResultProps {
   result: TieredResult;
   /** The run's task id — lets formula numbers link back to the run row. */
   taskId?: string;
-  /** When the run happened — drives the previous-day staleness note. */
-  runDate?: Date | null;
 }
 
-// The fixed skeleton (owner order, 2026-07-22): conclusion → the
-// dimension reports → the deep-analysis card (depth 2 only) → the trade
-// plan (levels + shares + warnings). Depth-1 runs show no analysis card
-// (owner decision 2026-08-09: the preliminary card only duplicated the
-// conclusion's outlook — its notes mark moved onto the conclusion).
-export const AltResult = ({ result, taskId, runDate }: AltResultProps) => {
+// The fixed skeleton (owner order 2026-09-18): the dimension reports →
+// one analysis card (preliminary at depth 1, deep at depth 2; both carry
+// the outlook and the action) → the trade plan (levels + shares +
+// warnings). The separate conclusion card is gone.
+export const AltResult = ({ result, taskId }: AltResultProps) => {
   const { t } = useUiLanguage();
   const usage = result.llm_usage ?? null;
+  // Token total is the exact sum of what the provider reported per call
+  // — the same numbers the transcript shows for each exchange.
+  const usageLine = (u: NonNullable<typeof usage>) =>
+    t('tiered.llmUsage', {
+      calls: u.total.calls,
+      tokens: u.total.prompt_tokens + u.total.completion_tokens,
+    });
 
   return (
     <div className="flex flex-col gap-6">
-      <AltBlock title={t('tiered.alt.conclusionTitle')} helpKey="tiered.help.outlook">
-        <AltConclusion result={result} runDate={runDate} />
-      </AltBlock>
       <AltBlock title={t('tiered.alt.dimensionsTitle')}>
         <AltDimensions dimensions={result.dimensions} />
       </AltBlock>
       {result.tier2 ? (
         <AltBlock title={t('tiered.alt.tier2Title')} helpKey="tiered.help.debate">
-          <AltDebate section={result.tier2} />
+          <AltDebate result={result} section={result.tier2} />
         </AltBlock>
-      ) : null}
+      ) : (
+        <AltBlock title={t('tiered.alt.tier1Title')} helpKey="tiered.help.outlook">
+          <AltPreliminary result={result} />
+        </AltBlock>
+      )}
       {result.outlook === 'bullish' ? (
         // The trade plan sits under the analysis that judged it — and
         // only under a bullish one (owner decision 2026-08-05): a
@@ -360,19 +358,16 @@ export const AltResult = ({ result, taskId, runDate }: AltResultProps) => {
           </p>
         ) : null}
         {usage && usage.total.calls > 0 ? (
-          <p className="text-gray-600">
-            <HelpTerm
-              underline={false}
-              label={t('tiered.llmUsage', {
-                calls: usage.total.calls,
-                tokens: usage.total.prompt_tokens + usage.total.completion_tokens,
-              })}
-              helpKey="tiered.help.llmUsage"
-            />
-          </p>
-        ) : null}
-        {taskId && usage?.transcript_entries ? (
-          <AltTranscript taskId={taskId} entries={usage.transcript_entries} />
+          taskId && usage.transcript_entries ? (
+            // The usage line is the transcript toggle when the run kept
+            // one; runs without a transcript (expired, or recorded
+            // before it existed) show the same line as plain text.
+            <AltTranscript taskId={taskId} label={usageLine(usage)} />
+          ) : (
+            <p className="text-gray-600">
+              <HelpTerm label={usageLine(usage)} helpKey="tiered.help.llmUsage" />
+            </p>
+          )
         ) : null}
       </div>
     </div>

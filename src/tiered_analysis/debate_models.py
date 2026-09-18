@@ -33,30 +33,30 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Tree order for the debated dimension groups; also the id-prefix map.
-#: company_events joined 2026-08-16 (owner decision): each card news
+#: company_news joined 2026-08-16 (owner decision): each card news
 #: event is a gradable row like any numeric field — debate.py enumerates
 #: one ref per news bullet and relaxes the value-copy rule for them
 #: (a 40-word summary is anchored by its ref, not by verbatim copying).
-#: world_events joined the same day: the macro/world news card, graded
+#: world_news joined the same day: the macro/world news card, graded
 #: through the same news-row contract. (The opinion card — analyst
 #: consensus + crowd chatter — was retired 2026-08-23 and removed
 #: 2026-09-16.)
 DIMENSIONS: Tuple[str, ...] = (
-    "technicals", "fundamentals", "positioning", "macro_econ",
-    "company_events", "world_events",
+    "technicals", "fundamentals", "positioning", "macro_economy",
+    "company_news", "world_news",
 )
 DIMENSION_PREFIX: Dict[str, str] = {
     "technicals": "T",
     "fundamentals": "F",
     "positioning": "P",
-    "macro_econ": "E",
-    "company_events": "N",
-    "world_events": "W",
+    "macro_economy": "E",
+    "company_news": "N",
+    "world_news": "W",
 }
 
 Dimension = Literal[
-    "technicals", "fundamentals", "macro_econ", "positioning",
-    "company_events", "world_events",
+    "technicals", "fundamentals", "macro_economy", "positioning",
+    "company_news", "world_news",
 ]
 ItemDirection = Literal["bullish", "bearish"]
 #: A grade adds "neutral": the field carries no lean (metadata, dates,
@@ -219,7 +219,7 @@ class StructuredSummaryModel(_StageModel):
     # and Gemini's enforced decoding then let the model skip optional
     # keys: it orders properties alphabetically, so a model that starts
     # with "summary" (as the prompt's example does) had already passed
-    # company_events, fundamentals, macro_econ and positioning and could
+    # company_news, fundamentals, macro_economy and positioning and could
     # never write them — every deep analysis lost its summary. The
     # summary stage still fills a missing group with [] before
     # validating, for plain-JSON models that leave empty groups out.
@@ -227,9 +227,9 @@ class StructuredSummaryModel(_StageModel):
     technicals: List[SummaryBulletModel]
     fundamentals: List[SummaryBulletModel]
     positioning: List[SummaryBulletModel]
-    macro_econ: List[SummaryBulletModel]
-    company_events: List[SummaryBulletModel]
-    world_events: List[SummaryBulletModel]
+    macro_economy: List[SummaryBulletModel]
+    company_news: List[SummaryBulletModel]
+    world_news: List[SummaryBulletModel]
 
 
 class VoteFixModel(_StageModel):

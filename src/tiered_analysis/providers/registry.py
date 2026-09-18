@@ -11,12 +11,12 @@ from __future__ import annotations
 from typing import Callable, List, Optional
 
 from .base import DimensionProvider, Market
-from .company_events import CompanyEventsProvider
+from .company_news import CompanyNewsProvider
 from .fundamentals_us import FundamentalsUSProvider
-from .macro_econ import MacroEconProvider
+from .macro_economy import MacroEconomyProvider
 from .positioning import PositioningUSProvider
 from .technicals import TechnicalsProvider
-from .world_events import WorldEventsProvider
+from .world_news import WorldNewsProvider
 
 
 
@@ -58,9 +58,9 @@ def get_providers(
     """All dimension providers covering the given market.
 
     Six dimensions are registered: technicals (all markets),
-    fundamentals (US), macro_econ (all markets, shared per-day cache),
+    fundamentals (US), macro_economy (all markets, shared per-day cache),
     positioning (US: short interest / ownership / insiders / options),
-    company_events (US: recent news coverage, textual), world_events
+    company_news (US: recent news coverage, textual), world_news
     (all markets: macro/world news backdrop, textual, shared per-day
     cache). (The opinion card was retired 2026-08-23 and removed
     2026-09-16: its analyst half lives on in the fundamentals
@@ -101,8 +101,8 @@ def get_providers(
         technicals,
         fundamentals,
         PositioningUSProvider(),
-        MacroEconProvider(),
-        CompanyEventsProvider(),
-        WorldEventsProvider(),
+        MacroEconomyProvider(),
+        CompanyNewsProvider(),
+        WorldNewsProvider(),
     ]
     return [provider for provider in candidates if provider.supports(market)]

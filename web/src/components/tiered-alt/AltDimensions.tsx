@@ -19,10 +19,10 @@ import { AltCard, AltNarrative, AltNotesButton } from './AltUi';
 const DIMENSION_LABEL_KEYS: Record<string, UiTextKey> = {
   technicals: 'tiered.dimension.technicals',
   fundamentals: 'tiered.dimension.fundamentals',
-  macro_econ: 'tiered.dimension.macro_econ',
+  macro_economy: 'tiered.dimension.macro_economy',
   positioning: 'tiered.dimension.positioning',
-  company_events: 'tiered.dimension.company_events',
-  world_events: 'tiered.dimension.world_events',
+  company_news: 'tiered.dimension.company_news',
+  world_news: 'tiered.dimension.world_news',
 };
 
 // Named sections for payloads the backend sends (partly) flat, so every
@@ -52,7 +52,7 @@ const DIMENSION_SECTIONS: Record<string, { titleKey: UiTextKey; keys: string[] }
     { titleKey: 'tiered.group.volume', keys: ['avg_volume_20'] },
     { titleKey: 'tiered.group.meta', keys: ['bars_count'] },
   ],
-  macro_econ: [{ titleKey: 'tiered.group.reportInfo', keys: ['region', 'as_of'] }],
+  macro_economy: [{ titleKey: 'tiered.group.reportInfo', keys: ['region', 'as_of'] }],
   // The next earnings date rides in the fundamentals payload (plan-review
   // redesign) — give it a named section instead of the Other bucket.
   fundamentals: [
@@ -135,7 +135,7 @@ interface MetricRowProps {
   /** The value's observation date, shown dimmed after it (macro rows). */
   date?: unknown;
   /** The date's own payload path — it stays a citable evidence target
-      (macro_econ.observation_dates.*), so it keeps its anchor id even
+      (macro_economy.observation_dates.*), so it keeps its anchor id even
       though it no longer has a row of its own. */
   dateAnchorPath?: string;
 }

@@ -17,11 +17,11 @@ import pytest
 
 from src.tiered_analysis.cache_store import MemoryCacheStore
 from src.tiered_analysis.providers.base import Market, SourceKind
-from src.tiered_analysis.providers.macro_econ import (
+from src.tiered_analysis.providers.macro_economy import (
     CPI_RELEASE_ID,
     JOBS_RELEASE_ID,
     MacroConfigError,
-    MacroEconProvider,
+    MacroEconomyProvider,
     SERIES_IDS,
     _REQUIRED_FIELDS,
     cpi_yoy_pct,
@@ -125,12 +125,12 @@ class TestPureHelpers(unittest.TestCase):
         self.assertIsNone(next_date_after(["2026-06-10"], TODAY))
 
 
-class TestMacroEconProvider(unittest.TestCase):
+class TestMacroEconomyProvider(unittest.TestCase):
     def setUp(self):
         self.cache = MemoryCacheStore()
 
     def _provider(self, fetcher=None, today=None, release_dates=None):
-        return MacroEconProvider(
+        return MacroEconomyProvider(
             series_fetcher=fetcher or _fake_fetcher(),
             cache=self.cache,
             today=today or (lambda: TODAY),
@@ -323,7 +323,7 @@ class TestMacroEconProvider(unittest.TestCase):
     def test_old_format_same_day_cache_is_ignored(self):
         # A cache entry written by the pre-reform provider (no version tag
         # in its key) must not be misread as the new payload shape.
-        self.cache.data[f"macro_econ_us_{TODAY.isoformat()}"] = (
+        self.cache.data[f"macro_economy_us_{TODAY.isoformat()}"] = (
             '{"payload": {"region": "us"}}'
         )
         calls = []
@@ -334,7 +334,7 @@ class TestMacroEconProvider(unittest.TestCase):
     def test_same_day_cache_missing_payload_is_refetched(self):
         # The reader requires "payload"; a v2-keyed entry without it is
         # ignored and the data refetched, never misread.
-        self.cache.data[f"macro_econ_us_v2_{TODAY.isoformat()}"] = '{"warnings": []}'
+        self.cache.data[f"macro_economy_us_v2_{TODAY.isoformat()}"] = '{"warnings": []}'
         calls = []
         result = self._provider(fetcher=_fake_fetcher(calls)).collect("AAPL")
         self.assertEqual(len(calls), len(SERIES_IDS))  # refetched
@@ -376,14 +376,14 @@ class TestRegistryIncludesMacro(unittest.TestCase):
 
         for market in (Market.US, Market.CN, Market.KR):
             dimensions = [p.dimension for p in get_providers(market)]
-            self.assertIn("macro_econ", dimensions)
+            self.assertIn("macro_economy", dimensions)
 
 
 @pytest.mark.network
 @pytest.mark.skipif(not os.getenv("FRED_API_KEY"), reason="FRED_API_KEY not set")
 class TestLiveFredSanity(unittest.TestCase):
     def test_live_us_macro_is_plausible(self):
-        provider = MacroEconProvider(cache=MemoryCacheStore())
+        provider = MacroEconomyProvider(cache=MemoryCacheStore())
         result = provider.collect("AAPL")
         self.assertTrue(result.payload)
         gov10y = metric_value(result.payload["bonds"]["gov10y_yield_pct"])

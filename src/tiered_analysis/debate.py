@@ -66,8 +66,8 @@ anything.
 
 2026-08-16 (owner decision): the news cards joined the sheet — every
 card news event is one gradable row
-(``company_events.news_coverage.items.{i}.text``, id prefix N;
-``world_events.…``, id prefix W — both keyed by TEXTUAL kind, not by
+(``company_news.news_coverage.items.{i}.text``, id prefix N;
+``world_news.…``, id prefix W — both keyed by TEXTUAL kind, not by
 name). News rows relax the value-copy rule only (the ref anchors the
 claim to the event; a 40-word summary has no short display value to
 copy) — everything else (votes, weights, pools, the summary group)
@@ -252,7 +252,7 @@ def gradable_field_refs(
     value} is ONE gradable fact (its prose keys are documentation);
     blank fields (value null) carry no evidence and get no row — code
     already knows why they are blank. News cards are textual (kind, not
-    name — company_events and world_events alike): their rows are the
+    name — company_news and world_news alike): their rows are the
     news EVENTS (one per bullet, ``_news_item_refs``), never their
     bookkeeping counters."""
     refs: Dict[str, List[str]] = {}
@@ -424,10 +424,10 @@ _LINK_RULES = """Link rules (all checked mechanically by code):
   value automatically.
 - Code verifies every link and sends failures back to you to fix;
   bullets that cannot be fixed are struck from the list.
-- Exception: a ref into a textual card (company_events or
-  world_events) points at an item's summary sentence — cite the item's
-  text field (like "company_events.news_coverage.items.3.text" or
-  "world_events.news_coverage.items.1.text") and you do NOT copy that
+- Exception: a ref into a textual card (company_news or
+  world_news) points at an item's summary sentence — cite the item's
+  text field (like "company_news.news_coverage.items.3.text" or
+  "world_news.news_coverage.items.1.text") and you do NOT copy that
   sentence into your own; the ref itself is the anchor.
 - Use only the evidence above; never invent facts or numbers."""
 
@@ -478,11 +478,11 @@ _GRADE_RULES = """Grade-sheet rules (all checked mechanically by code):
   within roughly a week of the report's as-of date, grade that field
   bearish — an imminent earnings report can gap the price past any
   plan level, which argues for waiting.
-- company_events and world_events rows are NEWS EVENTS, not numbers:
+- company_news and world_news rows are NEWS EVENTS, not numbers:
   each ref points at one news summary in the report. Grade the event's
   likely effect on THIS stock over the hold time — bullish, bearish, or
   neutral when it has no clear lean (routine coverage, already-priced-in
-  noise). world_events items are market-wide backdrop news: judge what
+  noise). world_news items are market-wide backdrop news: judge what
   the event means for this particular stock (a rate story hits a bank
   and a miner differently); when it has no read-through to this name,
   grade it neutral. The claim states the event and why it leans that
@@ -501,7 +501,7 @@ _GRADE_SHAPE = """{"grades": {
     "links": [],
     "weight": 3, "weight_reason": "Momentum backs the trend but rarely drives it alone."},
   "technicals.meta.as_of": {"direction": "neutral"},
-  "company_events.news_coverage.items.0.text": {"direction": "bearish",
+  "company_news.news_coverage.items.0.text": {"direction": "bearish",
     "claim": "The new antitrust lawsuit adds legal risk that could weigh on the stock during the hold.",
     "links": [],
     "weight": 4, "weight_reason": "Litigation news can move the price on its own."},
@@ -648,8 +648,8 @@ bullish, neutral or bearish:
  "technicals": [{{"text": "The 14-day RSI (56.28) is above 50.",
    "links": [{{"ref": "technicals.daily.rsi_14", "value": "56.28"}}],
    "children": [{{"text": "optional supporting detail", "links": []}}]}}],
- "fundamentals": [], "positioning": [], "macro_econ": [],
- "company_events": [], "world_events": []}}
+ "fundamentals": [], "positioning": [], "macro_economy": [],
+ "company_news": [], "world_news": []}}
 
 Rules:
 - "summary": 2-4 bullets stating the outlook and the decisive reasons.
@@ -664,10 +664,10 @@ Rules:
   same link rules as the evidence list, checked mechanically by code.
   Code sends failures back to you to fix; links that cannot be fixed
   are dropped from the report.
-- "company_events" and "world_events" bullets talk about the news
+- "company_news" and "world_news" bullets talk about the news
   events; cite each item by its ref
-  ("company_events.news_coverage.items.3.text",
-  "world_events.news_coverage.items.1.text") — for these refs there
+  ("company_news.news_coverage.items.3.text",
+  "world_news.news_coverage.items.1.text") — for these refs there
   is no value to copy into the sentence.
 - Support the computed outlook; if little evidence survived, say plainly
   that the case is weak.
@@ -679,9 +679,9 @@ _SUMMARY_GROUP_TITLES = {
     "technicals": "Technicals",
     "fundamentals": "Fundamentals",
     "positioning": "Positioning",
-    "macro_econ": "Macro economy",
-    "company_events": "Company news",
-    "world_events": "World news",
+    "macro_economy": "Macro economy",
+    "company_news": "Company news",
+    "world_news": "World news",
 }
 
 

@@ -158,7 +158,7 @@ def growth_trend_label(
     if yoy_now is None or yoy_prior is None:
         return None
     # Round away float noise before the strict comparison (same edge as
-    # macro_econ.trend_label): a delta sitting exactly ON the band must
+    # macro_economy.trend_label): a delta sitting exactly ON the band must
     # read "steady", not tip over via 2.0000000000000018.
     delta = round(yoy_now - yoy_prior, 9)
     if delta > GROWTH_TREND_BAND_PP:

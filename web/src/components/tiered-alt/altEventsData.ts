@@ -2,11 +2,11 @@
 // AltEvents.tsx so that file exports only its component
 // (react-refresh/only-export-components).
 //
-// The news cards (qualitative reports): company_events and
-// world_events both ship the same news_coverage payload, so one parser
+// The news cards (qualitative reports): company_news and
+// world_news both ship the same news_coverage payload, so one parser
 // and one horizon reader serve both.
 
-export const EVENTS_DIMENSIONS = ['company_events', 'world_events'];
+export const EVENTS_DIMENSIONS = ['company_news', 'world_news'];
 
 export const NEWS_GROUP_KEY = 'news_coverage';
 

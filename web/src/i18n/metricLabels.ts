@@ -860,6 +860,37 @@ const en: Record<string, MetricEntry> = {
     blank: 'Shown only when the next quarterly report is within ~3 weeks (further out, option prices mostly reflect ordinary drift, not the report jump) — and it needs the report date plus usable at-the-money quotes on the first expiration after it.',
   },
 
+  dollar_index_broad: {
+    short: 'Dollar index',
+    full: 'Strength of the US dollar against a basket of other currencies.',
+  },
+
+  implied_vol_rank_1y: {
+    short: 'Implied stock volatility ranking (1y range)',
+    full: "Old stored runs only (retired field): where today's implied volatility sits inside its own one-year range: 0 = the calmest the options market has been on this stock all year, 100 = the most braced-for-impact.",
+    interp: 'Near the top = an event or storm is priced in, gaps likely — shrink size or wait; near the bottom = calm expected, orderly moves.',
+    blank: 'Retired field — it needs a year of implied-volatility history, which no free source publishes. New runs no longer carry it.',
+  },
+
+  institutional_diff_q_pp: {
+    short: 'Institutional ownership diff (current vs prev quarter)',
+    full: 'Old stored runs only (retired field): how much the fund-ownership percentage rose or fell versus the previous quarterly filing, in percentage points.',
+    interp: 'Funds adding supports rallies; funds trimming caps them — but filings lag up to 45 days, so background context, not current flow.',
+    blank: "Retired field — no reliable free source publishes the prior-quarter aggregate (Yahoo's per-holder change figures proved unreliable). New runs no longer carry it.",
+  },
+
+  labor: {
+    short: 'Labor',
+    full: 'Job-market health.',
+  },
+
+  report_move_ratio_implied_4q: {
+    short: 'Quarterly report day price change magnitude ratio (implied vs 4q avg)',
+    full: "The options-implied move for the next report day divided by the realized average move of the last 4 report days (from the fundamentals report). 1.0 = options price exactly the usual jump.\nUnit: a multiple (×).",
+    interp: 'Well above 1 = the market is braced for a bigger-than-usual report reaction; well below 1 = unusually calm expectations.',
+    blank: 'Old stored runs only: needs both "Implied quarterly report day price change magnitude" (shown only when the quarterly report is within ~3 weeks) and "4q avg report day price change magnitude" from fundamentals — at least one was blank. Newer runs name the missing one here.',
+  },
+
 };
 
 const zh: Record<string, MetricEntry> = {

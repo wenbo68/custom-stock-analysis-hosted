@@ -65,8 +65,8 @@ const INPUT_ROW_PATH: Record<string, string> = {
   implied_report_move_pct: 'positioning.options.implied_report_move_pct',
   reaction_avg_abs_pct: 'fundamentals.quarterly_report.reaction_avg_abs_pct',
   // Macro econ v2 receipts: the diffs cite the published rate rows.
-  official_interest_rate: 'macro_econ.interest_rates.official_rate_pct',
-  gov_bond_yield_10y: 'macro_econ.bonds.gov10y_yield_pct',
+  official_interest_rate: 'macro_economy.interest_rates.official_rate_pct',
+  gov_bond_yield_10y: 'macro_economy.bonds.gov10y_yield_pct',
   // Opinion receipts (old stored runs — the card is retired from new
   // runs): the rating counts, the average target and this month's buy
   // share are all published rows on the same card.

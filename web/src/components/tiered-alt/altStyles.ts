@@ -1,4 +1,4 @@
-import type { TieredResult, TieredRunStatus } from '../../api/tiered';
+import type { TieredResult } from '../../api/tiered';
 
 // showplayer badge recipe: soft tinted fill + matching inset ring, no border.
 export const TAG_BASE =
@@ -19,16 +19,6 @@ export const OUTLOOK_TEXT: Record<string, string> = {
   neutral: 'text-amber-300',
   bearish: 'text-red-300',
   unknown: 'text-gray-400',
-};
-
-// -300 shades on purpose: the app-wide index.css redefines
-// --color-emerald-400/--color-red-400 as bare HSL triplets for its own
-// hsl(var(...)) tokens, which silently voids Tailwind's bg-*-400 utilities.
-export const STATUS_DOT: Record<TieredRunStatus, string> = {
-  queued: 'bg-amber-300',
-  running: 'bg-sky-300',
-  done: 'bg-emerald-300',
-  failed: 'bg-red-300',
 };
 
 // The showplayer pill palette (tagClassMap order, stone skipped by owner

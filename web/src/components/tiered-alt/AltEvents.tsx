@@ -4,9 +4,9 @@ import { slashDate } from './altFormat';
 import { ALT_LINK } from './altStyles';
 import { NEWS_GROUP_KEY, parseEventGroup } from './altEventsData';
 
-// The news cards (qualitative reports): company_events (news-only
+// The news cards (qualitative reports): company_news (news-only
 // since 2026-08-13 — the statements group was deleted; its red-flag
-// signal moves into fundamentals as fields) and world_events (the
+// signal moves into fundamentals as fields) and world_news (the
 // macro/world backdrop card, 2026-08-16). Both ship the same
 // news_coverage payload, so one renderer serves them instead of
 // AltPayloadTable: one-sentence event summaries whose [n] marks jump
@@ -23,7 +23,7 @@ import { NEWS_GROUP_KEY, parseEventGroup } from './altEventsData';
 // exports only its component — react-refresh rule).
 interface AltEventsListProps {
   /** The card's dimension name — anchors ids and source-jump targets
-      (company_events / world_events share this renderer). */
+      (company_news / world_news share this renderer). */
   dimension: string;
   payload: Record<string, unknown>;
 }

@@ -53,8 +53,8 @@ survive the keyword filter (``filtered_out`` counts the cut), then the
 LLM screen (news_screen.py) cuts mention-only articles, groups
 same-story rewrites into events, and every event whose importance
 reaches ``score_bar`` gets ONE bullet — its most important article.
-No fixed top-N; when more than 20 events pass the bar, a small LLM
-ranking call keeps the top 20 (news_screen.MAX_EVENTS), loudly.
+No fixed top-N; when more than 30 events pass the bar, a small LLM
+ranking call keeps the top 30 (news_screen.MAX_EVENTS), loudly.
 
 An empty items list means the feed was fetched and nothing fell inside
 the window — checked-and-none, distinct from a failed fetch (an empty
@@ -90,8 +90,12 @@ from .base import (
 #: decision 2026-08-17): a weekday quota gives every run the same
 #: news-producing depth — 10 calendar days gave Monday runs 6 weekdays
 #: but Friday runs 8; 7 business days is 7 no matter the run day (9-11
-#: calendar days, weekends ride along inside the span).
-NEWS_WINDOW_BDAYS = 7
+#: calendar days, weekends ride along inside the span) -> 6 business
+#: days (owner decision 2026-09-18): every weekday run then covers the
+#: same weekday last week through today — 8 calendar days, exactly one
+#: weekend inside — where 7 gave Monday runs an 11-day span with two
+#: weekends. Weekend runs add the weekend days themselves (9-10).
+NEWS_WINDOW_BDAYS = 6
 
 #: How many articles to request from Yahoo's feed (its default is 10).
 #: 25 -> 150 (owner decision 2026-08-17): the keyless backup should
@@ -116,7 +120,7 @@ def business_days_back(today: date, count: int) -> date:
 #: An event needs this materiality (the LLM screen's 0-5 importance
 #: grade) to make the card. Measured 2026-08-15 on GOOGL/AAPL/NVDA:
 #: >=3 admits 50-77 events a fortnight for a mega cap (unreadable),
-#: >=4 admits 21-28 — news_screen's ranking call keeps the top 20
+#: >=4 admits 21-28 — news_screen's ranking call keeps the top 30
 #: (MAX_EVENTS) when a mega cap's fortnight overflows the ceiling.
 CARD_SCORE_BAR = 4
 
@@ -375,10 +379,10 @@ def mentions_company(entry: Mapping[str, Any], terms: Sequence[str]) -> bool:
     )
 
 
-class CompanyEventsProvider(DimensionProvider):
+class CompanyNewsProvider(DimensionProvider):
     """US company news: recent Yahoo Finance coverage, cited."""
 
-    dimension = "company_events"
+    dimension = "company_news"
     kind = SourceKind.TEXTUAL
 
     def __init__(

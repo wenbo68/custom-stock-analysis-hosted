@@ -94,7 +94,7 @@ function makeResult(): TieredResult {
     levels_detail: LEVELS_DETAIL,
     narrative: null,
     warnings: [],
-    dimensions: ['technicals', 'fundamentals', 'macro_econ', 'positioning'].map(makeDimension),
+    dimensions: ['technicals', 'fundamentals', 'macro_economy', 'positioning'].map(makeDimension),
     depth: 2,
     outlook: 'bullish',
     action: 'enter',
@@ -248,9 +248,43 @@ function renderResult(result: TieredResult) {
 }
 
 describe('AltResult', () => {
+  it('makes the usage line itself the transcript toggle, with an exact token sum', () => {
+    const withTranscript: TieredResult = {
+      ...makeResult(),
+      llm_usage: {
+        stages: {},
+        total: { calls: 28, prompt_tokens: 170000, completion_tokens: 5049 },
+        scope: 'tiered',
+        transcript_entries: 28,
+      },
+    };
+    renderResult(withTranscript);
+    const toggle = screen.getByRole('button', { name: /28 .*175049/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // No "~": the figure is a sum of exact per-call counts.
+    expect(toggle.textContent).not.toContain('~');
+    expect(toggle.textContent).not.toContain('约');
+    // No second link under the line.
+    expect(screen.queryByText(/View AI transcript|查看 AI 对话记录/)).not.toBeInTheDocument();
+  });
+
+  it('shows the usage line as plain text when the run kept no transcript', () => {
+    const noTranscript: TieredResult = {
+      ...makeResult(),
+      llm_usage: {
+        stages: {},
+        total: { calls: 3, prompt_tokens: 100, completion_tokens: 20 },
+        scope: 'tiered',
+      },
+    };
+    renderResult(noTranscript);
+    expect(screen.getByText(/3 .*120/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /3 .*120/ })).not.toBeInTheDocument();
+  });
+
   it('keeps the blocks in the fixed order with their titles above the cards', () => {
     renderResult(makeResult());
-    const wanted = ['alt-conclusion', 'alt-dimension-technicals', 'alt-tier2', 'alt-plan'];
+    const wanted = ['alt-dimension-technicals', 'alt-tier2', 'alt-plan'];
     const ids = Array.from(document.querySelectorAll('[data-testid]'))
       .map((el) => el.getAttribute('data-testid') ?? '')
       .filter((id) => wanted.includes(id));
@@ -416,12 +450,12 @@ describe('AltResult', () => {
     };
     renderResult(result);
     // The value row carries its date, and the date keeps the citable
-    // anchor id (macro_econ.observation_dates.vix) evidence links jump to
+    // anchor id (macro_economy.observation_dates.vix) evidence links jump to
     // — the dates group no longer renders as a section of its own.
-    const row = document.getElementById('tiered-metric-macro_econ-markets-vix');
+    const row = document.getElementById('tiered-metric-macro_economy-markets-vix');
     // Dates render in the page's slashed style (owner request 2026-08-16).
     expect(row).toHaveTextContent('16.64 2026/07/22');
-    const date = document.getElementById('tiered-metric-macro_econ-observation_dates-vix');
+    const date = document.getElementById('tiered-metric-macro_economy-observation_dates-vix');
     expect(date).toHaveTextContent('2026/07/22');
     expect(row?.contains(date)).toBe(true);
   });
@@ -467,7 +501,7 @@ describe('AltResult', () => {
     renderResult(result);
     // Nothing inline — the notes only exist behind the mark.
     expect(screen.queryByText(/summary/)).not.toBeInTheDocument();
-    fireEvent.click(within(screen.getByTestId('alt-conclusion')).getByTestId('alt-notes-button'));
+    fireEvent.click(within(screen.getByTestId('alt-tier2')).getByTestId('alt-notes-button'));
     // Known shape → fixed keyword + friendly sentence; the raw backend
     // text is no longer shown (owner decision 2026-07-24).
     expect(screen.getByText(/Unusable AI reply|AI 回复无效/)).toBeInTheDocument();

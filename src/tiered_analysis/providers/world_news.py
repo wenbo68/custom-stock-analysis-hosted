@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """World-news provider — the macro/world backdrop card (2026-08-16).
 
-The macro_econ card is numbers (rates, CPI, yields); this card is the
+The macro_economy card is numbers (rates, CPI, yields); this card is the
 words the numbers can't carry yet: what just changed in the backdrop —
 central-bank language, policy moves, geopolitics, data surprises —
 before it is fully reflected in the series. It complements, never
@@ -45,7 +45,7 @@ story with unusual wording. ``filtered_out`` counts that free cut;
 ``off_topic`` counts what the LLM judge then dropped.
 
 The backdrop is the same for every ticker, so the screened result is
-cached ONCE PER DAY (macro_econ convention) and every symbol in a run
+cached ONCE PER DAY (macro_economy convention) and every symbol in a run
 reuses it — the symbol argument is intentionally ignored, and cost
 stays flat no matter how many stocks a run covers. Citations ride in
 the day cache so a cache hit rebuilds them verbatim.
@@ -83,7 +83,7 @@ from .base import (
     Market,
     SourceKind,
 )
-from .company_events import (
+from .company_news import (
     CARD_SCORE_BAR,
     NEWS_FETCH_COUNT,
     _parse_date,
@@ -112,8 +112,10 @@ WORLD_TOPICS = (
 #: volume is healthy (measured 2026-08-17: Sat ~half a weekday, Sun
 #: near-full), so plain calendar days carry no Monday cliff. History:
 #: launched at 7 business days; cut after the volume tests showed the
-#: extra days' events mostly die at the top-20 rank anyway.
-WORLD_WINDOW_DAYS = 2
+#: extra days' events mostly die at the top-MAX_EVENTS rank anyway.
+#: 2 -> 3 calendar days (owner decision 2026-09-18, alongside the
+#: 20 -> 30 event cap and the 6-business-day company window).
+WORLD_WINDOW_DAYS = 3
 
 #: The index whose Yahoo news tab serves as the keyless backup feed —
 #: S&P 500 coverage is the closest thing Yahoo has to a general
@@ -311,10 +313,10 @@ def _default_world_news_loader() -> Tuple[
     return _yahoo_world_news_loader(), []
 
 
-class WorldEventsProvider(DimensionProvider):
+class WorldNewsProvider(DimensionProvider):
     """World/macro news: AlphaVantage (Yahoo backup), screened, cited."""
 
-    dimension = "world_events"
+    dimension = "world_news"
     kind = SourceKind.TEXTUAL
     #: Day-cache format marker — bump when the payload shape or the
     #: collection behavior changes so a same-day cache written by older
@@ -353,7 +355,7 @@ class WorldEventsProvider(DimensionProvider):
         )
 
     # The backdrop is global context: every market gets the same card
-    # (macro_econ convention — the judge scores world relevance, and a
+    # (macro_economy convention — the judge scores world relevance, and a
     # US-centric feed is still the backdrop that moves global risk).
     def supports(self, market: Market) -> bool:
         return True
@@ -613,10 +615,10 @@ class WorldEventsProvider(DimensionProvider):
         # failing the run is not.
         self._cache.write(self._pool_key(), {"articles": pool})
 
-    # ---- per-day cache (macro_econ convention) ----
+    # ---- per-day cache (macro_economy convention) ----
 
     def _cache_key(self) -> str:
-        return f"world_events_{self.cache_version}_{self._today().isoformat()}"
+        return f"world_news_{self.cache_version}_{self._today().isoformat()}"
 
     def _read_cache(self) -> Optional[DimensionResult]:
         raw = self._cache.read(self._cache_key())

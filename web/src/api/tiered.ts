@@ -221,14 +221,14 @@ export type TieredSummaryStructure = {
   technicals?: TieredSummaryBullet[] | null;
   fundamentals?: TieredSummaryBullet[] | null;
   positioning?: TieredSummaryBullet[] | null;
-  macro_econ?: TieredSummaryBullet[] | null;
+  macro_economy?: TieredSummaryBullet[] | null;
   // Opinion (analyst + crowd) joined 2026-08-18; absent on older runs.
   opinion?: TieredSummaryBullet[] | null;
   // Company news joined the debate 2026-08-16; absent on older runs.
-  company_events?: TieredSummaryBullet[] | null;
+  company_news?: TieredSummaryBullet[] | null;
   // World news (macro backdrop card) joined the same day; absent on
   // older runs.
-  world_events?: TieredSummaryBullet[] | null;
+  world_news?: TieredSummaryBullet[] | null;
 };
 
 // mind), the v3 scored shape (final_score, scoring, corrected bull/bear

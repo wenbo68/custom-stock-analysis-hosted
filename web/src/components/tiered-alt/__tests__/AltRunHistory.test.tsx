@@ -99,6 +99,55 @@ describe('AltRunHistory', () => {
     expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
   });
 
+  it('offers a dash in the outlook filter that keeps only rows without an outlook', () => {
+    renderHistory({
+      runs: [
+        makeRun('t1', { stock_code: 'MSFT', outlook: 'bullish' }),
+        makeRun('t2', { stock_code: 'NVDA', status: 'failed', direction: null, outlook: null }),
+        makeRun('t3', { stock_code: 'AMD', direction: 'unknown', outlook: 'unknown' }),
+      ],
+    });
+    fireEvent.focus(screen.getByPlaceholderText(/输入展望|Enter outlook/));
+    // the dropdown's dash option (the rows' own dashes are not buttons)
+    fireEvent.click(screen.getAllByText('—').find((el) => el.closest('button'))!);
+    expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
+    expect(screen.getByText('NVDA')).toBeInTheDocument();
+    expect(screen.getByText('AMD')).toBeInTheDocument();
+  });
+
+  it('shows no status dot before the ticker', () => {
+    renderHistory({ runs: [makeRun('t1')] });
+    expect(document.querySelector('.rounded-full')).toBeNull();
+  });
+
+  it('colors a previous-day report date amber and explains it on click', () => {
+    // created_at is 2026-07-10, long before today
+    renderHistory({ runs: [makeRun('t1')] });
+    const date = screen.getByTestId('alt-run-date-stale');
+    expect(date).toHaveClass('text-amber-300');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(date);
+    expect(screen.getByRole('dialog')).toHaveTextContent(/重跑|re-run/);
+  });
+
+  it('colors a same-day report date green, and an unfinished run gray', () => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const todayUtc =
+      `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}` +
+      `T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:00`;
+    renderHistory({
+      runs: [
+        makeRun('t1', { created_at: todayUtc }),
+        makeRun('t2', { status: 'running', created_at: todayUtc, direction: null, outlook: null }),
+      ],
+    });
+    expect(screen.queryByTestId('alt-run-date-stale')).not.toBeInTheDocument();
+    const dates = screen.getAllByText(/^\d{4}\/\d{2}\/\d{2}, \d{2}:\d{2}$/);
+    expect(dates[0]).toHaveClass('text-emerald-300');
+    expect(dates[1]).toHaveClass('text-gray-400');
+  });
+
   it('filters by capital and risk ranges', () => {
     renderHistory({
       runs: [
@@ -127,7 +176,7 @@ describe('AltRunHistory', () => {
       runs: [makeRun('t1', { stock_code: 'MSFT' }), makeRun('t2', { stock_code: 'NVDA' })],
     });
 
-    const tickerBox = screen.getByPlaceholderText(/筛选代码|Filter ticker/);
+    const tickerBox = screen.getByPlaceholderText(/输入代码|Enter ticker/);
     fireEvent.focus(tickerBox);
     fireEvent.click(screen.getByRole('button', { name: 'NVDA' }));
     // close the still-open multi-pick dropdown so only rows remain
@@ -155,7 +204,7 @@ describe('AltRunHistory', () => {
       ],
     });
 
-    fireEvent.focus(screen.getByPlaceholderText(/筛选展望|Filter outlook/));
+    fireEvent.focus(screen.getByPlaceholderText(/输入展望|Enter outlook/));
     fireEvent.click(screen.getAllByText(/中性|Neutral/)[0]);
     expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
     expect(screen.getByText('NVDA')).toBeInTheDocument();
@@ -173,7 +222,7 @@ describe('AltRunHistory', () => {
       ],
     });
 
-    fireEvent.focus(screen.getByPlaceholderText(/筛选状态|Filter status/));
+    fireEvent.focus(screen.getByPlaceholderText(/输入状态|Enter status/));
     fireEvent.click(screen.getByRole('button', { name: /^(失败|Failed)$/ }));
     fireEvent.mouseDown(document.body);
 
@@ -207,7 +256,7 @@ describe('AltRunHistory', () => {
       ],
     });
 
-    fireEvent.focus(screen.getByPlaceholderText(/筛选层级|Filter tier/));
+    fireEvent.focus(screen.getByPlaceholderText(/输入层级|Enter tier/));
     fireEvent.click(screen.getByRole('button', { name: /^2[:：]/ }));
 
     expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
@@ -226,7 +275,7 @@ describe('AltRunHistory', () => {
 
     expect(screen.getByText(/^(2w|2 周)$/)).toBeInTheDocument();
 
-    fireEvent.focus(screen.getByPlaceholderText(/筛选最长持有|Filter max hold/));
+    fireEvent.focus(screen.getByPlaceholderText(/输入最长持有|Enter max hold/));
     fireEvent.click(screen.getByRole('button', { name: '2' }));
 
     expect(screen.getByText('MSFT')).toBeInTheDocument();

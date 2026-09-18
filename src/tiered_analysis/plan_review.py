@@ -257,7 +257,7 @@ def _flagged_checks(
 
 
 #: The three scheduled market-wide events the macro report carries,
-#: (payload key in macro_econ.events, warning "event" tag).
+#: (payload key in macro_economy.events, warning "event" tag).
 MACRO_EVENT_KEYS = (
     ("next_rate_decision_date", "rate_decision"),
     ("next_cpi_release_date", "inflation_data"),
@@ -280,7 +280,7 @@ def macro_event_from_dimensions(
 
     payload = next(
         (dim.payload for dim in dimensions
-         if dim.dimension == "macro_econ" and dim.payload),
+         if dim.dimension == "macro_economy" and dim.payload),
         None,
     )
     if payload is None:

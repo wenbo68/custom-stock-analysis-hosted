@@ -163,7 +163,7 @@ USAGE_SCOPE_NOTE = (
     "synthesis ran inside the DSA pipeline and is not counted"
 )
 
-_UNATTRIBUTED_STAGE = "unattributed"
+_UNKNOWN_STAGE = "unknown"
 
 _active = threading.local()
 
@@ -219,14 +219,14 @@ class LlmUsageTracker:
     ) -> None:
         with self._lock:
             stage = self._stages.setdefault(
-                self._current or _UNATTRIBUTED_STAGE, _StageUsage()
+                self._current or _UNKNOWN_STAGE, _StageUsage()
             )
             stage.calls += 1
             stage.prompt_tokens += int(prompt_tokens or 0)
             stage.completion_tokens += int(completion_tokens or 0)
 
     def current_stage(self) -> str:
-        return self._current or _UNATTRIBUTED_STAGE
+        return self._current or _UNKNOWN_STAGE
 
     def to_detail(self) -> Dict[str, Any]:
         total = _StageUsage()

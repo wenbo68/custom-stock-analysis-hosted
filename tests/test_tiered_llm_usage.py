@@ -20,17 +20,17 @@ class TestLlmUsageTracker(unittest.TestCase):
     def test_records_into_current_stage(self):
         tracker = LlmUsageTracker()
         with tracker.activate():
-            with tracker.stage("tier2_debate"):
+            with tracker.stage("tier2_analysis"):
                 record_llm_usage(100, 20)
                 record_llm_usage(50, 10)
-            with tracker.stage("plan_adjust"):
+            with tracker.stage("trade_plan"):
                 record_llm_usage(200, 40)
 
         detail = tracker.to_detail()
-        self.assertEqual(detail["stages"]["tier2_debate"],
+        self.assertEqual(detail["stages"]["tier2_analysis"],
                          {"calls": 2, "prompt_tokens": 150,
                           "completion_tokens": 30})
-        self.assertEqual(detail["stages"]["plan_adjust"]["calls"], 1)
+        self.assertEqual(detail["stages"]["trade_plan"]["calls"], 1)
         self.assertEqual(detail["total"],
                          {"calls": 3, "prompt_tokens": 350,
                           "completion_tokens": 70})
@@ -51,7 +51,7 @@ class TestLlmUsageTracker(unittest.TestCase):
         with tracker.activate():
             record_llm_usage(10, 5)
         detail = tracker.to_detail()
-        self.assertEqual(detail["stages"]["unattributed"]["calls"], 1)
+        self.assertEqual(detail["stages"]["unknown"]["calls"], 1)
 
     def test_missing_token_counts_still_count_the_call(self):
         tracker = LlmUsageTracker()

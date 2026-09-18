@@ -159,18 +159,18 @@ class TestTranscriptStorage:
     def test_for_run_writes_rows_readable_in_call_order(self, isolated_db):
         transcript = LlmTranscript.for_run("task-9")
         transcript.record(
-            stage="tier1_quick", model="gemini/x", temperature=0.0,
+            stage="tier1_analysis", model="gemini/x", temperature=0.0,
             prompt="first", reply="one", prompt_tokens=3, completion_tokens=1,
             duration_ms=10, structured="schema",
         )
         transcript.record(
-            stage="plan_adjust", model="gemini/x", temperature=0.0,
+            stage="trade_plan", model="gemini/x", temperature=0.0,
             prompt="second", reply=None, error="RuntimeError('boom')",
         )
 
         rows = history.list_transcript("task-9")
         assert [r["seq"] for r in rows] == [1, 2]
-        assert rows[0]["stage"] == "tier1_quick"
+        assert rows[0]["stage"] == "tier1_analysis"
         assert rows[0]["prompt"] == "first"
         assert rows[0]["reply"] == "one"
         assert rows[0]["structured"] == "schema"
@@ -240,3 +240,78 @@ class TestDbCacheStore:
         store = DbCacheStore()
         assert store.read("k") is None
         store.write("k", 1)  # logged, not raised
+
+
+class TestRenameMigration:
+    """The 2026-09-17 rename of dimension and stage identifiers rewrites
+    runs stored under the old names once, at startup."""
+
+    OLD_RESULT = (
+        '{"dimensions": [{"dimension": "macro_econ", "payload": {}},'
+        ' {"dimension": "company_events"}, {"dimension": "world_events"}],'
+        ' "summary": {"macro_econ": [], "company_events": [], "world_events": []},'
+        ' "evidence": ["macro_econ.cpi", "company_events.news_coverage.items.3.text"],'
+        ' "narrative": "macro_econ_us is not a stored name",'
+        ' "llm_usage": {"stages": {"tier1_quick": {"calls": 1}, "tier2_debate": {},'
+        ' "plan_adjust": {}, "unattributed": {}}}}'
+    )
+
+    def test_rewrites_names_keys_refs_and_stages_but_not_prose(self):
+        from src.storage import rename_stored_identifiers
+
+        renamed = rename_stored_identifiers(self.OLD_RESULT)
+        for old in ("macro_econ\"", "company_events", "world_events",
+                    "tier1_quick", "tier2_debate", "plan_adjust", "unattributed"):
+            assert old not in renamed
+        assert '"dimension": "macro_economy"' in renamed
+        assert '"company_news": []' in renamed
+        assert '"macro_economy.cpi"' in renamed
+        assert '"company_news.news_coverage.items.3.text"' in renamed
+        assert '"tier1_analysis": {"calls": 1}' in renamed
+        assert '"trade_plan": {}' in renamed
+        assert '"unknown": {}' in renamed
+        # Prose is left alone, and a second pass changes nothing.
+        assert "macro_econ_us is not a stored name" in renamed
+        assert rename_stored_identifiers(renamed) == renamed
+
+    def test_startup_rewrites_old_rows_once(self, isolated_db):
+        from src.storage import (
+            DatabaseManager, DatabaseSchemaMigration, RENAME_MIGRATION_VERSION,
+            TieredRunRecord, TieredRunTranscriptRecord,
+        )
+
+        with isolated_db.get_session() as session:
+            # A fresh database already carries the marker; pretend it is
+            # a database from before the rename.
+            session.query(DatabaseSchemaMigration).filter_by(
+                version=RENAME_MIGRATION_VERSION
+            ).delete()
+            session.add(TieredRunRecord(
+                task_id="old-run", stock_code="AAPL", status="done",
+                result_json=self.OLD_RESULT,
+            ))
+            session.add(TieredRunRecord(
+                task_id="running", stock_code="AAPL", status="running", result_json=None,
+            ))
+            session.add(TieredRunTranscriptRecord(
+                task_id="old-run", seq=1, stage="plan_adjust", prompt="p",
+            ))
+            session.add(TieredRunTranscriptRecord(
+                task_id="old-run", seq=2, stage="company_events", prompt="p",
+            ))
+            session.commit()
+
+        DatabaseManager.reset_instance()
+        db = DatabaseManager.get_instance()
+
+        with db.get_session() as session:
+            run = session.query(TieredRunRecord).filter_by(task_id="old-run").one()
+            assert '"macro_economy"' in run.result_json
+            assert "macro_econ\"" not in run.result_json
+            stages = [
+                r.stage for r in session.query(TieredRunTranscriptRecord)
+                .filter_by(task_id="old-run").order_by(TieredRunTranscriptRecord.seq)
+            ]
+            # News-screen calls are staged under their dimension's name.
+            assert stages == ["trade_plan", "company_news"]
+            assert session.get(DatabaseSchemaMigration, RENAME_MIGRATION_VERSION) is not None

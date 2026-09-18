@@ -114,7 +114,7 @@ class TestLevelsWiring(unittest.TestCase):
 
     def test_missing_technicals_leaves_levels_empty_with_warning(self):
         other = DimensionResult(
-            dimension="macro_econ", kind=SourceKind.NUMERIC,
+            dimension="macro_economy", kind=SourceKind.NUMERIC,
             payload={"x": 1},
         )
         outcome = _run(providers=[_StubProvider(other)])

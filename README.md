@@ -63,7 +63,7 @@ cp .env.example .env   # then edit
 cd web && npm install && npm run build && cd ..
 
 # 4. Run
-./start-server.sh                # http://127.0.0.1:8000
+./start-server.sh                # rebuilds the frontend, then serves http://127.0.0.1:8000
 ```
 
 Frontend development mode (hot reload, proxies /api to :8000):

@@ -66,9 +66,19 @@ export const AltModalTitle = ({ subject, kind }: { subject: ReactNode; kind: Rea
   </span>
 );
 
-// A quiet inline fold (debate transcript, scoring breakdown).
-export const AltFold = ({ title, children }: { title: string; children: ReactNode }) => (
-  <details className="mt-4 rounded bg-gray-900/60 px-4 py-3">
+// A quiet inline fold (debate transcript, scoring breakdown, LLM
+// prompt/reply). `className` replaces the default top margin for hosts
+// that space their children with a flex gap.
+export const AltFold = ({
+  title,
+  children,
+  className = 'mt-4',
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) => (
+  <details className={`${className} rounded bg-gray-900/60 px-4 py-3`.trim()}>
     <summary className="cursor-pointer text-xs font-semibold text-gray-300">{title}</summary>
     <div className="mt-3 flex flex-col gap-3">{children}</div>
   </details>
