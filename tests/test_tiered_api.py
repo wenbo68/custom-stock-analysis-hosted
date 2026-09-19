@@ -21,6 +21,7 @@ from api.auth.providers import Identity
 from api.auth.session import current_user
 from api.v1.endpoints import tiered
 from src.tiered_analysis.integration import TieredRunOutcome
+from src.tiered_analysis.llm_support import LlmTranscript
 from src.user_settings import save_user_settings
 from src.users import upsert_from_identity
 from src.tiered_analysis.providers.base import (
@@ -686,6 +687,13 @@ class TestRunReuseEndpoint:
             first = client.post("/tiered/analyze",
                                 json={"stock_code": "AAPL", "depth": 2}).json()
             _poll_until_done(client, first["task_id"])
+            # the stubbed runner records nothing: stand in for the
+            # source's transcript (its shared debate and its own plan)
+            transcript = LlmTranscript.for_run(first["task_id"])
+            for stage in ("tier2_analysis", "trade_plan"):
+                transcript.record(stage=stage, model="gemini/gemini-3.8-flash",
+                                  temperature=0.0, prompt=f"{stage} prompt",
+                                  reply="{}", prompt_tokens=10, completion_tokens=1)
 
             other = self._other_user()
             second = other.post("/tiered/analyze", json={
@@ -697,6 +705,23 @@ class TestRunReuseEndpoint:
 
         assert body["status"] == "done"
         assert body["reused"] is True
+        # the usage counts the whole analysis (the source's 3 calls plus
+        # the stub's 3 "own" calls) and sets the requester's share apart;
+        # the transcript shows the source's shared row, not its plan
+        usage = body["result"]["llm_usage"]
+        assert usage["total"] == {"calls": 6, "prompt_tokens": 1800,
+                                  "completion_tokens": 600}
+        assert usage["paid_by_you"] == {"calls": 3, "prompt_tokens": 900,
+                                        "completion_tokens": 300}
+        assert usage["transcript_entries"] == 1
+        items = other.get(f"/tiered/runs/{second['task_id']}/transcript").json()["items"]
+        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
+            (1, "tier2_analysis", "another_user")]
+        assert "task_id" not in items[0]
+        # the source's owner still sees the whole of their own transcript
+        mine_items = client.get(f"/tiered/runs/{first['task_id']}/transcript").json()["items"]
+        assert [(i["stage"], i["paid_by"]) for i in mine_items] == [
+            ("tier2_analysis", "you"), ("trade_plan", "you")]
         assert body["model"] == "gemini/gemini-3.8-flash"
         assert body["result"]["reused"] == {
             "tier": 2, "model": "gemini/gemini-3.8-flash",
@@ -822,7 +847,11 @@ class TestRunReuseEndpoint:
             again = client.post("/tiered/analyze", json={
                 "stock_code": "AAPL", "sizing": {"capital": 123}}).json()
             assert again["status"] == "running"
-            assert _poll_until_done(client, again["task_id"])["reused"] is True
+            again_body = _poll_until_done(client, again["task_id"])
+            assert again_body["reused"] is True
+            # every call was the user's own: no separate share to report
+            assert "paid_by_you" not in again_body["result"]["llm_usage"]
+            assert again_body["result"]["llm_usage"]["total"]["calls"] == 6
             # a weaker model of the same provider gets the stronger run's outlook
             other = self._other_user("gemini/gemini-3.5-flash-lite")
             weaker = other.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()

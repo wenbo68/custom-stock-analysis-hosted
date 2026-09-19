@@ -11,11 +11,14 @@ import pytest
 
 from src.tiered_analysis import history
 from src.tiered_analysis.providers.base import Market, SourceKind
+from src.tiered_analysis.llm_support import LlmTranscript
 from src.tiered_analysis.reuse import (
     ReuseUnavailable,
     dimensions_from_result,
     is_reusable_result,
+    merged_llm_usage,
     reuse_kit,
+    shared_llm_stages,
 )
 from src.tiered_analysis.schema import Direction, SniperLevels, TierReport
 from src.tiered_analysis.tiers import TierState
@@ -456,3 +459,109 @@ class TestPipelineRoundTrip:
         assert copy["narrative"] == "wait"
         assert copy["debate_detail"] == source["debate_detail"]
         assert copy["dimensions"] == source["dimensions"]
+
+
+def _usage(stages):
+    total = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+    for usage in stages.values():
+        for key in total:
+            total[key] += usage[key]
+    return {"stages": stages, "total": total, "scope": "tiered"}
+
+
+def _stage(calls, prompt_tokens, completion_tokens):
+    return {"calls": calls, "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens}
+
+
+class TestMergedUsage:
+    """The usage a reused run reports (2026-09-19): the source's shared
+    calls plus the requester's own, with the requester's share set
+    apart when someone else paid for the rest."""
+
+    source = _usage({
+        "company_news": _stage(2, 1000, 100),
+        "tier2_analysis": _stage(12, 90000, 3000),
+        "trade_plan": _stage(1, 500, 50),
+    })
+    own = {**_usage({"trade_plan": _stage(2, 1200, 300)}), "transcript_entries": 2}
+
+    def test_shared_stages_leave_out_the_source_owners_plan(self):
+        assert shared_llm_stages(self.source) == {
+            "company_news": _stage(2, 1000, 100),
+            "tier2_analysis": _stage(12, 90000, 3000),
+        }
+        assert shared_llm_stages(None) == {}
+        assert shared_llm_stages({"total": _stage(1, 1, 1)}) == {}
+
+    def test_totals_cover_the_whole_analysis_and_set_the_own_share_apart(self):
+        merged = merged_llm_usage(self.source, self.own, shared_entries=14,
+                                  other_owner=True)
+        assert merged["total"] == _stage(16, 92200, 3400)
+        assert merged["stages"]["trade_plan"] == _stage(2, 1200, 300)
+        assert merged["paid_by_you"] == _stage(2, 1200, 300)
+        assert merged["transcript_entries"] == 16
+        assert merged["scope"] == "tiered"
+
+    def test_reusing_ones_own_run_has_no_separate_share(self):
+        merged = merged_llm_usage(self.source, self.own, shared_entries=14,
+                                  other_owner=False)
+        assert "paid_by_you" not in merged
+        assert merged["total"]["calls"] == 16
+
+    def test_a_run_without_own_calls_still_opens_the_transcript(self):
+        merged = merged_llm_usage(self.source, _usage({}), shared_entries=14,
+                                  other_owner=True)
+        assert merged["paid_by_you"] == _stage(0, 0, 0)
+        assert merged["transcript_entries"] == 14
+        # a source stored before usage existed contributes nothing but
+        # never breaks the run
+        bare = merged_llm_usage(None, None, shared_entries=0, other_owner=True)
+        assert bare["total"] == _stage(0, 0, 0)
+        assert "transcript_entries" not in bare
+
+
+def _record(task_id, stage, prompt_tokens=10):
+    LlmTranscript.for_run(task_id).record(
+        stage=stage, model="gemini/flash", temperature=0.0,
+        prompt=f"{stage} prompt", reply="{}", prompt_tokens=prompt_tokens,
+        completion_tokens=1,
+    )
+
+
+class TestTranscriptForRun:
+    def test_own_run_shows_its_own_rows_paid_by_you(self, isolated_db):
+        _create("s1")
+        _record("s1", "company_news")
+        _record("s1", "trade_plan")
+        items = history.transcript_for_run("s1")
+        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
+            (1, "company_news", "you"), (2, "trade_plan", "you")]
+        assert history.transcript_for_run("nope") == []
+
+    def test_reused_run_shows_the_shared_rows_then_its_own(self, isolated_db):
+        _create("s1", owner_id=1)
+        _create("copy", owner_id=2, source_task_id="s1")
+        _record("s1", "company_news")
+        _record("s1", "tier2_analysis")
+        _record("s1", "trade_plan")   # the source owner's plan: not shown
+        _record("copy", "trade_plan")
+        items = history.transcript_for_run("copy")
+        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
+            (1, "company_news", "another_user"),
+            (2, "tier2_analysis", "another_user"),
+            (3, "trade_plan", "you"),
+        ]
+        assert items[2]["prompt"] == "trade_plan prompt"
+        assert history.count_transcript("s1") == 3
+        assert history.count_transcript("s1", exclude_stages={"trade_plan"}) == 2
+        # the source's own view is untouched
+        assert [i["stage"] for i in history.transcript_for_run("s1")] == [
+            "company_news", "tier2_analysis", "trade_plan"]
+
+    def test_reusing_ones_own_run_is_all_paid_by_you(self, isolated_db):
+        _create("s1", owner_id=1)
+        _create("again", owner_id=1, source_task_id="s1")
+        _record("s1", "company_news")
+        _record("again", "trade_plan")
+        assert [i["paid_by"] for i in history.transcript_for_run("again")] == ["you", "you"]

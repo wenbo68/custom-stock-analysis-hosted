@@ -177,9 +177,14 @@ const zh = {
   'tiered.help.depth':
     '层级 1（初步分析）：四份数据报告加一次 AI 展望。\n层级 2（深度分析）：跳过单次 AI 展望，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
   'tiered.llmUsage': '本次运行 LLM 调用 {calls} 次（{tokens} tokens）',
+  'tiered.llmUsageShared':
+    '本次运行 LLM 调用 {calls} 次（{tokens} tokens），其中你自己的有 {ownCalls} 次（{ownTokens} tokens）',
   'tiered.help.llmUsage':
-    '本次运行发起的 LLM 调用次数（每次即向大语言模型 API 发起一次请求）与 token 总量（token 是计费单位）。\n点击可展开每次调用的提示词与回复。\n层级 1 的展望由产品内置流程完成，不计入。',
+    '本次运行发起的 LLM 调用次数（每次即向大语言模型 API 发起一次请求）与 token 总量（token 是计费单位）。\n点击可展开每次调用的提示词与回复。\n展望来自共享运行时，共享分析的调用属于该运行的用户，只有你自己的调用属于你。\n层级 1 的展望由产品内置流程完成，不计入。',
   'tiered.transcript.call': '第 {n} 次调用',
+  'tiered.transcript.paidBy': '所有者',
+  'tiered.transcript.paidByYou': '你',
+  'tiered.transcript.paidByOther': '其他用户',
   'tiered.transcript.for': '用于',
   'tiered.transcript.llm': 'llm',
   'tiered.transcript.time': '耗时',
@@ -737,9 +742,14 @@ const en: Record<UiTextKey, string> = {
   'tiered.help.depth':
     'Tier 1 (preliminary analysis): the four data reports plus one AI outlook.\nTier 2 (deep analysis): skips the single AI outlook — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
   'tiered.llmUsage': 'This run used {calls} LLM calls ({tokens} tokens)',
+  'tiered.llmUsageShared':
+    'This run used {calls} LLM calls ({tokens} tokens), of which you own {ownCalls} calls ({ownTokens} tokens)',
   'tiered.help.llmUsage':
-    'LLM calls this run made (each one is a request to the language-model API), and their total tokens (the billing unit).\nClick to see every prompt and reply.\nThe tier-1 outlook runs in the product’s built-in flow and is not counted.',
+    'LLM calls this run made (each one is a request to the language-model API), and their total tokens (the billing unit).\nClick to see every prompt and reply.\nWhen the outlook came from a shared run, the shared analysis belongs to that run’s user; only your own calls are yours.\nThe tier-1 outlook runs in the product’s built-in flow and is not counted.',
   'tiered.transcript.call': 'Call {n}',
+  'tiered.transcript.paidBy': 'owner',
+  'tiered.transcript.paidByYou': 'you',
+  'tiered.transcript.paidByOther': 'another user',
   'tiered.transcript.for': 'for',
   'tiered.transcript.llm': 'llm',
   'tiered.transcript.time': 'time',

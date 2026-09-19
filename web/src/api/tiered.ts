@@ -317,7 +317,17 @@ export type TieredLlmUsage = {
   // How many LLM exchanges the run's stored transcript holds (absent on
   // runs that made no call, and on runs stored before transcripts).
   transcript_entries?: number | null;
+  // Run reuse (2026-09-19): on a run whose outlook came from another
+  // user's run, the totals above cover the whole analysis and this is
+  // the caller's own share. Absent on a run that did its own analysis
+  // or reused the caller's own run.
+  paid_by_you?: { calls: number; prompt_tokens: number; completion_tokens: number } | null;
 };
+
+// Whose key paid for one transcript exchange: the caller's, or the
+// owner of the run the outlook was borrowed from. Absent on rows
+// stored before this existed (all the caller's own).
+export type TieredTranscriptPayer = 'you' | 'another_user';
 
 // One LLM exchange of a run, from GET /runs/{task_id}/transcript.
 export type TieredTranscriptEntry = {
@@ -333,6 +343,7 @@ export type TieredTranscriptEntry = {
   error: string | null;
   prompt: string | null;
   reply: string | null;
+  paid_by?: TieredTranscriptPayer;
 };
 
 export type TieredResult = {

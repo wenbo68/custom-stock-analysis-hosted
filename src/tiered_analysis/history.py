@@ -374,15 +374,33 @@ def fail_stale_running_runs(error: str = STALE_RUN_ERROR) -> int:
         return int(changed or 0)
 
 
-def list_transcript(task_id: str) -> List[Dict[str, Any]]:
+def _transcript_query(session: Any, task_id: str, exclude_stages: Collection[str]):
+    from src.storage import TieredRunTranscriptRecord
+
+    query = session.query(TieredRunTranscriptRecord).filter_by(task_id=task_id)
+    if exclude_stages:
+        query = query.filter(
+            TieredRunTranscriptRecord.stage.notin_(list(exclude_stages)))
+    return query
+
+
+def count_transcript(task_id: str, exclude_stages: Collection[str] = ()) -> int:
+    """How many transcript rows the run holds, leaving out the given
+    stages."""
+    with _session() as session:
+        return int(_transcript_query(session, task_id, exclude_stages).count())
+
+
+def list_transcript(
+    task_id: str, exclude_stages: Collection[str] = ()
+) -> List[Dict[str, Any]]:
     """The run's LLM exchanges in call order (empty for unknown runs and
-    runs that made no LLM call)."""
+    runs that made no LLM call), leaving out the given stages."""
     from src.storage import TieredRunTranscriptRecord
 
     with _session() as session:
         rows = (
-            session.query(TieredRunTranscriptRecord)
-            .filter_by(task_id=task_id)
+            _transcript_query(session, task_id, exclude_stages)
             .order_by(TieredRunTranscriptRecord.seq.asc())
             .all()
         )
@@ -403,6 +421,50 @@ def list_transcript(task_id: str) -> List[Dict[str, Any]]:
             }
             for row in rows
         ]
+
+
+PAID_BY_YOU = "you"
+PAID_BY_ANOTHER_USER = "another_user"
+
+
+def transcript_for_run(task_id: str) -> List[Dict[str, Any]]:
+    """The LLM exchanges a run's owner is concerned with, each marked
+    ``paid_by`` (``you`` / ``another_user``) and numbered as one
+    sequence. A run that did its own analysis shows its own rows. A
+    reused run shows the shared rows of its source first — the source's
+    transcript minus the personal stages the requester ran again for
+    itself (reuse.PERSONAL_STAGES) — then its own; the shared rows are
+    ``another_user``'s unless the source is the owner's own run. The
+    source is never named. Owner checks are the caller's job."""
+    from src.storage import TieredRunRecord
+
+    from .reuse import PERSONAL_STAGES
+
+    with _session() as session:
+        row = session.query(TieredRunRecord).filter_by(task_id=task_id).one_or_none()
+        if row is None:
+            return []
+        owner_id, source_task_id = row.owner_user_id, row.source_task_id
+        source_owner_id = None
+        if source_task_id:
+            source = (
+                session.query(TieredRunRecord)
+                .filter_by(task_id=source_task_id)
+                .one_or_none()
+            )
+            source_owner_id = source.owner_user_id if source is not None else None
+    shared: List[Dict[str, Any]] = []
+    if source_task_id:
+        paid_by = PAID_BY_YOU if source_owner_id == owner_id else PAID_BY_ANOTHER_USER
+        shared = [
+            {**entry, "paid_by": paid_by}
+            for entry in list_transcript(source_task_id, exclude_stages=PERSONAL_STAGES)
+        ]
+    own = [{**entry, "paid_by": PAID_BY_YOU} for entry in list_transcript(task_id)]
+    return [
+        {**entry, "seq": seq}
+        for seq, entry in enumerate(shared + own, start=1)
+    ]
 
 
 def prune_transcripts(max_age_days: int = TRANSCRIPT_MAX_AGE_DAYS) -> int:

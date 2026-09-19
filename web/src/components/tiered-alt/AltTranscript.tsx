@@ -98,16 +98,23 @@ export const AltTranscript = ({
 // The stage identifier reads as words: "company_news" → "company news".
 const stageWords = (stage: string | null): string => (stage ?? '—').replace(/_/g, ' ');
 
-// One exchange: the call number, then four fact lines (what it was
-// for, the model, time, tokens) in the same quiet-label / bright-value
-// styling as the outlook and score facts, then the prompt and the reply
-// on the same fold surface the deep-analysis card uses — both folded by
-// default and shown whole when opened, no inner scroll box (owner
-// requests 2026-09-18).
+// One exchange: the call number, then five fact lines (who owns it,
+// what it was for, the model, time, tokens) in the same
+// quiet-label / bright-value styling as the outlook and score facts,
+// then the prompt and the reply on the same fold surface the
+// deep-analysis card uses — both folded by default and shown whole when
+// opened, no inner scroll box (owner requests 2026-09-18). "Owner"
+// exists for reused runs (2026-09-19), whose list starts with the
+// exchanges of the run the outlook was borrowed from.
 const TranscriptEntry = ({ item }: { item: TieredTranscriptEntry }) => {
   const { t } = useUiLanguage();
   const tokens = (item.prompt_tokens ?? 0) + (item.completion_tokens ?? 0);
+  const payer =
+    item.paid_by === 'another_user'
+      ? t('tiered.transcript.paidByOther')
+      : t('tiered.transcript.paidByYou');
   const facts: [string, string][] = [
+    [t('tiered.transcript.paidBy'), payer],
     [t('tiered.transcript.for'), stageWords(item.stage)],
     [t('tiered.transcript.llm'), item.model ?? '—'],
     [t('tiered.transcript.time'), item.duration_ms == null ? '—' : `${item.duration_ms}ms`],

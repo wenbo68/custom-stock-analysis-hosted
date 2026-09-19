@@ -268,6 +268,39 @@ describe('AltResult', () => {
     expect(screen.queryByText(/View AI transcript|查看 AI 对话记录/)).not.toBeInTheDocument();
   });
 
+  it('sets the caller’s own share apart when the analysis belongs to another user', () => {
+    renderResult({
+      ...makeResult(),
+      reused: { tier: 2, model: 'gemini/gemini-3.8-flash', model_label: 'Gemini 3.8 Flash' },
+      llm_usage: {
+        stages: {},
+        total: { calls: 16, prompt_tokens: 95000, completion_tokens: 875 },
+        scope: 'tiered',
+        transcript_entries: 16,
+        paid_by_you: { calls: 2, prompt_tokens: 1200, completion_tokens: 300 },
+      },
+    });
+    expect(
+      screen.getByRole('button', {
+        name: /16 LLM calls \(95875 tokens\), of which you own 2 calls \(1500 tokens\)|LLM 调用 16 次（95875 tokens），其中你自己的有 2 次（1500 tokens）/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('still opens the transcript when the caller made no call of their own', () => {
+    renderResult({
+      ...makeResult(),
+      llm_usage: {
+        stages: {},
+        total: { calls: 14, prompt_tokens: 90000, completion_tokens: 500 },
+        scope: 'tiered',
+        transcript_entries: 14,
+        paid_by_you: { calls: 0, prompt_tokens: 0, completion_tokens: 0 },
+      },
+    });
+    expect(screen.getByRole('button', { name: /you own 0 calls \(0 tokens\)|0 次（0 tokens）/ })).toBeInTheDocument();
+  });
+
   it('shows the usage line as plain text when the run kept no transcript', () => {
     const noTranscript: TieredResult = {
       ...makeResult(),

@@ -48,6 +48,11 @@ This repo is the hosted, many-user version of the app (split from the self-host 
   themselves, and a restart resumes whatever was still waiting. Your
   own unfinished run with the same ticker and inputs cannot be started
   twice — the Start popup names the existing one.
+- **Run reuse.** A run of a ticker that someone already analysed today
+  (same max hold time, the same or a deeper tier, the same or a
+  stronger model of the same provider) borrows that run's outlook and
+  only computes its own trade plan with your settings and key. The
+  report says so and never names the other user.
 
 See `.env.example` for every variable and where to get each credential.
 
@@ -91,9 +96,16 @@ line of defense.
 Every analysis run stores a transcript of its AI exchanges in the
 database — one row per call, with the pipeline stage, model, full prompt,
 raw reply, token counts, and the error when a call failed. When a report
-shows a warning like "returned no usable JSON", open "View AI transcript"
+shows a warning like "returned no usable JSON", click the usage line
 under the report to see exactly what the model said. Rows older than 14
 days are pruned at server startup.
+
+A reused run shows the whole analysis: the shared exchanges of the run
+it borrowed from (minus that run's own trade plan, which was computed
+for someone else's capital) marked "owner: another user", then its
+own calls marked "owner: you". Its usage line counts both and sets
+your own share apart. Reusing your own earlier run shows everything as
+yours.
 
 ## Fetched-data caches
 

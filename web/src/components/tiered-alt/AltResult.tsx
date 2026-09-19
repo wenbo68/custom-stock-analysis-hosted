@@ -315,12 +315,22 @@ export const AltResult = ({ result, taskId }: AltResultProps) => {
   const { t } = useUiLanguage();
   const usage = result.llm_usage ?? null;
   // Token total is the exact sum of what the provider reported per call
-  // — the same numbers the transcript shows for each exchange.
+  // — the same numbers the transcript shows for each exchange. On a run
+  // that borrowed another user's analysis the total is the whole
+  // analysis, and the line sets the caller's own share apart (owner
+  // wording 2026-09-19).
   const usageLine = (u: NonNullable<typeof usage>) =>
-    t('tiered.llmUsage', {
-      calls: u.total.calls,
-      tokens: u.total.prompt_tokens + u.total.completion_tokens,
-    });
+    u.paid_by_you
+      ? t('tiered.llmUsageShared', {
+          calls: u.total.calls,
+          tokens: u.total.prompt_tokens + u.total.completion_tokens,
+          ownCalls: u.paid_by_you.calls,
+          ownTokens: u.paid_by_you.prompt_tokens + u.paid_by_you.completion_tokens,
+        })
+      : t('tiered.llmUsage', {
+          calls: u.total.calls,
+          tokens: u.total.prompt_tokens + u.total.completion_tokens,
+        });
 
   return (
     <div className="flex flex-col gap-6">

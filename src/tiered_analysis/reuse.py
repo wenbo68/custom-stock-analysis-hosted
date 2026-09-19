@@ -41,6 +41,12 @@ REUSABLE_OUTLOOKS = frozenset({
 })
 
 
+#: The pipeline stages a reused run runs itself, with its owner's settings
+#: and key (the AI plan review). Everything else in a source run's
+#: transcript and usage is shared work the requester did not pay for.
+PERSONAL_STAGES = frozenset({"trade_plan"})
+
+
 class ReuseUnavailable(RuntimeError):
     """The stored result cannot stand in for a fresh run."""
 
@@ -175,3 +181,69 @@ def reuse_kit(result: Dict[str, Any]) -> ReuseKit:
         summary=str(result.get("narrative") or ""),
     )
     return ReuseKit(depth=1, providers=providers, quick_judge=ReusedQuickJudge(outlook))
+
+
+# ---- what a reused run shows about its LLM calls ----
+
+_EMPTY_USAGE = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+
+
+def _usage_sum(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, int]:
+    return {key: int(a.get(key) or 0) + int(b.get(key) or 0) for key in _EMPTY_USAGE}
+
+
+def shared_llm_stages(source_usage: Any) -> Dict[str, Dict[str, int]]:
+    """The per-stage usage of a source run minus its personal stages —
+    the calls the requester's report inherits. Empty for a source stored
+    without usage (old runs)."""
+    if not isinstance(source_usage, dict):
+        return {}
+    stages = source_usage.get("stages")
+    if not isinstance(stages, dict):
+        return {}
+    return {
+        name: _usage_sum(_EMPTY_USAGE, usage)
+        for name, usage in stages.items()
+        if name not in PERSONAL_STAGES and isinstance(usage, dict)
+    }
+
+
+def merged_llm_usage(
+    source_usage: Any,
+    own_usage: Any,
+    *,
+    shared_entries: int,
+    other_owner: bool,
+) -> Dict[str, Any]:
+    """The ``llm_usage`` block of a reused run: the source's shared
+    stages plus the requester's own, totalled together (owner decision
+    2026-09-19: the report counts the whole analysis, not just the
+    requester's few calls). ``shared_entries`` is how many transcript
+    rows the source lends (its rows minus the personal stages) so the
+    usage line still opens the transcript when the requester made no
+    call of its own. ``paid_by_you`` — the requester's own share — is
+    present only when the source belongs to someone else; a user
+    reusing their own run paid for all of it."""
+    from .llm_support import USAGE_SCOPE_NOTE
+
+    own = own_usage if isinstance(own_usage, dict) else {}
+    own_stages = own.get("stages") if isinstance(own.get("stages"), dict) else {}
+    stages = dict(shared_llm_stages(source_usage))
+    for name, usage in own_stages.items():
+        if isinstance(usage, dict):
+            stages[name] = _usage_sum(stages.get(name, _EMPTY_USAGE), usage)
+    total = dict(_EMPTY_USAGE)
+    for usage in stages.values():
+        total = _usage_sum(total, usage)
+    own_total = _usage_sum(_EMPTY_USAGE, own.get("total") or {})
+    merged: Dict[str, Any] = {
+        "stages": stages,
+        "total": total,
+        "scope": own.get("scope") or USAGE_SCOPE_NOTE,
+    }
+    entries = int(shared_entries or 0) + int(own.get("transcript_entries") or 0)
+    if entries > 0:
+        merged["transcript_entries"] = entries
+    if other_owner:
+        merged["paid_by_you"] = own_total
+    return merged
