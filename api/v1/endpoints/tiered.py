@@ -53,7 +53,6 @@ from src.tiered_analysis.run_queue import QueuedRun, RunQueue
 from src.user_settings import (
     EncryptionNotConfigured,
     covers_model,
-    model_label,
     run_settings_for,
 )
 
@@ -306,25 +305,18 @@ def _finish_from_source(requester: Dict[str, Any], source: Dict[str, Any]) -> No
             tier2_stage=kit.tier2_stage,
         )
         result = _serialize_outcome(outcome)
-        # The usage the report shows is the whole analysis — the source's
-        # shared calls plus the requester's own — with the requester's
-        # share set apart when the source was someone else's run. The
-        # transcript route merges the rows the same way.
+        # The usage the report shows is the whole analysis — this run's
+        # own calls and the ones borrowed from the source, set apart.
+        # The transcript route merges the rows the same way.
         result["llm_usage"] = merged_llm_usage(
             (source["result"] or {}).get("llm_usage"),
             result.get("llm_usage"),
             shared_entries=history.count_transcript(
                 source["task_id"], exclude_stages=PERSONAL_STAGES),
-            other_owner=source["owner_id"] != requester["owner_id"],
         )
-        # What the report page tells the user: the outlook came from a
-        # shared run at this tier by this model; only the trade plan is
-        # theirs. Never who ran the source.
-        result["reused"] = {
-            "tier": kit.depth,
-            "model": source["model"],
-            "model_label": model_label(source["model"]),
-        }
+        # The run row says it borrowed (source_task_id) and from which
+        # model; the report itself names the other run only through its
+        # usage line and transcript. Never who ran the source.
         history.set_model(task_id, source["model"])
         history.mark_done(task_id, result)
     except Exception as exc:
@@ -566,8 +558,8 @@ def get_tiered_run_transcript(
     """The run's LLM exchanges (prompt, raw reply, error) in call order —
     served separately from the run so the report stays light. A reused
     run's list starts with the shared exchanges of the run it borrowed
-    from (minus that run's own trade plan), each marked ``paid_by``
-    ``another_user``; the caller's own calls are ``you``."""
+    from (minus that run's own trade plan), each marked ``owner``
+    ``another_run``; this run's own calls are ``this_run``."""
     if history.get_run(task_id, owner_id=user["id"]) is None:
         raise HTTPException(status_code=404, detail="run not found")
     return {"items": history.transcript_for_run(task_id)}

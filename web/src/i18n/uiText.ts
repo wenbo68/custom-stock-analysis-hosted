@@ -25,8 +25,6 @@ const zh = {
   'tiered.queued':
     '排队等待空闲名额。服务器同时只运行少量分析，轮到时会自动开始，无需再点开始。',
   'tiered.running': '分析中（约 2-5 分钟：抓取数据、检索新闻、AI 综合）…',
-  'tiered.reused':
-    '展望来自今天这只股票的共享运行（层级 {tier}，{model}）；只有交易计划是按你的资金、风险和盈亏比设置计算的。',
   'tiered.error.title': '分析失败',
   'tiered.score': '评分',
   'tiered.levels.entry': '买入',
@@ -178,13 +176,13 @@ const zh = {
     '层级 1（初步分析）：四份数据报告加一次 AI 展望。\n层级 2（深度分析）：跳过单次 AI 展望，改由两位分析师逐条列证据、投票定分——更慢但更扎实。\n（层级 3 已下线。）',
   'tiered.llmUsage': '本次运行 LLM 调用 {calls} 次（{tokens} tokens）',
   'tiered.llmUsageShared':
-    '本次运行 LLM 调用 {calls} 次（{tokens} tokens），其中你自己的有 {ownCalls} 次（{ownTokens} tokens）',
+    '本次运行 LLM 调用 {calls} 次（{tokens} tokens），并基于另一次运行的 {sharedCalls} 次调用（{sharedTokens} tokens）',
   'tiered.help.llmUsage':
-    '本次运行发起的 LLM 调用次数（每次即向大语言模型 API 发起一次请求）与 token 总量（token 是计费单位）。\n点击可展开每次调用的提示词与回复。\n展望来自共享运行时，共享分析的调用属于该运行的用户，只有你自己的调用属于你。\n层级 1 的展望由产品内置流程完成，不计入。',
+    '本次运行发起的 LLM 调用次数（每次即向大语言模型 API 发起一次请求）与 token 总量（token 是计费单位）。\n点击可展开每次调用的提示词与回复。\n展望来自共享运行时，那次运行的调用也会列出，并标为“另一次运行”。\n层级 1 的展望由产品内置流程完成，不计入。',
   'tiered.transcript.call': '第 {n} 次调用',
-  'tiered.transcript.paidBy': '所有者',
-  'tiered.transcript.paidByYou': '你',
-  'tiered.transcript.paidByOther': '其他用户',
+  'tiered.transcript.owner': '所属运行',
+  'tiered.transcript.ownerThisRun': '本次运行',
+  'tiered.transcript.ownerAnotherRun': '另一次运行',
   'tiered.transcript.for': '用于',
   'tiered.transcript.llm': 'llm',
   'tiered.transcript.time': '耗时',
@@ -522,8 +520,6 @@ const en: Record<UiTextKey, string> = {
   'tiered.queued':
     'Waiting for a free slot. The server runs only a few analyses at a time; this one starts by itself when its turn comes — no need to press Start again.',
   'tiered.running': 'Running (2-5 min: fetching data, searching news, AI synthesis)…',
-  'tiered.reused':
-    'The outlook comes from a shared run of this ticker today (tier {tier}, {model}); only the trade plan was computed with your capital, risk and reward settings.',
   'tiered.error.title': 'Analysis failed',
   'tiered.score': 'Score',
   'tiered.levels.entry': 'Entry',
@@ -743,13 +739,13 @@ const en: Record<UiTextKey, string> = {
     'Tier 1 (preliminary analysis): the four data reports plus one AI outlook.\nTier 2 (deep analysis): skips the single AI outlook — two analysts list the evidence and every bullet is voted on instead. Slower, more thorough.\n(Tier 3 is retired.)',
   'tiered.llmUsage': 'This run used {calls} LLM calls ({tokens} tokens)',
   'tiered.llmUsageShared':
-    'This run used {calls} LLM calls ({tokens} tokens), of which you own {ownCalls} calls ({ownTokens} tokens)',
+    'This run used {calls} LLM calls ({tokens} tokens) and builds on top of {sharedCalls} LLM calls ({sharedTokens} tokens) from another run',
   'tiered.help.llmUsage':
-    'LLM calls this run made (each one is a request to the language-model API), and their total tokens (the billing unit).\nClick to see every prompt and reply.\nWhen the outlook came from a shared run, the shared analysis belongs to that run’s user; only your own calls are yours.\nThe tier-1 outlook runs in the product’s built-in flow and is not counted.',
+    'LLM calls this run made (each one is a request to the language-model API), and their total tokens (the billing unit).\nClick to see every prompt and reply.\nWhen the outlook came from a shared run, that run’s calls are listed too, marked as another run’s.\nThe tier-1 outlook runs in the product’s built-in flow and is not counted.',
   'tiered.transcript.call': 'Call {n}',
-  'tiered.transcript.paidBy': 'owner',
-  'tiered.transcript.paidByYou': 'you',
-  'tiered.transcript.paidByOther': 'another user',
+  'tiered.transcript.owner': 'owner',
+  'tiered.transcript.ownerThisRun': 'this run',
+  'tiered.transcript.ownerAnotherRun': 'another run',
   'tiered.transcript.for': 'for',
   'tiered.transcript.llm': 'llm',
   'tiered.transcript.time': 'time',

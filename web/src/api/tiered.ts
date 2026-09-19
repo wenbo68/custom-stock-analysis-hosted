@@ -318,16 +318,17 @@ export type TieredLlmUsage = {
   // runs that made no call, and on runs stored before transcripts).
   transcript_entries?: number | null;
   // Run reuse (2026-09-19): on a run whose outlook came from another
-  // user's run, the totals above cover the whole analysis and this is
-  // the caller's own share. Absent on a run that did its own analysis
-  // or reused the caller's own run.
-  paid_by_you?: { calls: number; prompt_tokens: number; completion_tokens: number } | null;
+  // run, the totals above cover the whole analysis, split into this
+  // run's own calls and the ones borrowed from the other run. Both
+  // absent on a run that did its own analysis.
+  own?: { calls: number; prompt_tokens: number; completion_tokens: number } | null;
+  borrowed?: { calls: number; prompt_tokens: number; completion_tokens: number } | null;
 };
 
-// Whose key paid for one transcript exchange: the caller's, or the
-// owner of the run the outlook was borrowed from. Absent on rows
-// stored before this existed (all the caller's own).
-export type TieredTranscriptPayer = 'you' | 'another_user';
+// Which run made one transcript exchange: this one, or the run the
+// outlook was borrowed from. Absent on rows stored before this existed
+// (all this run's own).
+export type TieredTranscriptOwner = 'this_run' | 'another_run';
 
 // One LLM exchange of a run, from GET /runs/{task_id}/transcript.
 export type TieredTranscriptEntry = {
@@ -343,7 +344,7 @@ export type TieredTranscriptEntry = {
   error: string | null;
   prompt: string | null;
   reply: string | null;
-  paid_by?: TieredTranscriptPayer;
+  owner?: TieredTranscriptOwner;
 };
 
 export type TieredResult = {
@@ -373,8 +374,6 @@ export type TieredResult = {
   // Max hold time in weeks the run was judged against (2026-08-08);
   // absent on old stored runs.
   hold_weeks?: number | null;
-  // Run reuse (2026-09-17): set when the outlook came from another run.
-  reused?: TieredReused | null;
 };
 
 // queued (2026-09-15): waiting for a free slot in the server's global run
@@ -382,15 +381,6 @@ export type TieredResult = {
 // from a matching run still in flight (2026-09-17) reports that run's
 // status and place in line, so it reads exactly as the source does.
 export type TieredRunStatus = 'queued' | 'running' | 'done' | 'failed';
-
-// Run reuse (2026-09-17): the outlook came from a shared run at this tier
-// by this model; only the trade plan was computed with the user's own
-// settings. Absent on a run that did its own analysis.
-export type TieredReused = {
-  tier: number;
-  model: string | null;
-  model_label: string | null;
-};
 
 export type TieredRunSummary = {
   task_id: string;

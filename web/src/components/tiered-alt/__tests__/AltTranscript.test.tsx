@@ -57,8 +57,8 @@ describe('AltTranscript', () => {
     expect(screen.getAllByTestId('alt-transcript-facts')).toHaveLength(2);
     expect(factLines(/^tokens: 15$/)).toHaveLength(2);
     expect(factLines(/^(for|用于): trade plan$/)).toHaveLength(1);
-    // Rows without a payer are the caller's own.
-    expect(factLines(/^(owner|所有者): (you|你)$/)).toHaveLength(2);
+    // Rows without an owner are this run's own.
+    expect(factLines(/^(owner|所属运行): (this run|本次运行)$/)).toHaveLength(2);
     expect(factLines(/^(time|耗时): 120ms$/)).toHaveLength(2);
     expect(screen.getByText('trade plan')).toHaveClass('font-semibold', 'text-gray-200');
     // Both prompt and reply folded by default, on the same fold surface
@@ -73,19 +73,19 @@ describe('AltTranscript', () => {
     expect(screen.getByTestId('alt-transcript')).toHaveClass('bg-gray-800');
   });
 
-  it('says who owns each exchange, shared rows first', async () => {
+  it('says which run made each exchange, shared rows first', async () => {
     const loader = vi.fn().mockResolvedValue([
-      entry({ seq: 1, stage: 'tier2_analysis', paid_by: 'another_user' }),
-      entry({ seq: 2, stage: 'trade_plan', paid_by: 'you' }),
+      entry({ seq: 1, stage: 'tier2_analysis', owner: 'another_run' }),
+      entry({ seq: 2, stage: 'trade_plan', owner: 'this_run' }),
     ]);
     renderTranscript(loader);
     fireEvent.click(screen.getByRole('button'));
     await waitFor(() => expect(screen.getByText(/tier2 analysis/)).toBeInTheDocument());
     const rows = screen.getAllByTestId('alt-transcript-facts');
     // "owner" is the first fact of every exchange, above "for".
-    expect(rows[0].children[0].textContent).toMatch(/^(owner|所有者): (another user|其他用户)$/);
+    expect(rows[0].children[0].textContent).toMatch(/^(owner|所属运行): (another run|另一次运行)$/);
     expect(rows[0].children[1].textContent).toMatch(/^(for|用于): tier2 analysis$/);
-    expect(rows[1].children[0].textContent).toMatch(/^(owner|所有者): (you|你)$/);
+    expect(rows[1].children[0].textContent).toMatch(/^(owner|所属运行): (this run|本次运行)$/);
   });
 
   it('reports a load failure instead of hiding it', async () => {

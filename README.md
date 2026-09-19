@@ -102,10 +102,10 @@ days are pruned at server startup.
 
 A reused run shows the whole analysis: the shared exchanges of the run
 it borrowed from (minus that run's own trade plan, which was computed
-for someone else's capital) marked "owner: another user", then its
-own calls marked "owner: you". Its usage line counts both and sets
-your own share apart. Reusing your own earlier run shows everything as
-yours.
+for other settings) marked "owner: another run", then its own calls
+marked "owner: this run". Its usage line names both counts. The split
+is between runs, not users, so it shows the same way when the borrowed
+run was your own.
 
 ## Fetched-data caches
 

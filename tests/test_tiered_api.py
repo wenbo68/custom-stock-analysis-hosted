@@ -706,27 +706,25 @@ class TestRunReuseEndpoint:
         assert body["status"] == "done"
         assert body["reused"] is True
         # the usage counts the whole analysis (the source's 3 calls plus
-        # the stub's 3 "own" calls) and sets the requester's share apart;
-        # the transcript shows the source's shared row, not its plan
+        # the stub's 3 "own" calls) with own and borrowed set apart; the
+        # transcript shows the source's shared row, not its plan
         usage = body["result"]["llm_usage"]
         assert usage["total"] == {"calls": 6, "prompt_tokens": 1800,
                                   "completion_tokens": 600}
-        assert usage["paid_by_you"] == {"calls": 3, "prompt_tokens": 900,
-                                        "completion_tokens": 300}
+        assert usage["own"] == {"calls": 3, "prompt_tokens": 900,
+                                "completion_tokens": 300}
+        assert usage["borrowed"] == usage["own"]
         assert usage["transcript_entries"] == 1
         items = other.get(f"/tiered/runs/{second['task_id']}/transcript").json()["items"]
-        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
-            (1, "tier2_analysis", "another_user")]
+        assert [(i["seq"], i["stage"], i["owner"]) for i in items] == [
+            (1, "tier2_analysis", "another_run")]
         assert "task_id" not in items[0]
         # the source's owner still sees the whole of their own transcript
         mine_items = client.get(f"/tiered/runs/{first['task_id']}/transcript").json()["items"]
-        assert [(i["stage"], i["paid_by"]) for i in mine_items] == [
-            ("tier2_analysis", "you"), ("trade_plan", "you")]
+        assert [(i["stage"], i["owner"]) for i in mine_items] == [
+            ("tier2_analysis", "this_run"), ("trade_plan", "this_run")]
         assert body["model"] == "gemini/gemini-3.8-flash"
-        assert body["result"]["reused"] == {
-            "tier": 2, "model": "gemini/gemini-3.8-flash",
-            "model_label": "Gemini 3.8 Flash",
-        }
+        assert "reused" not in body["result"]
         # the second run went through the pipeline with the stand-ins,
         # at the source's depth, with the requester's own sizing and key
         reused_call = calls[-1]
@@ -780,7 +778,8 @@ class TestRunReuseEndpoint:
             _poll_until_done(client, first["task_id"])
             body = _poll_until_done(other, second["task_id"])
         assert body["status"] == "done"
-        assert body["result"]["reused"]["tier"] == 2
+        assert body["reused"] is True
+        assert body["result"]["depth"] == 2
         # two fresh runs (AAPL, MSFT), two finished from them
         assert sum("providers" in call for call in calls) == 2
         assert sum("providers" not in call for call in calls) == 2
@@ -808,7 +807,6 @@ class TestRunReuseEndpoint:
             assert _poll_until_done(client, first["task_id"])["status"] == "failed"
             body = _poll_until_done(other, second["task_id"])
         assert body["status"] == "done"
-        assert "reused" not in body["result"]
         assert body["reused"] is False
         assert len(calls) == 2 and "providers" not in calls[-1]
 
@@ -849,14 +847,15 @@ class TestRunReuseEndpoint:
             assert again["status"] == "running"
             again_body = _poll_until_done(client, again["task_id"])
             assert again_body["reused"] is True
-            # every call was the user's own: no separate share to report
-            assert "paid_by_you" not in again_body["result"]["llm_usage"]
+            # the split is between runs, so one's own run is "another run" too
+            assert again_body["result"]["llm_usage"]["borrowed"]["calls"] == 3
             assert again_body["result"]["llm_usage"]["total"]["calls"] == 6
             # a weaker model of the same provider gets the stronger run's outlook
             other = self._other_user("gemini/gemini-3.5-flash-lite")
             weaker = other.post("/tiered/analyze", json={"stock_code": "AAPL"}).json()
             body = _poll_until_done(other, weaker["task_id"])
-        assert body["result"]["reused"]["model"] == "gemini/gemini-3.8-flash"
+        assert body["reused"] is True
+        assert body["model"] == "gemini/gemini-3.8-flash"
 
     def test_a_run_without_an_outlook_is_never_reused(self, client):
         with patch.object(tiered, "_run_analysis", lambda code, **kw: _outcome(code)):

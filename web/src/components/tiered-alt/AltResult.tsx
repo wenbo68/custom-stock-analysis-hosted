@@ -316,16 +316,15 @@ export const AltResult = ({ result, taskId }: AltResultProps) => {
   const usage = result.llm_usage ?? null;
   // Token total is the exact sum of what the provider reported per call
   // — the same numbers the transcript shows for each exchange. On a run
-  // that borrowed another user's analysis the total is the whole
-  // analysis, and the line sets the caller's own share apart (owner
-  // wording 2026-09-19).
+  // that borrowed another run's analysis the line names this run's own
+  // calls and the borrowed ones separately (owner wording 2026-09-19).
   const usageLine = (u: NonNullable<typeof usage>) =>
-    u.paid_by_you
+    u.own && u.borrowed
       ? t('tiered.llmUsageShared', {
-          calls: u.total.calls,
-          tokens: u.total.prompt_tokens + u.total.completion_tokens,
-          ownCalls: u.paid_by_you.calls,
-          ownTokens: u.paid_by_you.prompt_tokens + u.paid_by_you.completion_tokens,
+          calls: u.own.calls,
+          tokens: u.own.prompt_tokens + u.own.completion_tokens,
+          sharedCalls: u.borrowed.calls,
+          sharedTokens: u.borrowed.prompt_tokens + u.borrowed.completion_tokens,
         })
       : t('tiered.llmUsage', {
           calls: u.total.calls,
@@ -356,17 +355,6 @@ export const AltResult = ({ result, taskId }: AltResultProps) => {
         </AltBlock>
       ) : null}
       <div className="flex flex-col gap-1 text-xs">
-        {result.reused ? (
-          // Run reuse (2026-09-17): the outlook was borrowed from a
-          // matching run; say at which tier and by which model, and
-          // that only the trade plan is this user's own computation.
-          <p className="text-gray-500" data-testid="alt-reused-note">
-            {t('tiered.reused', {
-              tier: result.reused.tier,
-              model: result.reused.model_label ?? result.reused.model ?? '?',
-            })}
-          </p>
-        ) : null}
         {usage && usage.total.calls > 0 ? (
           taskId && usage.transcript_entries ? (
             // The usage line is the transcript toggle when the run kept

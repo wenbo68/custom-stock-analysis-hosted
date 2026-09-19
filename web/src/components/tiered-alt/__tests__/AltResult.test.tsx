@@ -268,21 +268,21 @@ describe('AltResult', () => {
     expect(screen.queryByText(/View AI transcript|查看 AI 对话记录/)).not.toBeInTheDocument();
   });
 
-  it('sets the caller’s own share apart when the analysis belongs to another user', () => {
+  it('names this run’s own calls and the borrowed ones separately on a reused run', () => {
     renderResult({
       ...makeResult(),
-      reused: { tier: 2, model: 'gemini/gemini-3.8-flash', model_label: 'Gemini 3.8 Flash' },
       llm_usage: {
         stages: {},
         total: { calls: 16, prompt_tokens: 95000, completion_tokens: 875 },
         scope: 'tiered',
         transcript_entries: 16,
-        paid_by_you: { calls: 2, prompt_tokens: 1200, completion_tokens: 300 },
+        own: { calls: 2, prompt_tokens: 1200, completion_tokens: 300 },
+        borrowed: { calls: 14, prompt_tokens: 93800, completion_tokens: 575 },
       },
     });
     expect(
       screen.getByRole('button', {
-        name: /16 LLM calls \(95875 tokens\), of which you own 2 calls \(1500 tokens\)|LLM 调用 16 次（95875 tokens），其中你自己的有 2 次（1500 tokens）/,
+        name: /2 LLM calls \(1500 tokens\) and builds on top of 14 LLM calls \(94375 tokens\) from another run|LLM 调用 2 次（1500 tokens），并基于另一次运行的 14 次调用（94375 tokens）/,
       }),
     ).toBeInTheDocument();
   });
@@ -295,10 +295,11 @@ describe('AltResult', () => {
         total: { calls: 14, prompt_tokens: 90000, completion_tokens: 500 },
         scope: 'tiered',
         transcript_entries: 14,
-        paid_by_you: { calls: 0, prompt_tokens: 0, completion_tokens: 0 },
+        own: { calls: 0, prompt_tokens: 0, completion_tokens: 0 },
+        borrowed: { calls: 14, prompt_tokens: 90000, completion_tokens: 500 },
       },
     });
-    expect(screen.getByRole('button', { name: /you own 0 calls \(0 tokens\)|0 次（0 tokens）/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^This run used 0 LLM calls \(0 tokens\) and builds|LLM 调用 0 次（0 tokens）/ })).toBeInTheDocument();
   });
 
   it('shows the usage line as plain text when the run kept no transcript', () => {
@@ -434,21 +435,6 @@ describe('AltResult', () => {
     expect(within(dialog).getByRole('button', { name: 'technicals.sma_20' })).toBeInTheDocument();
     // the inputs table and the reference explainer were removed
     expect(within(dialog).queryByText(/^(输入项|Inputs)$/)).not.toBeInTheDocument();
-  });
-
-  it('says when the outlook came from a shared run, and by which model and tier', () => {
-    renderResult({
-      ...makeResult(),
-      reused: { tier: 2, model: 'gemini/gemini-3.8-flash', model_label: 'Gemini 3.8 Flash' },
-    });
-    expect(screen.getByTestId('alt-reused-note')).toHaveTextContent(
-      /（层级 2，Gemini 3\.8 Flash）|\(tier 2, Gemini 3\.8 Flash\)/,
-    );
-  });
-
-  it('shows no shared-run note on a run that did its own analysis', () => {
-    renderResult(makeResult());
-    expect(screen.queryByTestId('alt-reused-note')).not.toBeInTheDocument();
   });
 
   it('renders no shares-computation card (retired 2026-07-22)', () => {

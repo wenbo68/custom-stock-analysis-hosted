@@ -213,17 +213,15 @@ def merged_llm_usage(
     own_usage: Any,
     *,
     shared_entries: int,
-    other_owner: bool,
 ) -> Dict[str, Any]:
     """The ``llm_usage`` block of a reused run: the source's shared
-    stages plus the requester's own, totalled together (owner decision
-    2026-09-19: the report counts the whole analysis, not just the
-    requester's few calls). ``shared_entries`` is how many transcript
-    rows the source lends (its rows minus the personal stages) so the
-    usage line still opens the transcript when the requester made no
-    call of its own. ``paid_by_you`` — the requester's own share — is
-    present only when the source belongs to someone else; a user
-    reusing their own run paid for all of it."""
+    stages plus the requester's own, totalled together, with ``own``
+    (this run's calls) and ``borrowed`` (the other run's) set apart
+    (owner decision 2026-09-19: the split is between runs, never
+    between users — a user reusing their own run sees it too).
+    ``shared_entries`` is how many transcript rows the source lends
+    (its rows minus the personal stages) so the usage line still opens
+    the transcript when this run made no call of its own."""
     from .llm_support import USAGE_SCOPE_NOTE
 
     own = own_usage if isinstance(own_usage, dict) else {}
@@ -232,18 +230,18 @@ def merged_llm_usage(
     for name, usage in own_stages.items():
         if isinstance(usage, dict):
             stages[name] = _usage_sum(stages.get(name, _EMPTY_USAGE), usage)
-    total = dict(_EMPTY_USAGE)
-    for usage in stages.values():
-        total = _usage_sum(total, usage)
+    borrowed = dict(_EMPTY_USAGE)
+    for usage in shared_llm_stages(source_usage).values():
+        borrowed = _usage_sum(borrowed, usage)
     own_total = _usage_sum(_EMPTY_USAGE, own.get("total") or {})
     merged: Dict[str, Any] = {
         "stages": stages,
-        "total": total,
+        "total": _usage_sum(borrowed, own_total),
         "scope": own.get("scope") or USAGE_SCOPE_NOTE,
+        "own": own_total,
+        "borrowed": borrowed,
     }
     entries = int(shared_entries or 0) + int(own.get("transcript_entries") or 0)
     if entries > 0:
         merged["transcript_entries"] = entries
-    if other_owner:
-        merged["paid_by_you"] = own_total
     return merged

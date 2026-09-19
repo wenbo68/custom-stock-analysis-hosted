@@ -475,9 +475,9 @@ def _stage(calls, prompt_tokens, completion_tokens):
 
 
 class TestMergedUsage:
-    """The usage a reused run reports (2026-09-19): the source's shared
-    calls plus the requester's own, with the requester's share set
-    apart when someone else paid for the rest."""
+    """The usage a reused run reports (2026-09-19): this run's own
+    calls and the ones borrowed from the source, set apart and
+    totalled."""
 
     source = _usage({
         "company_news": _stage(2, 1000, 100),
@@ -494,30 +494,25 @@ class TestMergedUsage:
         assert shared_llm_stages(None) == {}
         assert shared_llm_stages({"total": _stage(1, 1, 1)}) == {}
 
-    def test_totals_cover_the_whole_analysis_and_set_the_own_share_apart(self):
-        merged = merged_llm_usage(self.source, self.own, shared_entries=14,
-                                  other_owner=True)
+    def test_totals_cover_the_whole_analysis_with_own_and_borrowed_apart(self):
+        merged = merged_llm_usage(self.source, self.own, shared_entries=14)
         assert merged["total"] == _stage(16, 92200, 3400)
         assert merged["stages"]["trade_plan"] == _stage(2, 1200, 300)
-        assert merged["paid_by_you"] == _stage(2, 1200, 300)
+        assert merged["own"] == _stage(2, 1200, 300)
+        assert merged["borrowed"] == _stage(14, 91000, 3100)
         assert merged["transcript_entries"] == 16
         assert merged["scope"] == "tiered"
 
-    def test_reusing_ones_own_run_has_no_separate_share(self):
-        merged = merged_llm_usage(self.source, self.own, shared_entries=14,
-                                  other_owner=False)
-        assert "paid_by_you" not in merged
-        assert merged["total"]["calls"] == 16
-
     def test_a_run_without_own_calls_still_opens_the_transcript(self):
-        merged = merged_llm_usage(self.source, _usage({}), shared_entries=14,
-                                  other_owner=True)
-        assert merged["paid_by_you"] == _stage(0, 0, 0)
+        merged = merged_llm_usage(self.source, _usage({}), shared_entries=14)
+        assert merged["own"] == _stage(0, 0, 0)
+        assert merged["borrowed"]["calls"] == 14
         assert merged["transcript_entries"] == 14
         # a source stored before usage existed contributes nothing but
         # never breaks the run
-        bare = merged_llm_usage(None, None, shared_entries=0, other_owner=True)
+        bare = merged_llm_usage(None, None, shared_entries=0)
         assert bare["total"] == _stage(0, 0, 0)
+        assert bare["borrowed"] == _stage(0, 0, 0)
         assert "transcript_entries" not in bare
 
 
@@ -530,13 +525,13 @@ def _record(task_id, stage, prompt_tokens=10):
 
 
 class TestTranscriptForRun:
-    def test_own_run_shows_its_own_rows_paid_by_you(self, isolated_db):
+    def test_own_run_shows_its_own_rows_as_this_runs(self, isolated_db):
         _create("s1")
         _record("s1", "company_news")
         _record("s1", "trade_plan")
         items = history.transcript_for_run("s1")
-        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
-            (1, "company_news", "you"), (2, "trade_plan", "you")]
+        assert [(i["seq"], i["stage"], i["owner"]) for i in items] == [
+            (1, "company_news", "this_run"), (2, "trade_plan", "this_run")]
         assert history.transcript_for_run("nope") == []
 
     def test_reused_run_shows_the_shared_rows_then_its_own(self, isolated_db):
@@ -547,10 +542,10 @@ class TestTranscriptForRun:
         _record("s1", "trade_plan")   # the source owner's plan: not shown
         _record("copy", "trade_plan")
         items = history.transcript_for_run("copy")
-        assert [(i["seq"], i["stage"], i["paid_by"]) for i in items] == [
-            (1, "company_news", "another_user"),
-            (2, "tier2_analysis", "another_user"),
-            (3, "trade_plan", "you"),
+        assert [(i["seq"], i["stage"], i["owner"]) for i in items] == [
+            (1, "company_news", "another_run"),
+            (2, "tier2_analysis", "another_run"),
+            (3, "trade_plan", "this_run"),
         ]
         assert items[2]["prompt"] == "trade_plan prompt"
         assert history.count_transcript("s1") == 3
@@ -559,9 +554,10 @@ class TestTranscriptForRun:
         assert [i["stage"] for i in history.transcript_for_run("s1")] == [
             "company_news", "tier2_analysis", "trade_plan"]
 
-    def test_reusing_ones_own_run_is_all_paid_by_you(self, isolated_db):
+    def test_the_split_is_between_runs_even_for_the_same_user(self, isolated_db):
         _create("s1", owner_id=1)
         _create("again", owner_id=1, source_task_id="s1")
         _record("s1", "company_news")
         _record("again", "trade_plan")
-        assert [i["paid_by"] for i in history.transcript_for_run("again")] == ["you", "you"]
+        assert [i["owner"] for i in history.transcript_for_run("again")] == [
+            "another_run", "this_run"]

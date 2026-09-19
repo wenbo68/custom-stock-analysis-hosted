@@ -423,19 +423,19 @@ def list_transcript(
         ]
 
 
-PAID_BY_YOU = "you"
-PAID_BY_ANOTHER_USER = "another_user"
+OWNER_THIS_RUN = "this_run"
+OWNER_ANOTHER_RUN = "another_run"
 
 
 def transcript_for_run(task_id: str) -> List[Dict[str, Any]]:
-    """The LLM exchanges a run's owner is concerned with, each marked
-    ``paid_by`` (``you`` / ``another_user``) and numbered as one
+    """The LLM exchanges a run's reader is concerned with, each marked
+    ``owner`` (``this_run`` / ``another_run``) and numbered as one
     sequence. A run that did its own analysis shows its own rows. A
     reused run shows the shared rows of its source first — the source's
-    transcript minus the personal stages the requester ran again for
-    itself (reuse.PERSONAL_STAGES) — then its own; the shared rows are
-    ``another_user``'s unless the source is the owner's own run. The
-    source is never named. Owner checks are the caller's job."""
+    transcript minus the personal stages this run ran again for itself
+    (reuse.PERSONAL_STAGES) — then its own. The split is between runs,
+    never between users (owner decision 2026-09-19), and the source is
+    never named. Access checks are the caller's job."""
     from src.storage import TieredRunRecord
 
     from .reuse import PERSONAL_STAGES
@@ -444,23 +444,14 @@ def transcript_for_run(task_id: str) -> List[Dict[str, Any]]:
         row = session.query(TieredRunRecord).filter_by(task_id=task_id).one_or_none()
         if row is None:
             return []
-        owner_id, source_task_id = row.owner_user_id, row.source_task_id
-        source_owner_id = None
-        if source_task_id:
-            source = (
-                session.query(TieredRunRecord)
-                .filter_by(task_id=source_task_id)
-                .one_or_none()
-            )
-            source_owner_id = source.owner_user_id if source is not None else None
+        source_task_id = row.source_task_id
     shared: List[Dict[str, Any]] = []
     if source_task_id:
-        paid_by = PAID_BY_YOU if source_owner_id == owner_id else PAID_BY_ANOTHER_USER
         shared = [
-            {**entry, "paid_by": paid_by}
+            {**entry, "owner": OWNER_ANOTHER_RUN}
             for entry in list_transcript(source_task_id, exclude_stages=PERSONAL_STAGES)
         ]
-    own = [{**entry, "paid_by": PAID_BY_YOU} for entry in list_transcript(task_id)]
+    own = [{**entry, "owner": OWNER_THIS_RUN} for entry in list_transcript(task_id)]
     return [
         {**entry, "seq": seq}
         for seq, entry in enumerate(shared + own, start=1)
